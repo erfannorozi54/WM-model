@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+data/
+!src/data
+test_stimulus_loc0.png
+test_stimulus_loc1.png
+test_stimulus_loc2.png
+test_stimulus_loc3.png  
