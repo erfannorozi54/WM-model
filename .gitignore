@@ -211,3 +211,6 @@ test_stimulus_loc0.png
 test_stimulus_loc1.png
 test_stimulus_loc2.png
 test_stimulus_loc3.png  
+ 
+# Training outputs
+runs/

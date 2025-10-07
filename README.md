@@ -4,7 +4,7 @@ A PyTorch implementation of a neural network model for working memory experiment
 
 ## Project Structure
 
-```
+```tree
 WM-model/
 ├── src/                    # Source code
 │   ├── data/              # Data handling modules
@@ -20,8 +20,7 @@ WM-model/
 │   └── sample_stimuli/   # Sample/demo stimuli
 ├── notebooks/            # Jupyter notebooks
 ├── models/               # Trained model checkpoints
-├── outputs/              # Experiment outputs
-└── logs/                 # Training logs
+└── runs/                 # Training outputs (checkpoints, hidden states)
 
 ```
 
@@ -30,6 +29,7 @@ WM-model/
 ### 1. Environment Setup
 
 Activate the environment:
+
 ```bash
 # Unix/Linux/macOS
 source activate_env.sh
@@ -101,7 +101,7 @@ val_loader = data_module.val_dataloader()
    - Downloads and organizes 3D object data
    - 4 categories, 2 identities each (as per paper)
 
-2. **Stimulus Renderer** (`src/data/renderer.py`) 
+2. **Stimulus Renderer** (`src/data/renderer.py`)
    - Renders 3D objects to 2D images
    - 4 screen locations, black background
    - Multiple viewing angles
@@ -124,13 +124,45 @@ val_loader = data_module.val_dataloader()
 - **PyTorch Integration**: Full DataLoader support with transforms
 - **Configurable Parameters**: Sequence length, match probability, batch size
 
+## Model and Training (Phase 2)
+
+- **Perceptual module** (`src/models/perceptual.py`): ResNet50 features from the penultimate conv stage (layer4). A 1x1 point-wise conv reduces channels 2048 → H (RNN hidden size), then global average pooling yields per-image embeddings.
+- **Cognitive module** (`src/models/cognitive.py`): Base `CognitiveModule` plus variants: `VanillaRNN`, `GRUCog`, `LSTMCog`. Input is `[visual_embedding ; task_one_hot]` passed through `Linear → LayerNorm → ReLU` before the recurrent cell.
+- **Full model** (`src/models/wm_model.py`): Combines perceptual + cognitive and adds a `Linear(H, 3)` classifier for three responses.
+- **Hidden states for analyses**: During validation, per-timestep RNN hidden states are saved under `runs/<experiment>/hidden_states/epoch_xxx/` as `.pt` files containing `hidden (B,T,H)`, `logits (B,T,3)`, `task_vector (B,3)`, `n (B,)`, `targets (B,T)`.
+- **Exact ResNet hook (optional)**: You can capture the exact `layer4[2].relu` activation via a forward hook by setting `capture_exact_layer42_relu=True` in `PerceptualModule` (enabled by default in `train.py`).
+
+### Train
+
+```bash
+pip install -r requirements.txt
+
+# Scenarios
+python train.py --config configs/stsf.yaml   # STSF: Single-Task Single-Feature
+python train.py --config configs/stmf.yaml   # STMF: Single-Task Multi-Feature
+python train.py --config configs/mtmf.yaml   # MTMF: Multi-Task Multi-Feature
+
+# Optional flags
+python train.py --config configs/stsf.yaml --save_hidden     # force save hidden states
+python train.py --config configs/stsf.yaml --no_save_hidden  # disable saving hidden states
+```
+
+Key config fields (see YAMLs in `configs/`):
+
+- **hidden_size** (H), **rnn_type** (rnn|gru|lstm), **num_layers**, **dropout**
+- **pretrained_backbone**, **freeze_backbone**, **capture_exact_layer42_relu**
+- **n_values**, **task_features** (location|identity|category), **sequence_length**, **batch_size**
+- **optimizer**: AdamW with MultiStepLR (`milestones`, `gamma`), `lr`, `weight_decay`, `grad_clip`
+
 ## Requirements
 
 See `requirements.txt` for full dependency list. Key dependencies:
+
 - PyTorch >= 2.0.0
 - PyTorch3D >= 0.7.5 (for 3D rendering)
 - scikit-learn >= 1.3.0 (for analyses)
-- trimesh, pyrender (3D processing)
+- trimesh, open3d (3D processing; pyrender optional)
+- PyYAML >= 6.0 (YAML config parsing)
 
 ## Development
 
@@ -150,7 +182,7 @@ python test_data_pipeline.py
 ## Notes
 
 - This implementation creates placeholder ShapeNet files for development
-- For real experiments, download actual ShapeNet data from https://shapenet.org/
+- For real experiments, download actual ShapeNet data from <https://shapenet.org/>
 - The renderer can be extended for additional stimulus variations
 - N-back parameters can be adjusted for different experimental designs
 

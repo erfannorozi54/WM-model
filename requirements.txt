@@ -13,6 +13,9 @@ matplotlib>=3.7.0
 Pillow>=9.5.0
 open3d>=0.17.0  # Alternative to pytorch3d for 3D processing
 
+# Configuration
+PyYAML>=6.0
+
 # Data handling
 pandas>=2.0.0
 tqdm>=4.65.0

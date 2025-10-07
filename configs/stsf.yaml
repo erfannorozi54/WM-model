@@ -1,0 +1,33 @@
+# Single-Task Single-Feature
+experiment_name: wm_stsf
+scenario: STSF
+
+# Data
+use_real_stimuli: true
+n_values: [2]
+task_features: ["location"]
+sequence_length: 6
+batch_size: 8
+num_train: 400
+num_val: 100
+num_test: 100
+num_workers: 2
+
+# Model
+hidden_size: 512
+rnn_type: "gru"   # rnn|gru|lstm
+num_layers: 1
+dropout: 0.0
+pretrained_backbone: true
+freeze_backbone: true
+
+# Optim
+epochs: 10
+lr: 3e-4
+weight_decay: 1e-2
+milestones: [6, 8]
+gamma: 0.1
+grad_clip: 1.0
+
+# Validation
+save_hidden: true
