@@ -214,6 +214,7 @@ test_stimulus_loc*.png
 # Project-specific: Training outputs and experiments
 runs/
 models/
+!src/models/
 checkpoints/
 results/
 

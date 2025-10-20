@@ -29,11 +29,9 @@ sys.path.append(str(Path(__file__).parent / "src"))
 from data.dataset import NBackDataModule
 from data.nback_generator import TaskFeature, create_sample_stimulus_data
 from models import (
-    PerceptualModule,
-    VanillaRNN,
-    GRUCog,
-    LSTMCog,
-    WorkingMemoryModel,
+    create_model,
+    print_model_summary,
+    get_model_info,
 )
 
 try:
@@ -69,15 +67,11 @@ def parse_task_features(names: List[str]) -> List[TaskFeature]:
     return [name_map[n.lower()] for n in names]
 
 
+# Deprecated: Use model_factory.create_model instead
+# Kept for backward compatibility
 def build_cognitive(rnn_type: str, input_size: int, hidden_size: int, num_layers: int, dropout: float):
-    rnn_type = rnn_type.lower()
-    if rnn_type == "rnn":
-        return VanillaRNN(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout)
-    if rnn_type == "gru":
-        return GRUCog(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout)
-    if rnn_type == "lstm":
-        return LSTMCog(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout)
-    raise ValueError(f"Unknown rnn_type: {rnn_type}")
+    from models import create_cognitive_module
+    return create_cognitive_module(rnn_type, input_size, hidden_size, num_layers, dropout)
 
 
 def accuracy_from_logits(logits: torch.Tensor, targets_idx: torch.Tensor) -> float:
@@ -125,9 +119,11 @@ def get_default_config() -> Dict[str, Any]:
         "num_workers": 2,
         # Model
         "hidden_size": 512,
-        "rnn_type": "gru",  # rnn|gru|lstm
+        "model_type": "gru",  # gru|lstm|rnn|attention_gru|attention_lstm|attention_rnn
         "num_layers": 1,
         "dropout": 0.0,
+        "attention_hidden_dim": None,  # For attention models
+        "attention_dropout": 0.1,      # For attention models
         "pretrained_backbone": True,
         "freeze_backbone": True,
         "capture_exact_layer42_relu": True,
@@ -203,17 +199,29 @@ def main():
     train_loader = data_module.train_dataloader()
     val_loader = data_module.val_dataloader()
 
-    # Model
+    # Model - using model factory for flexibility
     H = cfg["hidden_size"]
-    perceptual = PerceptualModule(
-        out_channels=H,
-        pretrained=cfg["pretrained_backbone"],
+    model = create_model(
+        model_type=cfg["model_type"],
+        hidden_size=H,
+        num_layers=cfg["num_layers"],
+        dropout=cfg["dropout"],
+        pretrained_backbone=cfg["pretrained_backbone"],
         freeze_backbone=cfg["freeze_backbone"],
-        capture_exact_layer42_relu=True,
-    ) 
-    cognitive = build_cognitive(cfg["rnn_type"], input_size=H + 3, hidden_size=H, num_layers=cfg["num_layers"], dropout=cfg["dropout"]) 
-    model = WorkingMemoryModel(perceptual=perceptual, cognitive=cognitive, hidden_size=H)
+        capture_exact_layer42_relu=cfg.get("capture_exact_layer42_relu", True),
+        attention_hidden_dim=cfg.get("attention_hidden_dim"),
+        attention_dropout=cfg.get("attention_dropout", 0.1),
+    )
     model.to(device)
+    
+    # Print model summary
+    print_model_summary(model)
+    model_info = get_model_info(model)
+    print(f"\nModel configuration:")
+    print(f"  Type: {cfg['model_type']}")
+    print(f"  Is Attention: {model_info['is_attention']}")
+    print(f"  Hidden Size: {H}")
+    print(f"  Num Layers: {cfg['num_layers']}")
 
     # Optimizer & Scheduler
     optimizer = optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"]) 

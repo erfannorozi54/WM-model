@@ -365,59 +365,6 @@ class StimulusRenderer:
                 pass  # Ignore cleanup errors
 
 
-def create_renderer_demo():
-    """Create a demonstration of the renderer capabilities."""
-    
-    demo_script = '''#!/usr/bin/env python3
-"""
-Demo script for the stimulus renderer.
-Creates sample stimuli to test the rendering pipeline.
-"""
-
-import sys
-from pathlib import Path
-import numpy as np
-
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from data.renderer import StimulusRenderer
-
-
-def main():
-    print("Stimulus Renderer Demo")
-    print("=" * 30)
-    
-    # Create renderer
-    renderer = StimulusRenderer(image_size=(224, 224))
-    
-    # Create sample stimuli
-    output_dir = Path("data/sample_stimuli")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    print("Creating sample stimulus...")
-    sample_image = renderer.create_sample_stimulus(
-        save_path=str(output_dir / "sample_stimulus.png")
-    )
-    
-    print(f"Sample stimulus shape: {sample_image.shape}")
-    print(f"Sample saved to: {output_dir / 'sample_stimulus.png'}")
-    
-    # Display locations
-    print("\\nConfigured stimulus locations:")
-    for i, (x, y) in enumerate(renderer.locations):
-        print(f"  Location {i}: ({x:+.1f}, {y:+.1f})")
-    
-    print("\\nRenderer demo completed successfully!")
-
-
-if __name__ == "__main__":
-    main()
-'''
-    
-    return demo_script
-
-
 if __name__ == "__main__":
     # Create sample renderer
     renderer = StimulusRenderer()

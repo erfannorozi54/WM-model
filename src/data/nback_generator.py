@@ -354,51 +354,13 @@ class NBackGenerator:
         return stats
 
 
-def create_sample_stimulus_data() -> Dict[str, Dict]:
-    """
-    Create sample stimulus data for testing.
-    
-    Returns:
-        Sample stimulus data structure
-    """
-    return {
-        "airplane": {
-            "airplane_001": [
-                "data/stimuli/airplane_001_loc0_angle0.png",
-                "data/stimuli/airplane_001_loc1_angle0.png",
-                "data/stimuli/airplane_001_loc2_angle0.png",
-                "data/stimuli/airplane_001_loc3_angle0.png"
-            ],
-            "airplane_002": [
-                "data/stimuli/airplane_002_loc0_angle0.png",
-                "data/stimuli/airplane_002_loc1_angle0.png",
-                "data/stimuli/airplane_002_loc2_angle0.png",
-                "data/stimuli/airplane_002_loc3_angle0.png"
-            ]
-        },
-        "car": {
-            "car_001": [
-                "data/stimuli/car_001_loc0_angle0.png",
-                "data/stimuli/car_001_loc1_angle0.png",
-                "data/stimuli/car_001_loc2_angle0.png", 
-                "data/stimuli/car_001_loc3_angle0.png"
-            ],
-            "car_002": [
-                "data/stimuli/car_002_loc0_angle0.png",
-                "data/stimuli/car_002_loc1_angle0.png",
-                "data/stimuli/car_002_loc2_angle0.png",
-                "data/stimuli/car_002_loc3_angle0.png"
-            ]
-        }
-    }
-
-
 if __name__ == "__main__":
     # Demo usage
     print("N-back Generator Demo")
     print("=" * 25)
     
     # Create sample stimulus data
+    from .shapenet_downloader import create_sample_stimulus_data
     stimulus_data = create_sample_stimulus_data()
     
     # Initialize generator
