@@ -205,12 +205,57 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project-specific: Data directories
 data/
-!src/data
-test_stimulus_loc0.png
-test_stimulus_loc1.png
-test_stimulus_loc2.png
-test_stimulus_loc3.png  
+!src/data/
+test_stimulus_loc*.png
  
-# Training outputs
+# Project-specific: Training outputs and experiments
 runs/
+models/
+checkpoints/
+results/
+
+# Project-specific: Jupyter notebooks checkpoints
+notebooks/.ipynb_checkpoints/
+
+# Project-specific: Rendered stimuli (keep directory structure)
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Project-specific: Large model files
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+!configs/
+
+# Project-specific: ShapeNet data
+*.obj
+*.mtl
+*.zip
+ShapeNetCore*/
+
+# Project-specific: Analysis outputs
+*.npy
+*.npz
+hidden_states/
+*.json
+!configs/*.json
+!package*.json
+
+# Project-specific: Visualization outputs
+figures/
+plots/
+*.pdf
+*.svg
+!docs/**/*.pdf
+!docs/**/*.svg
+
+# HDF5 files
+*.h5
+*.hdf5
