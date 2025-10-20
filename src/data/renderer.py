@@ -100,7 +100,7 @@ class StimulusRenderer:
             self.use_fallback = True
             print("Using fallback rendering (matplotlib-based)")
         
-    def _get_camera_pose(self, distance: float = 3.0) -> np.ndarray:
+    def _get_camera_pose(self, distance: float = 6.0) -> np.ndarray:
         """Get camera pose matrix."""
         return np.array([
             [1.0, 0.0, 0.0, 0.0],
@@ -121,13 +121,31 @@ class StimulusRenderer:
         """
         if TRIMESH_AVAILABLE:
             try:
-                mesh = trimesh.load(str(obj_path))
+                loaded = trimesh.load(str(obj_path))
                 
-                # Normalize mesh size
-                mesh.apply_scale(1.0 / mesh.scale)
+                # Handle Scene objects (multiple meshes in one file)
+                if isinstance(loaded, trimesh.Scene):
+                    # Merge all geometries in the scene into a single mesh
+                    if len(loaded.geometry) == 0:
+                        # Empty scene, return a placeholder
+                        return trimesh.creation.box(extents=[1, 1, 1])
+                    elif len(loaded.geometry) == 1:
+                        # Single mesh in scene
+                        mesh = list(loaded.geometry.values())[0]
+                    else:
+                        # Multiple meshes - concatenate them
+                        mesh = trimesh.util.concatenate(list(loaded.geometry.values()))
+                else:
+                    mesh = loaded
                 
-                # Center the mesh
+                # Center the mesh first
                 mesh.apply_translation(-mesh.centroid)
+                
+                # Normalize mesh to a reasonable size (make it fit in ~3.0 unit sphere)
+                # This makes objects clearly visible and prominent
+                current_scale = mesh.scale
+                if current_scale > 0:
+                    mesh.apply_scale(3.0 / current_scale)
                 
                 return mesh
             except Exception as e:
@@ -149,7 +167,7 @@ class StimulusRenderer:
                      mesh,
                      location_idx: int,
                      rotation_angles: Tuple[float, float, float] = (0, 0, 0),
-                     scale: float = 1.0) -> np.ndarray:
+                     scale: float = 1.2) -> np.ndarray:
         """
         Render a single object at specified location.
         
