@@ -9,13 +9,13 @@ This script compares baseline and attention-enhanced models across multiple metr
 
 Usage:
   # Compare baseline GRU vs attention GRU
-  python compare_models.py \
+  python -m src.analysis.compare_models \
     --baseline runs/wm_mtmf/hidden_states \
     --attention runs/wm_attention_mtmf/hidden_states \
     --output_dir results/comparison
   
   # Specific property and task
-  python compare_models.py \
+  python -m src.analysis.compare_models \
     --baseline runs/wm_mtmf/hidden_states \
     --attention runs/wm_attention_mtmf/hidden_states \
     --property identity --n 2 --task location
@@ -29,13 +29,11 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 from tqdm import tqdm
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from analysis.decoding import evaluate as decoding_evaluate
-from analysis.orthogonalization import evaluate as orthogonalization_evaluate
-from analysis.procrustes import procrustes_analysis, swap_hypothesis_test
-from analysis.activations import load_payloads
+# Import from same package
+from .decoding import evaluate as decoding_evaluate
+from .orthogonalization import evaluate as orthogonalization_evaluate
+from .procrustes import procrustes_analysis, swap_hypothesis_test
+from .activations import load_payloads
 
 
 def compare_decoding(

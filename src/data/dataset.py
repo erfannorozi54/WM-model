@@ -338,7 +338,7 @@ def create_demo_dataset() -> NBackDataModule:
     Returns:
         Demo data module
     """
-    from .nback_generator import create_sample_stimulus_data
+    from .shapenet_downloader import create_sample_stimulus_data
     
     # Create sample stimulus data
     stimulus_data = create_sample_stimulus_data()

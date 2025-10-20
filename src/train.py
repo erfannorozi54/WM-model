@@ -10,9 +10,12 @@ Features:
 - MultiStepLR scheduler
 - YAML/CLI configuration
 - Validation hook to save hidden states per timestep
+
+Usage:
+    python -m src.train --config configs/mtmf.yaml
+    python -m src.train --model_type gru --hidden_size 512
 """
 
-import sys
 import os
 from pathlib import Path
 import argparse
@@ -23,12 +26,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-# Add src to path for local package-style imports
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from data.dataset import NBackDataModule
-from data.nback_generator import TaskFeature, create_sample_stimulus_data
-from models import (
+# Import from same package
+from .data.dataset import NBackDataModule
+from .data.nback_generator import TaskFeature
+from .data.shapenet_downloader import create_sample_stimulus_data
+from .models import (
     create_model,
     print_model_summary,
     get_model_info,
@@ -70,7 +72,7 @@ def parse_task_features(names: List[str]) -> List[TaskFeature]:
 # Deprecated: Use model_factory.create_model instead
 # Kept for backward compatibility
 def build_cognitive(rnn_type: str, input_size: int, hidden_size: int, num_layers: int, dropout: float):
-    from models import create_cognitive_module
+    from .models import create_cognitive_module
     return create_cognitive_module(rnn_type, input_size, hidden_size, num_layers, dropout)
 
 

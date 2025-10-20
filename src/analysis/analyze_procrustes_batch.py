@@ -11,9 +11,9 @@ Figure 4 Components:
 - 4g: Swap test results (chronological organization hypothesis)
 
 Usage:
-  python analyze_procrustes_batch.py --hidden_root runs/wm_mtmf/hidden_states
-  python analyze_procrustes_batch.py --hidden_root runs/wm_mtmf/hidden_states --property identity --n 2
-  python analyze_procrustes_batch.py --output_dir results/procrustes --visualize
+  python -m src.analysis.analyze_procrustes_batch --hidden_root runs/wm_mtmf/hidden_states
+  python -m src.analysis.analyze_procrustes_batch --hidden_root runs/wm_mtmf/hidden_states --property identity --n 2
+  python -m src.analysis.analyze_procrustes_batch --output_dir results/procrustes --visualize
 """
 
 import sys
@@ -24,14 +24,12 @@ import numpy as np
 from typing import List, Dict, Any, Optional
 from tqdm import tqdm
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from analysis.procrustes import (
+# Import from same package
+from .procrustes import (
     procrustes_analysis,
     swap_hypothesis_test,
 )
-from analysis.decoding import evaluate as decoding_evaluate
+from .decoding import evaluate as decoding_evaluate
 
 
 def compute_temporal_generalization_matrix(

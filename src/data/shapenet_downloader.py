@@ -235,11 +235,12 @@ class ShapeNetDownloader:
         download_dir.mkdir(parents=True, exist_ok=True)
         
         print(f"Downloading {filename} from Hugging Face Hub...")
+        print(f"Repository: {repo_id} (dataset)")
         path = hf_hub_download(
             repo_id=repo_id,
             filename=filename,
+            repo_type="dataset",  # ShapeNet is a dataset repository
             token=token,
-            resume_download=True,
             local_dir=str(download_dir),
         )
         

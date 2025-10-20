@@ -9,7 +9,6 @@ import sys
 import os
 from pathlib import Path
 import venv
-import shutil
 
 
 def run_command(command, cwd=None, check=True):

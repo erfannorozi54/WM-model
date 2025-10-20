@@ -7,12 +7,12 @@ showing which spatial locations the model focuses on for different tasks.
 
 Usage:
   # Visualize attention from trained model
-  python visualize_attention.py \
+  python -m src.analysis.visualize_attention \
     --checkpoint runs/wm_attention_mtmf/checkpoints/best_*.pt \
     --config configs/attention_mtmf.yaml
   
   # Visualize specific trial
-  python visualize_attention.py \
+  python -m src.analysis.visualize_attention \
     --checkpoint runs/wm_attention_mtmf/checkpoints/best_*.pt \
     --task location --n 2 --num_samples 5
 """
@@ -27,12 +27,11 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from PIL import Image
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from models import create_model
-from data.nback_generator import TaskFeature, create_sample_stimulus_data
-from data.dataset import NBackDataModule
+# Import from project
+from src.models import create_model
+from src.data.nback_generator import TaskFeature
+from src.data.shapenet_downloader import create_sample_stimulus_data
+from src.data.dataset import NBackDataModule
 
 try:
     import yaml

@@ -38,23 +38,21 @@ WM-model/
 │   ├── PHASE5_SUMMARY.md
 │   ├── PROJECT_COMPLETE.md
 │   └── QUICK_REFERENCE.md
-├── scripts/                        # Executable scripts
-│   ├── analysis/                  # Analysis tools
-│   │   ├── analyze_procrustes_batch.py
-│   │   ├── compare_models.py
-│   │   └── visualize_attention.py
-│   ├── training/                  # Training scripts
-│   │   ├── train.py
-│   │   └── setup_environment.py
-│   └── util/                      # Utilities
+├── scripts/                        # Utility scripts
+│   └── util/                      # Environment activation
 │       ├── activate_env.sh
 │       └── activate_env.bat
 ├── src/                            # Source code
-│   ├── analysis/                  # Analysis modules
-│   │   ├── activations.py
-│   │   ├── decoding.py
-│   │   ├── orthogonalization.py
-│   │   └── procrustes.py
+│   ├── train.py                   # Main training script
+│   ├── setup_environment.py       # Environment setup guide
+│   ├── analysis/                  # Analysis modules & tools
+│   │   ├── activations.py         # Hidden state utilities
+│   │   ├── decoding.py            # Linear decoding analysis
+│   │   ├── orthogonalization.py   # Representational geometry
+│   │   ├── procrustes.py          # Temporal dynamics
+│   │   ├── analyze_procrustes_batch.py  # Figure 4 replication CLI
+│   │   ├── compare_models.py      # Model comparison CLI
+│   │   └── visualize_attention.py # Attention visualization CLI
 │   ├── data/                      # Data pipeline
 │   │   ├── shapenet_downloader.py # Core downloader
 │   │   ├── download_shapenet.py   # CLI for downloads
@@ -73,7 +71,8 @@ WM-model/
 │   └── <experiment_name>/
 │       ├── checkpoints/           # Model checkpoints
 │       └── hidden_states/         # Saved activations
-├── .env                            # Environment variables
+├── .env                            # Environment variables (HuggingFace token)
+├── .env.example                    # Example environment file
 ├── .gitignore                      # Git ignore rules
 ├── LICENSE                         # MIT License
 ├── README.md                       # This file
@@ -121,7 +120,21 @@ WM-model/
    pip install -r requirements.txt
    ```
 
-4. **Set up Python path (automatically handled by activation scripts):**
+4. **Configure environment variables:**
+
+   Create a `.env` file in the project root for your HuggingFace token:
+
+   ```bash
+   # Copy the example file
+   cp .env.example .env
+   
+   # Edit .env and add your token
+   # HUGGINGFACE_TOKEN=your_token_here
+   ```
+
+   This allows the download script to automatically load your HuggingFace token without passing it as a command-line argument.
+
+5. **Set up Python path (automatically handled by activation scripts):**
 
    For convenience, use the provided activation scripts that handle both venv and PYTHONPATH:
 
@@ -156,14 +169,23 @@ python -m src.data.download_shapenet --verify
 #### Option B: Download Real ShapeNet via Hugging Face Hub
 
 ```bash
-# Install huggingface_hub
-pip install huggingface_hub
+# Install required packages
+pip install huggingface_hub python-dotenv
 
-# Download and organize real ShapeNet
+# Add your token to .env file (see step 4 in Installation)
+# HUGGINGFACE_TOKEN=your_token_here
+
+# Download and organize real ShapeNet (token auto-loaded from .env)
+python -m src.data.download_shapenet \
+  --download-hf ShapeNetCore.v2.zip
+
+# Or download only specific categories to save space
 python -m src.data.download_shapenet \
   --download-hf ShapeNetCore.v2.zip \
-  --hf-token "<YOUR_HF_TOKEN>"
+  --categories airplane car
 ```
+
+**Note:** The full ShapeNet archive is ~25GB. The script downloads the complete archive but only organizes and keeps the specified categories (or all 4 by default: airplane, car, chair, table).
 
 #### Option C: Manual Download and Organization
 
@@ -209,16 +231,16 @@ for category in ["airplane", "car", "chair", "table"]:
 
 ```bash
 # Train baseline models (choose one scenario)
-python scripts/training/train.py --config configs/stsf.yaml  # Single-Task Single-Feature
-python scripts/training/train.py --config configs/stmf.yaml  # Single-Task Multi-Feature
-python scripts/training/train.py --config configs/mtmf.yaml  # Multi-Task Multi-Feature
+python -m src.train --config configs/stsf.yaml  # Single-Task Single-Feature
+python -m src.train --config configs/stmf.yaml  # Single-Task Multi-Feature
+python -m src.train --config configs/mtmf.yaml  # Multi-Task Multi-Feature
 
 # Train attention-enhanced models
-python scripts/training/train.py --config configs/attention_mtmf.yaml
+python -m src.train --config configs/attention_mtmf.yaml
 
 # Enable/disable hidden state saving
-python scripts/training/train.py --config configs/mtmf.yaml --save_hidden
-python scripts/training/train.py --config configs/mtmf.yaml --no_save_hidden
+python -m src.train --config configs/mtmf.yaml --save_hidden
+python -m src.train --config configs/mtmf.yaml --no_save_hidden
 ```
 
 ### 4. Run Analysis
@@ -230,12 +252,12 @@ python -m src.analysis.decoding \
   --property identity
 
 # Procrustes analysis (temporal dynamics)
-python scripts/analysis/analyze_procrustes_batch.py \
+python -m src.analysis.analyze_procrustes_batch \
   --hidden_root runs/wm_mtmf/hidden_states \
   --property identity --visualize
 
 # Compare baseline vs attention models
-python scripts/analysis/compare_models.py \
+python -m src.analysis.compare_models \
   --baseline runs/wm_mtmf/hidden_states \
   --attention runs/wm_attention_mtmf/hidden_states \
   --property identity
@@ -263,9 +285,11 @@ Input Images → Perceptual Module → Visual Embeddings → Cognitive Module �
 
 1. **ShapeNet Download System** (`src/data/`)
    - **Core Module**: `shapenet_downloader.py` - All download/organization logic
-   - **CLI**: `download_shapenet.py` - Simple unified interface
+   - **CLI**: `download_shapenet.py` - Simple unified interface with `.env` support
    - Supports: placeholder generation, Hugging Face Hub download, manual organization
-   - 4 categories (airplane, car, chair, table), 2 identities each
+   - Flexible category selection: download specific categories or all 4 (airplane, car, chair, table)
+   - Token management: auto-loads from `.env` file for seamless authentication
+   - 2 identities per category
 
 2. **Stimulus Generation** (`src/data/`)
    - **CLI**: `generate_stimuli.py` - Batch stimulus generation
@@ -326,17 +350,17 @@ Training is controlled via YAML configuration files in `configs/`. Key parameter
 **Baseline Models:**
 
 ```bash
-python scripts/training/train.py --config configs/stsf.yaml   # Single-Task Single-Feature
-python scripts/training/train.py --config configs/stmf.yaml   # Single-Task Multi-Feature  
-python scripts/training/train.py --config configs/mtmf.yaml   # Multi-Task Multi-Feature
+python -m src.train --config configs/stsf.yaml   # Single-Task Single-Feature
+python -m src.train --config configs/stmf.yaml   # Single-Task Multi-Feature  
+python -m src.train --config configs/mtmf.yaml   # Multi-Task Multi-Feature
 ```
 
 **Attention-Enhanced Models:**
 
 ```bash
-python scripts/training/train.py --config configs/attention_stsf.yaml
-python scripts/training/train.py --config configs/attention_stmf.yaml
-python scripts/training/train.py --config configs/attention_mtmf.yaml
+python -m src.train --config configs/attention_stsf.yaml
+python -m src.train --config configs/attention_stmf.yaml
+python -m src.train --config configs/attention_mtmf.yaml
 ```
 
 ### Output Structure
@@ -396,7 +420,7 @@ python -m src.analysis.procrustes \
   --swap_test --encoding_time 2 --k_offset 1
 
 # Full batch analysis
-python scripts/analysis/analyze_procrustes_batch.py \
+python -m src.analysis.analyze_procrustes_batch \
   --hidden_root runs/wm_mtmf/hidden_states \
   --property identity --visualize
 ```
@@ -406,7 +430,7 @@ python scripts/analysis/analyze_procrustes_batch.py \
 Compare baseline vs attention models:
 
 ```bash
-python scripts/analysis/compare_models.py \
+python -m src.analysis.compare_models \
   --baseline runs/wm_mtmf/hidden_states \
   --attention runs/wm_attention_mtmf/hidden_states \
   --property identity \
@@ -418,7 +442,7 @@ python scripts/analysis/compare_models.py \
 Visualize attention patterns:
 
 ```bash
-python scripts/analysis/visualize_attention.py \
+python -m src.analysis.visualize_attention \
   --checkpoint runs/wm_attention_mtmf/checkpoints/best_*.pt \
   --num_samples 5 \
   --output_dir results/attention_viz
@@ -448,6 +472,11 @@ python scripts/analysis/visualize_attention.py \
 **Configuration:**
 
 - PyYAML >= 6.0
+- python-dotenv >= 1.0.0 (for `.env` file support)
+
+**Data Download:**
+
+- huggingface_hub (for HuggingFace dataset downloads)
 
 See `requirements.txt` for complete list.
 
@@ -481,7 +510,7 @@ python -m src.data.nback_generator
 2. **Train:**
 
    ```bash
-   python scripts/training/train.py --config configs/my_experiment.yaml
+   python -m src.train --config configs/my_experiment.yaml
    ```
 
 3. **Analyze:**
@@ -586,14 +615,14 @@ Comprehensive analysis across all time points:
 
 ```bash
 # Complete Figure 4 analysis
-python analyze_procrustes_batch.py \
+python -m src.analysis.analyze_procrustes_batch \
   --hidden_root runs/wm_mtmf/hidden_states \
   --property identity \
   --n 2 \
   --visualize
 
 # Fast version (skip slow temporal generalization)
-python analyze_procrustes_batch.py \
+python -m src.analysis.analyze_procrustes_batch \
   --hidden_root runs/wm_mtmf/hidden_states \
   --property identity \
   --skip_tg \
@@ -612,34 +641,22 @@ python analyze_procrustes_batch.py \
 1. **Train model** with hidden state saving:
 
    ```bash
-   python train.py --config configs/mtmf.yaml
+   python -m src.train --config configs/mtmf.yaml
    ```
 
-2. **Run basic Procrustes** to verify setup:
+2. **Generate full analysis**:
 
    ```bash
-   python scripts/analysis/demo_procrustes.py --demo basic
-   ```
-
-3. **Test chronological hypothesis**:
-
-   ```bash
-   python scripts/analysis/demo_procrustes.py --demo swap --visualize
-   ```
-
-4. **Generate full analysis**:
-
-   ```bash
-   python analyze_procrustes_batch.py \
+   python -m src.analysis.analyze_procrustes_batch \
      --hidden_root runs/wm_mtmf/hidden_states \
      --property identity --n 2 --visualize
    ```
 
-5. **Compare across properties**:
+3. **Compare across properties**:
 
    ```bash
    for prop in location identity category; do
-     python analyze_procrustes_batch.py \
+     python -m src.analysis.analyze_procrustes_batch \
        --hidden_root runs/wm_mtmf/hidden_states \
        --property $prop --visualize
    done
@@ -694,9 +711,9 @@ Context Vector (B, T, C) → RNN → Classifier
 
 ```bash
 # Train attention-enhanced models
-python train.py --config configs/attention_stsf.yaml
-python train.py --config configs/attention_stmf.yaml
-python train.py --config configs/attention_mtmf.yaml
+python -m src.train --config configs/attention_stsf.yaml
+python -m src.train --config configs/attention_stmf.yaml
+python -m src.train --config configs/attention_mtmf.yaml
 
 # Model types: attention_gru, attention_lstm, attention_rnn
 ```
@@ -707,7 +724,7 @@ Compare baseline vs. attention models across all metrics:
 
 ```bash
 # Comprehensive comparison
-python compare_models.py \
+python -m src.analysis.compare_models \
   --baseline runs/wm_mtmf/hidden_states \
   --attention runs/wm_attention_mtmf/hidden_states \
   --property identity \
@@ -727,7 +744,7 @@ Generate and analyze attention heatmaps:
 
 ```bash
 # Visualize attention patterns
-python visualize_attention.py \
+python -m src.analysis.visualize_attention \
   --checkpoint runs/wm_attention_mtmf/checkpoints/best_*.pt \
   --num_samples 5 \
   --output_dir results/attention_viz
@@ -761,20 +778,20 @@ attention_lstm = create_model('attention_lstm', hidden_size=512)
 1. **Train both models:**
 
    ```bash
-   python train.py --config configs/mtmf.yaml           # Baseline
-   python train.py --config configs/attention_mtmf.yaml # Attention
+   python -m src.train --config configs/mtmf.yaml           # Baseline
+   python -m src.train --config configs/attention_mtmf.yaml # Attention
    ```
 
 2. **Compare performance:**
 
    ```bash
-   python compare_models.py --baseline ... --attention ...
+   python -m src.analysis.compare_models --baseline ... --attention ...
    ```
 
 3. **Visualize attention:**
 
    ```bash
-   python visualize_attention.py --checkpoint ...
+   python -m src.analysis.visualize_attention --checkpoint ...
    ```
 
 4. **Analyze results:**
@@ -806,9 +823,9 @@ attention_lstm = create_model('attention_lstm', hidden_size=512)
 
 | Tool | Purpose | Output |
 |------|---------|--------|
-| `compare_models.py` | Full comparison | JSON with all metrics |
-| `visualize_attention.py` | Attention heatmaps | PNG visualizations |
-| `src/models/model_factory.py` | Model creation | Model instances |
+| `src.analysis.compare_models` | Full comparison | JSON with all metrics |
+| `src.analysis.visualize_attention` | Attention heatmaps | PNG visualizations |
+| `src/models.model_factory` | Model creation | Model instances |
 
 ## Documentation
 
@@ -822,6 +839,14 @@ Detailed documentation is available in the `docs/` directory:
 - [QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) - Command reference
 
 ## Troubleshooting
+
+### HuggingFace token not found
+
+- Create a `.env` file in the project root (copy from `.env.example`)
+- Add your token: `HUGGINGFACE_TOKEN=your_token_here`
+- Alternatively, use `--hf-token YOUR_TOKEN` argument
+- Get a token from [HuggingFace Settings](https://huggingface.co/settings/tokens)
+- Ensure you have access to the ShapeNet dataset on HuggingFace Hub
 
 ### CUDA out of memory
 
@@ -845,6 +870,12 @@ Detailed documentation is available in the `docs/` directory:
 - Ensure `save_hidden: true` in config file
 - Or use `--save_hidden` flag when running training script
 - Check available disk space in `runs/` directory
+
+### python-dotenv not installed
+
+- Install with: `pip install python-dotenv`
+- Or continue without `.env` support by using `--hf-token` argument
+- Included in `requirements.txt` for easy installation
 
 ## Contributing
 
