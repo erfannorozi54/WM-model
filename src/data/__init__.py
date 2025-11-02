@@ -15,6 +15,10 @@ from .shapenet_downloader import (
     scan_generated_stimuli,
     create_sample_stimulus_data,
 )
+from .validation_splits import (
+    ValidationSplitter,
+    load_and_split_stimuli,
+)
 from .renderer import StimulusRenderer
 from .nback_generator import (
     NBackGenerator,
@@ -34,6 +38,9 @@ __all__ = [
     "DEFAULT_VIEWING_ANGLES",
     "scan_generated_stimuli",
     "create_sample_stimulus_data",
+    # Validation Splits
+    "ValidationSplitter",
+    "load_and_split_stimuli",
     # Renderer
     "StimulusRenderer",
     # N-back Generator

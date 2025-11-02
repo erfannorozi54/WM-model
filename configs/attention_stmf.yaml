@@ -28,8 +28,8 @@ attention_dropout: 0.1
 
 # Optim
 epochs: 12
-lr: 3e-4
-weight_decay: 1e-2
+lr: 0.0003  # 3e-4
+weight_decay: 0.01  # 1e-2
 milestones: [8, 10]
 gamma: 0.1
 grad_clip: 1.0

@@ -20,7 +20,8 @@ import os
 from pathlib import Path
 import argparse
 import time
-from typing import List, Dict, Any
+import json
+from typing import List, Dict, Any, Optional
 
 import torch
 import torch.nn as nn
@@ -143,7 +144,7 @@ def get_default_config() -> Dict[str, Any]:
     }
 
 
-def load_config(path: str | None) -> Dict[str, Any]:
+def load_config(path: Optional[str]) -> Dict[str, Any]:
     cfg = get_default_config()
     if path is None:
         return cfg
@@ -239,6 +240,7 @@ def main():
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     best_val_acc = -1.0
+    training_log = []  # Track metrics for analysis
 
     for epoch in range(1, cfg["epochs"] + 1):
         model.train()
@@ -296,6 +298,15 @@ def main():
         val_loss /= max(val_batches, 1)
         val_acc /= max(val_batches, 1)
         print(f"Epoch {epoch} VAL   loss={val_loss:.4f} acc={val_acc:.3f}")
+        
+        # Log metrics for analysis pipeline
+        training_log.append({
+            "epoch": epoch,
+            "train_loss": epoch_loss / max(n_batches, 1),
+            "train_acc": epoch_acc / max(n_batches, 1),
+            "val_loss": val_loss,
+            "val_acc": val_acc,
+        })
 
         # Save best
         if val_acc > best_val_acc:
@@ -322,6 +333,12 @@ def main():
         "val_acc": best_val_acc,
     }, final_path)
     print(f"Training complete. Final model saved to {final_path}")
+    
+    # Save training log for analysis pipeline
+    log_path = run_dir / "training_log.json"
+    with open(log_path, 'w') as f:
+        json.dump(training_log, f, indent=2)
+    print(f"Training log saved to {log_path}")
 
 
 if __name__ == "__main__":

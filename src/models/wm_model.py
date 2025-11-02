@@ -31,11 +31,21 @@ class WorkingMemoryModel(nn.Module):
         self.hidden_size = hidden_size
         self.classifier = nn.Linear(hidden_size, 3)
 
-    def forward(self, images: torch.Tensor, task_vector: torch.Tensor):
+    def forward(self, images: torch.Tensor, task_vector: torch.Tensor, return_cnn_activations: bool = False):
         B, T = images.shape[0], images.shape[1]
         # Flatten time into batch for perceptual encoder
         x = images.reshape(B * T, *images.shape[2:])  # (B*T, 3, H, W)
-        emb, _ = self.perceptual(x)  # (B*T, H)
+        
+        # Optionally capture CNN penultimate layer activations
+        if return_cnn_activations:
+            emb, feat_map = self.perceptual(x, return_feature_map=True)  # (B*T, H), (B*T, H, H', W')
+            # Global average pool the feature map for analysis
+            cnn_activations = feat_map.mean(dim=[2, 3])  # (B*T, H)
+            cnn_activations = cnn_activations.view(B, T, self.hidden_size)  # (B, T, H)
+        else:
+            emb, _ = self.perceptual(x)  # (B*T, H)
+            cnn_activations = None
+        
         emb = emb.view(B, T, self.hidden_size)  # (B, T, H)
 
         # Expand task vector across time and concatenate
@@ -44,6 +54,9 @@ class WorkingMemoryModel(nn.Module):
 
         outputs, final_state, hidden_seq = self.cognitive(cog_in)
         logits = self.classifier(outputs)  # (B, T, 3)
+        
+        if return_cnn_activations:
+            return logits, hidden_seq, final_state, cnn_activations
         return logits, hidden_seq, final_state
 
     @torch.no_grad()

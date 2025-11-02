@@ -205,16 +205,25 @@ class NBackDataset(Dataset):
 class NBackDataModule:
     """
     Data module for managing train/validation/test splits and DataLoaders.
+    
+    Supports three data splits as per the paper:
+    1. Training: Standard training data
+    2. Validation (Novel Angles): Same identities, new viewing angles
+    3. Validation (Novel Identities): New object identities from same categories
     """
     
     def __init__(self,
                  stimulus_data: Dict[str, Dict],
+                 val_novel_angle_data: Optional[Dict[str, Dict]] = None,
+                 val_novel_identity_data: Optional[Dict[str, Dict]] = None,
                  n_values: List[int] = [1, 2, 3],
                  task_features: Optional[List[TaskFeature]] = None,
                  sequence_length: int = 6,
                  batch_size: int = 32,
                  num_train: int = 1000,
                  num_val: int = 200,
+                 num_val_novel_angle: Optional[int] = None,
+                 num_val_novel_identity: Optional[int] = None,
                  num_test: int = 200,
                  num_workers: int = 4,
                  image_transform: Optional[Callable] = None):
@@ -222,12 +231,18 @@ class NBackDataModule:
         Initialize the data module.
         
         Args:
-            stimulus_data: Dictionary with stimulus information
+            stimulus_data: Training stimulus data {category: {identity: [paths]}}
+            val_novel_angle_data: Validation data with novel angles (same identities)
+            val_novel_identity_data: Validation data with novel identities
             n_values: List of N values for N-back
             task_features: List of task features to use
             sequence_length: Length of each sequence
             batch_size: Batch size for DataLoader
-            num_train/val/test: Number of sequences for each split
+            num_train: Number of training sequences
+            num_val: Number of standard validation sequences (backward compatibility)
+            num_val_novel_angle: Number of novel-angle validation sequences
+            num_val_novel_identity: Number of novel-identity validation sequences
+            num_test: Number of test sequences
             num_workers: Number of DataLoader workers
             image_transform: Optional image preprocessing
         """
@@ -237,20 +252,26 @@ class NBackDataModule:
         self.batch_size = batch_size
         self.num_workers = num_workers
         
+        # Use default values if not specified
+        if num_val_novel_angle is None:
+            num_val_novel_angle = num_val
+        if num_val_novel_identity is None:
+            num_val_novel_identity = num_val
+        
         if task_features is None:
             self.task_features = [TaskFeature.LOCATION, TaskFeature.IDENTITY, TaskFeature.CATEGORY]
         else:
             self.task_features = task_features
         
-        # Create generator
-        self.generator = NBackGenerator(
+        # Create generators for each data split
+        self.train_generator = NBackGenerator(
             stimulus_data=stimulus_data,
             sequence_length=sequence_length
         )
         
-        # Create datasets
+        # Create training dataset
         self.train_dataset = NBackDataset(
-            generator=self.generator,
+            generator=self.train_generator,
             n_values=n_values,
             task_features=self.task_features,
             num_sequences=num_train,
@@ -259,8 +280,45 @@ class NBackDataModule:
             cache_sequences=False  # Don't cache training data for variety
         )
         
+        # Create novel-angle validation dataset (same identities, new angles)
+        if val_novel_angle_data:
+            self.val_novel_angle_generator = NBackGenerator(
+                stimulus_data=val_novel_angle_data,
+                sequence_length=sequence_length
+            )
+            self.val_novel_angle_dataset = NBackDataset(
+                generator=self.val_novel_angle_generator,
+                n_values=n_values,
+                task_features=self.task_features,
+                num_sequences=num_val_novel_angle,
+                sequence_length=sequence_length,
+                image_transform=image_transform,
+                cache_sequences=True  # Cache for consistency
+            )
+        else:
+            self.val_novel_angle_dataset = None
+        
+        # Create novel-identity validation dataset (new identities)
+        if val_novel_identity_data:
+            self.val_novel_identity_generator = NBackGenerator(
+                stimulus_data=val_novel_identity_data,
+                sequence_length=sequence_length
+            )
+            self.val_novel_identity_dataset = NBackDataset(
+                generator=self.val_novel_identity_generator,
+                n_values=n_values,
+                task_features=self.task_features,
+                num_sequences=num_val_novel_identity,
+                sequence_length=sequence_length,
+                image_transform=image_transform,
+                cache_sequences=True  # Cache for consistency
+            )
+        else:
+            self.val_novel_identity_dataset = None
+        
+        # Standard validation dataset (backward compatibility)
         self.val_dataset = NBackDataset(
-            generator=self.generator,
+            generator=self.train_generator,
             n_values=n_values,
             task_features=self.task_features,
             num_sequences=num_val,
@@ -269,8 +327,9 @@ class NBackDataModule:
             cache_sequences=True  # Cache validation data for consistency
         )
         
+        # Test dataset
         self.test_dataset = NBackDataset(
-            generator=self.generator,
+            generator=self.train_generator,
             n_values=n_values,
             task_features=self.task_features,
             num_sequences=num_test,
@@ -286,17 +345,41 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            pin_memory=True
+            pin_memory=torch.cuda.is_available()
         )
     
     def val_dataloader(self) -> DataLoader:
-        """Create validation DataLoader."""
+        """Create validation DataLoader (standard, for backward compatibility)."""
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=True
+            pin_memory=torch.cuda.is_available()
+        )
+    
+    def val_novel_angle_dataloader(self) -> Optional[DataLoader]:
+        """Create validation DataLoader for novel angles (same identities, new viewing angles)."""
+        if self.val_novel_angle_dataset is None:
+            return None
+        return DataLoader(
+            self.val_novel_angle_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=torch.cuda.is_available()
+        )
+    
+    def val_novel_identity_dataloader(self) -> Optional[DataLoader]:
+        """Create validation DataLoader for novel identities (new objects from same categories)."""
+        if self.val_novel_identity_dataset is None:
+            return None
+        return DataLoader(
+            self.val_novel_identity_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=torch.cuda.is_available()
         )
     
     def test_dataloader(self) -> DataLoader:
@@ -306,7 +389,7 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=True
+            pin_memory=torch.cuda.is_available()
         )
     
     def sample_batch(self, split: str = "train") -> Dict[str, torch.Tensor]:

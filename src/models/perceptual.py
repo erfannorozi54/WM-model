@@ -53,6 +53,11 @@ class PerceptualModule(nn.Module):
             self.backbone.layer4,
         )
 
+        # Always freeze the unused FC layer to prevent it from being trained
+        if hasattr(self.backbone, 'fc'):
+            for p in self.backbone.fc.parameters():
+                p.requires_grad = False
+        
         if freeze_backbone:
             for p in self.feature_extractor.parameters():
                 p.requires_grad = False

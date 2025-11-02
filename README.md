@@ -14,7 +14,9 @@ This project implements a two-stage neural network architecture (Perceptual + Co
 
 - Two-stage architecture: ResNet50 perceptual encoder + RNN/GRU/LSTM cognitive module
 - Support for multiple N-back tasks: Location, Identity, and Category matching
-- 3D stimulus rendering from ShapeNet objects
+- 3D stimulus rendering from ShapeNet objects with multiple viewing angles
+- **Novel validation splits**: Novel-angle and novel-identity generalization testing
+- **Comprehensive analysis pipeline**: 5 analyses matching paper methodology
 - Advanced analysis tools: decoding, orthogonalization, Procrustes alignment
 - Task-guided attention mechanism for enhanced performance
 - Complete experimental pipeline from data generation to figure replication
@@ -39,13 +41,16 @@ WM-model/
 │   ├── PROJECT_COMPLETE.md
 │   └── QUICK_REFERENCE.md
 ├── scripts/                        # Utility scripts
+│   ├── verify_analysis_setup.py   # Verify analysis pipeline setup
 │   └── util/                      # Environment activation
 │       ├── activate_env.sh
 │       └── activate_env.bat
 ├── src/                            # Source code
 │   ├── train.py                   # Main training script
+│   ├── train_with_generalization.py  # Training with validation splits (Phase 6)
 │   ├── setup_environment.py       # Environment setup guide
 │   ├── analysis/                  # Analysis modules & tools
+│   │   ├── comprehensive_analysis.py   # Master analysis pipeline (NEW)
 │   │   ├── activations.py         # Hidden state utilities
 │   │   ├── decoding.py            # Linear decoding analysis
 │   │   ├── orthogonalization.py   # Representational geometry
@@ -57,9 +62,11 @@ WM-model/
 │   │   ├── shapenet_downloader.py # Core downloader
 │   │   ├── download_shapenet.py   # CLI for downloads
 │   │   ├── generate_stimuli.py    # Stimulus generation CLI
-│   │   ├── renderer.py            # 3D→2D rendering
+│   │   ├── renderer.py            # 3D→2D rendering (4 locations, 4 angles)
 │   │   ├── nback_generator.py     # N-back sequences
-│   │   └── dataset.py             # PyTorch Dataset
+│   │   ├── dataset.py             # PyTorch Dataset with validation splits
+│   │   ├── validation_splits.py   # Novel-angle/novel-identity splits (NEW)
+│   │   └── test_validation_splits.py  # Validation split verification
 │   ├── models/                    # Model architectures
 │   │   ├── perceptual.py          # ResNet50 encoder
 │   │   ├── cognitive.py           # RNN/GRU/LSTM
@@ -67,16 +74,24 @@ WM-model/
 │   │   ├── wm_model.py            # Full model
 │   │   └── model_factory.py       # Model creation
 │   └── utils/                     # Utility functions
-├── runs/                           # Training outputs (gitignored)
+├── experiments/                    # Training outputs (gitignored)
 │   └── <experiment_name>/
-│       ├── checkpoints/           # Model checkpoints
+│       ├── best_model.pt          # Best model checkpoint
+│       ├── training_log.json      # Per-epoch metrics
 │       └── hidden_states/         # Saved activations
+├── analysis_results/               # Analysis outputs (gitignored)
+│   ├── *.png                      # Publication-ready plots
+│   └── *.json                     # Numerical results
 ├── .env                            # Environment variables (HuggingFace token)
 ├── .env.example                    # Example environment file
 ├── .gitignore                      # Git ignore rules
 ├── LICENSE                         # MIT License
 ├── README.md                       # This file
-└── requirements.txt                # Python dependencies
+├── requirements.txt                # Python dependencies
+├── PHASE6_IMPLEMENTATION.md        # Phase 6 technical details (NEW)
+├── ANALYSIS_CHECKLIST.md           # Detailed analysis checklist (NEW)
+├── COMPREHENSIVE_ANALYSIS_READY.md # Analysis quick start (NEW)
+└── ANALYSIS_IMPLEMENTATION_SUMMARY.md  # Implementation summary (NEW)
 ```
 
 ## Installation
@@ -229,6 +244,8 @@ for category in ["airplane", "car", "chair", "table"]:
 
 ### 3. Train a Model
 
+#### Standard Training
+
 ```bash
 # Train baseline models (choose one scenario)
 python -m src.train --config configs/stsf.yaml  # Single-Task Single-Feature
@@ -237,30 +254,77 @@ python -m src.train --config configs/mtmf.yaml  # Multi-Task Multi-Feature
 
 # Train attention-enhanced models
 python -m src.train --config configs/attention_mtmf.yaml
-
-# Enable/disable hidden state saving
-python -m src.train --config configs/mtmf.yaml --save_hidden
-python -m src.train --config configs/mtmf.yaml --no_save_hidden
 ```
 
-### 4. Run Analysis
+#### Training with Generalization Validation (Phase 6)
+
+**Recommended for research**: Train with proper validation splits to test generalization.
 
 ```bash
-# Decoding analysis
+# Train with novel-angle and novel-identity validation
+python -m src.train_with_generalization --config configs/mtmf.yaml
+
+# This automatically:
+# - Splits data: 3 angles for training, 1 angle for novel-angle validation
+# - Splits data: 3 identities for training, 2 identities for novel-identity validation
+# - Evaluates on BOTH validation sets every epoch
+# - Saves hidden states for comprehensive analysis
+# - Logs separate accuracies: val_novel_angle_acc & val_novel_identity_acc
+```
+
+**Expected output**: Novel-identity accuracy should be "substantially weaker" than novel-angle accuracy, confirming proper generalization testing.
+
+### 4. Run Comprehensive Analysis
+
+#### Verify Setup First
+
+```bash
+# Verify all analysis components are ready
+python scripts/verify_analysis_setup.py
+# Expected: 5/5 tests passed ✅
+```
+
+#### Complete Analysis Pipeline (All 5 Analyses)
+
+```bash
+# Run all analyses matching paper methodology
+python -m src.analysis.comprehensive_analysis \
+  --analysis all \
+  --hidden_root experiments/wm_mtmf/hidden_states \
+  --output_dir analysis_results
+
+# Generates:
+# - Analysis 1: Behavioral performance (Figure A1c)
+# - Analysis 2: Encoding properties (Figures 2a, 2b, 2c)
+# - Analysis 3: Orthogonalization (Figure 3b)
+# - Analysis 4: WM dynamics (Figures 4b, 4d, 4g)
+# - Analysis 5: Causal perturbation (Figure A7) - placeholder
+```
+
+#### Individual Analyses
+
+```bash
+# Analysis 1: Model behavioral performance
+python -m src.analysis.comprehensive_analysis --analysis 1 \
+  --hidden_root experiments/wm_mtmf/hidden_states
+
+# Analysis 2: Encoding of object properties
+python -m src.analysis.comprehensive_analysis --analysis 2 \
+  --hidden_root experiments/wm_mtmf/hidden_states
+
+# Analysis 4: WM dynamics
+python -m src.analysis.comprehensive_analysis --analysis 4 \
+  --hidden_root experiments/wm_mtmf/hidden_states \
+  --property identity
+
+# Traditional analyses (still available)
 python -m src.analysis.decoding \
-  --hidden_root runs/wm_mtmf/hidden_states \
+  --hidden_root experiments/wm_mtmf/hidden_states \
   --property identity
 
-# Procrustes analysis (temporal dynamics)
 python -m src.analysis.analyze_procrustes_batch \
-  --hidden_root runs/wm_mtmf/hidden_states \
+  --hidden_root experiments/wm_mtmf/hidden_states \
   --property identity --visualize
-
-# Compare baseline vs attention models
-python -m src.analysis.compare_models \
-  --baseline runs/wm_mtmf/hidden_states \
-  --attention runs/wm_attention_mtmf/hidden_states \
-  --property identity
 ```
 
 ## Architecture
@@ -468,6 +532,7 @@ python -m src.analysis.visualize_attention \
 - scikit-learn >= 1.3.0
 - scipy >= 1.10.0
 - matplotlib >= 3.7.0
+- seaborn >= 0.13.0 (for comprehensive analysis visualizations)
 
 **Configuration:**
 
@@ -829,8 +894,15 @@ attention_lstm = create_model('attention_lstm', hidden_size=512)
 
 ## Documentation
 
-Detailed documentation is available in the `docs/` directory:
+### Phase 6: Comprehensive Analysis Pipeline (NEW)
 
+**Quick Start:**
+- [COMPREHENSIVE_ANALYSIS_READY.md](COMPREHENSIVE_ANALYSIS_READY.md) - **Start here** - Quick start guide
+- [ANALYSIS_CHECKLIST.md](ANALYSIS_CHECKLIST.md) - Detailed task-by-task checklist for all 5 analyses
+- [PHASE6_IMPLEMENTATION.md](PHASE6_IMPLEMENTATION.md) - Technical implementation details
+- [ANALYSIS_IMPLEMENTATION_SUMMARY.md](ANALYSIS_IMPLEMENTATION_SUMMARY.md) - Implementation status summary
+
+**Previous Documentation:**
 - [ANALYSIS_METHODOLOGY.md](docs/ANALYSIS_METHODOLOGY.md) - Comprehensive analysis guide
 - [PROCRUSTES_GUIDE.md](docs/PROCRUSTES_GUIDE.md) - Procrustes analysis tutorial
 - [PHASE4_SUMMARY.md](docs/PHASE4_SUMMARY.md) - Temporal dynamics analysis
@@ -869,7 +941,22 @@ Detailed documentation is available in the `docs/` directory:
 
 - Ensure `save_hidden: true` in config file
 - Or use `--save_hidden` flag when running training script
-- Check available disk space in `runs/` directory
+- Check available disk space in `experiments/` or `runs/` directory
+- Note: `train_with_generalization.py` saves hidden states by default
+
+### Validation splits test failed
+
+- Ensure stimuli are generated: `python -m src.data.generate_stimuli`
+- You need at least 5 identities per category for proper splits
+- Run verification: `python -m src.data.test_validation_splits`
+- Check that you have 320 stimuli (5 IDs × 4 categories × 4 locations × 4 angles)
+
+### Analysis pipeline errors
+
+- Run setup verification: `python scripts/verify_analysis_setup.py`
+- Install missing dependencies: `pip install seaborn`
+- Ensure training log exists: `experiments/<name>/training_log.json`
+- Check hidden states directory structure is correct
 
 ### python-dotenv not installed
 

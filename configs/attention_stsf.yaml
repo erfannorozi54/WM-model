@@ -6,11 +6,11 @@ scenario: STSF_ATTENTION
 use_real_stimuli: true
 n_values: [2]
 task_features: ["location"]
-sequence_length: 6
-batch_size: 8
-num_train: 400
-num_val: 100
-num_test: 100
+sequence_length: 10
+batch_size: 16
+num_train: 600
+num_val: 60
+num_test: 60
 num_workers: 2
 
 # Model
@@ -28,8 +28,8 @@ attention_dropout: 0.1
 
 # Optim
 epochs: 10
-lr: 3e-4
-weight_decay: 1e-2
+lr: 0.003  # 3e-4
+weight_decay: 0.001  # 1e-2
 milestones: [6, 8]
 gamma: 0.1
 grad_clip: 1.0

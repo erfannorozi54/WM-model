@@ -83,12 +83,22 @@ class StimulusRenderer:
             self.camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)
             self.camera_pose = self._get_camera_pose()
             
-            # Lighting setup
-            self.light = pyrender.DirectionalLight(color=[1.0, 1.0, 1.0], intensity=2.0)
+            # Lighting setup - increased intensity for better color visibility
+            # Main directional light (bright, from front-above)
+            self.light = pyrender.DirectionalLight(color=[1.0, 1.0, 1.0], intensity=5.0)
             self.light_pose = np.array([
                 [1.0, 0.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0, 0.0], 
                 [0.0, 0.0, 1.0, 2.0],
+                [0.0, 0.0, 0.0, 1.0]
+            ])
+            
+            # Add ambient light to illuminate all sides
+            self.ambient_light = pyrender.DirectionalLight(color=[1.0, 1.0, 1.0], intensity=2.0)
+            self.ambient_light_pose = np.array([
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0], 
+                [0.0, 0.0, 1.0, -2.0],  # Light from behind
                 [0.0, 0.0, 0.0, 1.0]
             ])
             
@@ -169,7 +179,9 @@ class StimulusRenderer:
                      rotation_angles: Tuple[float, float, float] = (0, 0, 0),
                      scale: float = 1.2) -> np.ndarray:
         """
-        Render a single object at specified location.
+        Render object at center with rotation, then composite onto black background at location.
+        
+        This ensures the EXACT same object appearance at all locations - only the 2D position changes.
         
         Args:
             mesh: 3D mesh to render (trimesh or fallback dict)
@@ -186,44 +198,75 @@ class StimulusRenderer:
         if self.use_fallback or not PYRENDER_AVAILABLE:
             return self._render_fallback(mesh, location_idx, rotation_angles, scale)
         
-        # PyRender rendering
-        # Clear scene
+        # Step 1: Render object at CENTER with rotation (no 3D translation)
         self.scene.clear()
         
-        # Create pyrender mesh
-        material = pyrender.MetallicRoughnessMaterial(
-            baseColorFactor=[0.8, 0.8, 0.8, 1.0],
-            metallicFactor=0.0,
-            roughnessFactor=0.5
-        )
+        # Create pyrender mesh - use original mesh materials to preserve colors
+        # smooth=False preserves the original appearance
+        py_mesh = pyrender.Mesh.from_trimesh(mesh, smooth=False)
         
-        py_mesh = pyrender.Mesh.from_trimesh(mesh, material=material)
-        
-        # Apply transformations
-        transform = np.eye(4)
-        
-        # Scale
-        transform[:3, :3] *= scale
-        
-        # Rotation
+        # Apply only scale and rotation (NO translation - keep at origin)
         from scipy.spatial.transform import Rotation
+        
+        scale_matrix = np.eye(4)
+        scale_matrix[:3, :3] *= scale
+        
+        rotation_matrix = np.eye(4)
         rotation = Rotation.from_euler('xyz', rotation_angles)
-        transform[:3, :3] = transform[:3, :3] @ rotation.as_matrix()
+        rotation_matrix[:3, :3] = rotation.as_matrix()
         
-        # Translation to specified location
-        loc_x, loc_y = self.locations[location_idx]
-        transform[0, 3] = loc_x * 2.0  # Scale to world coordinates
-        transform[1, 3] = loc_y * 2.0
+        # Only scale and rotate (object stays at origin)
+        transform = rotation_matrix @ scale_matrix
         
-        # Add to scene
+        # Add to scene and render at center
         self.scene.add(py_mesh, pose=transform)
         self.scene.add(self.camera, pose=self.camera_pose)
         self.scene.add(self.light, pose=self.light_pose)
+        self.scene.add(self.ambient_light, pose=self.ambient_light_pose)
         
-        # Render
+        # Render the object at center
         color, depth = self.renderer.render(self.scene)
         
-        return color
+        # Step 2: Composite onto black background at specified 2D location
+        # Create full black background
+        final_image = np.zeros((self.image_size[1], self.image_size[0], 3), dtype=np.uint8)
+        
+        # Calculate 2D position on the image
+        loc_x, loc_y = self.locations[location_idx]
+        
+        # Convert normalized coordinates [-1, 1] to pixel coordinates
+        center_x = int((loc_x + 1.0) * self.image_size[0] / 2.0)
+        center_y = int((1.0 - loc_y) * self.image_size[1] / 2.0)  # Flip Y for image coordinates
+        
+        # Extract the rendered object (crop from center of rendered image)
+        # Use a larger window to avoid trimming large objects like tables
+        window_size = int(min(self.image_size) * 0.6)  # 60% of image size for object window
+        
+        # Source region (from rendered center image)
+        src_x1 = max(0, self.image_size[0] // 2 - window_size // 2)
+        src_x2 = min(self.image_size[0], self.image_size[0] // 2 + window_size // 2)
+        src_y1 = max(0, self.image_size[1] // 2 - window_size // 2)
+        src_y2 = min(self.image_size[1], self.image_size[1] // 2 + window_size // 2)
+        
+        # Destination region (on final image at specified location)
+        dst_x1 = max(0, center_x - window_size // 2)
+        dst_x2 = min(self.image_size[0], center_x + window_size // 2)
+        dst_y1 = max(0, center_y - window_size // 2)
+        dst_y2 = min(self.image_size[1], center_y + window_size // 2)
+        
+        # Copy the object region to the final image
+        src_w = src_x2 - src_x1
+        src_h = src_y2 - src_y1
+        dst_w = dst_x2 - dst_x1
+        dst_h = dst_y2 - dst_y1
+        
+        # Ensure dimensions match
+        w = min(src_w, dst_w)
+        h = min(src_h, dst_h)
+        
+        final_image[dst_y1:dst_y1+h, dst_x1:dst_x1+w] = color[src_y1:src_y1+h, src_x1:src_x1+w]
+        
+        return final_image
     
     def _render_fallback(self, mesh, location_idx: int, 
                         rotation_angles: Tuple[float, float, float],

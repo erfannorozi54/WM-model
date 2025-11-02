@@ -1,0 +1,32 @@
+batch_size: 8
+dropout: 0.0
+epochs: 15
+experiment_name: wm_mtmf
+freeze_backbone: true
+gamma: 0.1
+grad_clip: 1.0
+hidden_size: 512
+lr: 0.0003
+milestones:
+- 10
+- 13
+n_values:
+- 1
+- 2
+- 3
+num_layers: 1
+num_test: 200
+num_train: 900
+num_val: 200
+num_workers: 2
+pretrained_backbone: true
+rnn_type: gru
+save_hidden: true
+scenario: MTMF
+sequence_length: 6
+task_features:
+- location
+- identity
+- category
+use_real_stimuli: true
+weight_decay: 0.01

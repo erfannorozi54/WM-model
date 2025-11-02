@@ -32,10 +32,10 @@ DEFAULT_CATEGORIES = {
 }
 
 DEFAULT_VIEWING_ANGLES = [
-    (0, 0, 0),              # angle0: front view
-    (0, 0.3927, 0),         # angle1: slight Y rotation (π/8)
-    (0, -0.3927, 0),        # angle2: slight Y rotation opposite
-    (0.2618, 0, 0),         # angle3: slight X rotation (π/12)
+    (0, 0, 0),              # angle0: front view (0°)
+    (0, 0.785, 0),          # angle1: Y rotation (45° = π/4) - rotated right
+    (0, -0.785, 0),         # angle2: Y rotation (-45° = -π/4) - rotated left
+    (0.524, 0, 0),          # angle3: X rotation (30° = π/6) - tilted down
 ]
 
 
@@ -81,37 +81,38 @@ def scan_generated_stimuli(stimuli_dir: str = "data/stimuli") -> Dict[str, Dict[
 def create_sample_stimulus_data() -> Dict[str, Dict[str, List[str]]]:
     """
     Create sample/placeholder stimulus data structure for testing.
+    Matches the actual generated stimulus naming convention.
     
     Returns:
         Sample stimulus data mapping {category: {identity: [file_paths]}}
     """
     return {
         "airplane": {
-            "airplane_001": [
-                "data/stimuli/airplane_001_loc0_angle0.png",
-                "data/stimuli/airplane_001_loc1_angle0.png",
-                "data/stimuli/airplane_001_loc2_angle0.png",
-                "data/stimuli/airplane_001_loc3_angle0.png"
+            "airplane_000": [
+                "data/stimuli/stimulus_airplane_000_loc0_angle0.png",
+                "data/stimuli/stimulus_airplane_000_loc1_angle0.png",
+                "data/stimuli/stimulus_airplane_000_loc2_angle0.png",
+                "data/stimuli/stimulus_airplane_000_loc3_angle0.png"
             ],
-            "airplane_002": [
-                "data/stimuli/airplane_002_loc0_angle0.png",
-                "data/stimuli/airplane_002_loc1_angle0.png",
-                "data/stimuli/airplane_002_loc2_angle0.png",
-                "data/stimuli/airplane_002_loc3_angle0.png"
+            "airplane_001": [
+                "data/stimuli/stimulus_airplane_001_loc0_angle0.png",
+                "data/stimuli/stimulus_airplane_001_loc1_angle0.png",
+                "data/stimuli/stimulus_airplane_001_loc2_angle0.png",
+                "data/stimuli/stimulus_airplane_001_loc3_angle0.png"
             ]
         },
         "car": {
-            "car_001": [
-                "data/stimuli/car_001_loc0_angle0.png",
-                "data/stimuli/car_001_loc1_angle0.png",
-                "data/stimuli/car_001_loc2_angle0.png", 
-                "data/stimuli/car_001_loc3_angle0.png"
+            "car_000": [
+                "data/stimuli/stimulus_car_000_loc0_angle0.png",
+                "data/stimuli/stimulus_car_000_loc1_angle0.png",
+                "data/stimuli/stimulus_car_000_loc2_angle0.png", 
+                "data/stimuli/stimulus_car_000_loc3_angle0.png"
             ],
-            "car_002": [
-                "data/stimuli/car_002_loc0_angle0.png",
-                "data/stimuli/car_002_loc1_angle0.png",
-                "data/stimuli/car_002_loc2_angle0.png",
-                "data/stimuli/car_002_loc3_angle0.png"
+            "car_001": [
+                "data/stimuli/stimulus_car_001_loc0_angle0.png",
+                "data/stimuli/stimulus_car_001_loc1_angle0.png",
+                "data/stimuli/stimulus_car_001_loc2_angle0.png",
+                "data/stimuli/stimulus_car_001_loc3_angle0.png"
             ]
         }
     }

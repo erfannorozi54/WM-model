@@ -245,27 +245,56 @@ def swap_hypothesis_test(
     """
     Test chronological memory subspace hypothesis using rotation matrix swaps.
     
-    This implements the analysis from Figure 4g in the paper:
-    - Compute "correct" rotation for stimulus S=i from T=j to T=j+1
-    - Compute two "incorrect" rotations for comparison:
-      1. Same stimulus, later time: R(S=i, T=j+1)
-      2. Different stimulus, same age: R(S=i+k, T=j+k)
-    - Measure reconstruction accuracy with each rotation
+    IMPORTANT: This is a SIMPLIFIED VERSION that approximates the paper's analysis.
     
-    Key finding: Swapping with same-age rotation (case 2) preserves accuracy,
-    while swapping with same-stimulus/different-time (case 1) does not.
+    Paper's Full Test (Figure 4g, Equations 2-3):
+    -----------------------------------------------
+    - Eq. 2 (Time Swap): R(S=i, T=j+1→j+2) applied to W(S=i, T=j)
+      Tests if same stimulus at different time generalizes
+    - Eq. 3 (Stimulus Swap): R(S=i+k, T=j+k→j+k+1) applied to W(S=i, T=j)
+      Tests if different stimulus at same relative age generalizes
+    
+    KEY FINDING: Eq. 3 > Eq. 2 (chronological organization dominates)
+    
+    Simplified Implementation:
+    --------------------------
+    Since we don't track individual stimulus IDs through sequences, we approximate:
+    - "Correct" rotation: R(T=j → T=j+1) on pooled data
+    - "Swap 1" (wrong time): R(T=j+k → T=j+k+1) applied to T=j weights
+    - "Swap 2" (same age): Same as Swap 1 in this formulation
+    
+    LIMITATION: Without per-stimulus tracking, Swap 1 and Swap 2 are identical.
+    This simplified version tests temporal stability but not the full stimulus-swap
+    hypothesis from the paper. Results should be interpreted as evidence for/against
+    temporal generalization, not the complete chronological organization test.
+    
+    For the full test, modify data saving to track stimulus IDs per timestep.
     
     Args:
         hidden_root: Path to saved hidden states
-        property_name: Property to decode
-        encoding_time: Initial encoding time (j)
-        k_offset: Temporal offset for swap comparison (k)
-        task: Task context filter
-        n_value: N-back value filter
-        epochs: Specific epochs to analyze
+        property_name: Property to decode (location, identity, category)
+        encoding_time: Initial encoding time j (typically 0-2)
+        k_offset: Temporal offset for swap comparison (default=1)
+        task: Task context filter (location/identity/category or None for all)
+        n_value: N-back value filter (1/2/3 or None for all)
+        epochs: Specific epochs to analyze (None for all)
     
     Returns:
-        Dictionary with three reconstruction accuracies (correct, swap1, swap2)
+        Dictionary with reconstruction accuracies and disparities:
+        - correct_accuracy: Using R(T=j → T=j+1)
+        - swap1_accuracy: Using R(T=j+k → T=j+k+1) 
+        - swap2_accuracy: Currently same as swap1 (simplified)
+        - baseline_accuracy: Direct decoding at T=j+1
+        
+    Example:
+        >>> result = swap_hypothesis_test(
+        ...     hidden_root=Path("experiments/wm_mtmf/hidden_states"),
+        ...     property_name="identity",
+        ...     encoding_time=0,
+        ...     k_offset=1
+        ... )
+        >>> print(f"Correct: {result['correct_accuracy']:.3f}")
+        >>> print(f"Swap 1: {result['swap1_accuracy']:.3f}")
     """
     payloads = load_payloads(Path(hidden_root), epochs=epochs)
     ti = _task_name_to_index(task)
