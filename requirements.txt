@@ -8,10 +8,15 @@ scipy>=1.10.0  # Required for Procrustes analysis (orthogonal_procrustes)
 # 3D rendering and visualization
 # pytorch3d>=0.7.5  # Optional - install separately if needed
 trimesh>=3.21.0
-# pyrender>=0.1.45  # Optional - requires OpenGL, can cause issues in headless environments
+pyrender>=0.1.45  # For 3D rendering with OpenGL
+pyglet>=2.0.0  # Required by pyrender for window management
+PyOpenGL>=3.1.0  # Required by pyrender for OpenGL bindings
+freetype-py>=2.5.0  # Required by pyrender for text rendering
 matplotlib>=3.7.0
 Pillow>=9.5.0
 open3d>=0.17.0  # Alternative to pytorch3d for 3D processing
+imageio>=2.0.0  # Required by pyrender for image I/O
+networkx>=3.0  # Required by pyrender for mesh processing
 
 # Configuration
 PyYAML>=6.0
@@ -21,6 +26,10 @@ pandas>=2.0.0
 tqdm>=4.65.0
 requests>=2.31.0
 wget>=3.2
+
+# Visualization and analysis
+seaborn>=0.13.0  # For statistical visualization
+plotly>=5.0.0  # For interactive plots
 
 # Optional: for development
 jupyter>=1.0.0
