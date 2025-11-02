@@ -36,6 +36,7 @@ Note:
 import sys
 import argparse
 import os
+import shutil
 from pathlib import Path
 
 # Load environment variables from .env file
@@ -241,9 +242,17 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
                 )
                 
                 if success:
-                    print(f"✅ {cat_name} organized\n")
+                    print(f"✅ {cat_name} organized")
                 else:
-                    print(f"⚠️  {cat_name} organization had issues\n")
+                    print(f"⚠️  {cat_name} organization had issues")
+                
+                # Clean up extracted files (keep the zip)
+                try:
+                    if extracted.exists() and extracted.is_dir():
+                        shutil.rmtree(extracted)
+                        print(f"🧹 Cleaned up extracted files for {cat_name}\n")
+                except Exception as e:
+                    print(f"⚠️  Could not clean up {extracted}: {e}\n")
             
             print("\n🎉 Download and organization complete!")
             print(f"📁 Location: {args.data_dir}\n")
@@ -272,6 +281,14 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
                 extracted,
                 args.objects_per_category
             )
+            
+            # Clean up extracted files (keep the zip)
+            try:
+                if extracted.exists() and extracted.is_dir():
+                    shutil.rmtree(extracted)
+                    print(f"🧹 Cleaned up extracted files")
+            except Exception as e:
+                print(f"⚠️  Could not clean up {extracted}: {e}")
             
             if success:
                 print("\n🎉 ShapeNet ready!")
