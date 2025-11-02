@@ -12,6 +12,13 @@ from typing import Tuple, List, Optional, Dict, Union
 import json
 import os
 
+# Configure for headless rendering BEFORE importing pyrender
+# This tells pyglet to use EGL (headless OpenGL) or OSMesa if no display is available
+if 'DISPLAY' not in os.environ or not os.environ['DISPLAY']:
+    # Try EGL first (faster, hardware accelerated)
+    os.environ['PYOPENGL_PLATFORM'] = 'egl'
+    print("Headless environment detected. Using EGL for OpenGL rendering.")
+
 # Optional imports for 3D rendering
 try:
     import trimesh
@@ -102,9 +109,15 @@ class StimulusRenderer:
                 [0.0, 0.0, 0.0, 1.0]
             ])
             
-            # Renderer
-            self.renderer = pyrender.OffscreenRenderer(*image_size)
-            self.use_fallback = False
+            # Renderer - with error handling for headless environments
+            try:
+                self.renderer = pyrender.OffscreenRenderer(*image_size)
+                self.use_fallback = False
+            except Exception as e:
+                print(f"Warning: Failed to initialize pyrender OffscreenRenderer: {e}")
+                print("Falling back to matplotlib-based rendering.")
+                print("Tip: On headless servers, ensure EGL or OSMesa is installed.")
+                self.use_fallback = True
         else:
             # Fallback to matplotlib-based rendering
             self.use_fallback = True

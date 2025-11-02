@@ -18,6 +18,10 @@ open3d>=0.17.0  # Alternative to pytorch3d for 3D processing
 imageio>=2.0.0  # Required by pyrender for image I/O
 networkx>=3.0  # Required by pyrender for mesh processing
 
+# NOTE: For headless servers (no display), install system packages:
+# Ubuntu/Debian: sudo apt-get install libegl1-mesa libegl1-mesa-dev
+# The code will automatically use EGL for headless rendering
+
 # Configuration
 PyYAML>=6.0
 
