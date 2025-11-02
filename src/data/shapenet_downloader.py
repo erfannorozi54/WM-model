@@ -143,7 +143,7 @@ class ShapeNetDownloader:
         
         # Use default categories or provided ones
         self.categories = categories if categories is not None else DEFAULT_CATEGORIES.copy()
-        self.objects_per_category = 2  # As specified in paper
+        self.objects_per_category = 5  # Required: 3 for training + 2 for validation splits
         
     def generate_placeholder(self, category_id: str, category_name: str) -> bool:
         """
@@ -275,6 +275,103 @@ class ShapeNetDownloader:
         result = extracted[0] if extracted else extract_root
         print(f"✅ Extracted to: {result}")
         return result
+    
+    def extract_and_organize_category(
+        self,
+        archive_path: Path,
+        category_id: str,
+        category_name: str,
+        objects_per_category: int = 5,
+    ) -> bool:
+        """
+        Selectively extract and organize a single category from archive.
+        Extracts only required files directly to shapenet directory.
+        
+        Args:
+            archive_path: Path to zip file
+            category_id: ShapeNet category ID (e.g., '02691156')
+            category_name: Human-readable category name
+            objects_per_category: Number of objects to extract
+            
+        Returns:
+            Success status
+        """
+        if not archive_path.exists():
+            raise FileNotFoundError(f"Archive not found: {archive_path}")
+        
+        print(f"📦 Extracting {category_name} (optimized)...")
+        
+        # Create output directory
+        category_output = self.data_dir / category_name
+        category_output.mkdir(exist_ok=True, parents=True)
+        
+        extracted_count = 0
+        
+        with zipfile.ZipFile(archive_path, "r") as zf:
+            # Get all file entries in the archive
+            all_files = zf.namelist()
+            
+            # Find object directories for this category
+            # Pattern can be either:
+            # - CATEGORY_ID/OBJECT_ID/... (direct)
+            # - ShapeNetCore.v2/CATEGORY_ID/OBJECT_ID/... (nested)
+            object_dirs = set()
+            
+            # Try both patterns
+            possible_prefixes = [
+                f"{category_id}/",  # Direct pattern
+                f"ShapeNetCore.v2/{category_id}/",  # Nested pattern
+            ]
+            
+            for category_prefix in possible_prefixes:
+                for file_path in all_files:
+                    if file_path.startswith(category_prefix):
+                        # Extract object ID (first directory after category)
+                        parts = file_path[len(category_prefix):].split('/')
+                        if len(parts) >= 2:  # Has object_id and file
+                            object_id = parts[0]
+                            if not object_id.startswith('.'):
+                                object_dirs.add((object_id, category_prefix))
+            
+            # Sort and select first N objects
+            selected_objects = sorted(list(object_dirs))[:objects_per_category]
+            
+            if not selected_objects:
+                print(f"⚠️  No objects found for {category_name}")
+                return False
+            
+            # Extract only .obj and .mtl files from selected objects
+            for i, (obj_id, obj_category_prefix) in enumerate(selected_objects):
+                obj_name = f"{category_id}_{i:03d}"
+                output_obj_dir = category_output / obj_name
+                output_obj_dir.mkdir(exist_ok=True)
+                
+                obj_prefix = f"{obj_category_prefix}{obj_id}/"
+                obj_extracted = False
+                
+                for file_path in all_files:
+                    if file_path.startswith(obj_prefix):
+                        # Only extract .obj and .mtl files
+                        if file_path.endswith('.obj') or file_path.endswith('.mtl'):
+                            # Extract file
+                            file_data = zf.read(file_path)
+                            file_name = Path(file_path).name
+                            
+                            # Rename first .obj to model.obj
+                            if file_path.endswith('.obj') and not obj_extracted:
+                                file_name = 'model.obj'
+                                obj_extracted = True
+                            
+                            output_file = output_obj_dir / file_name
+                            with open(output_file, 'wb') as f:
+                                f.write(file_data)
+                
+                if obj_extracted:
+                    extracted_count += 1
+                    print(f"  ✅ {obj_name}")
+        
+        print(f"✅ Extracted {extracted_count}/{objects_per_category} objects for {category_name}")
+        return extracted_count > 0
     
     def organize_real_shapenet(
         self,

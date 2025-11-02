@@ -36,7 +36,6 @@ Note:
 import sys
 import argparse
 import os
-import shutil
 from pathlib import Path
 
 # Load environment variables from .env file
@@ -105,8 +104,8 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
     # Configuration
     parser.add_argument("--data-dir", default="data/shapenet",
                        help="Output directory (default: data/shapenet)")
-    parser.add_argument("--objects-per-category", type=int, default=2,
-                       help="Objects per category (default: 2)")
+    parser.add_argument("--objects-per-category", type=int, default=5,
+                       help="Objects per category (default: 5, required for validation splits)")
 
     # Hugging Face options
     parser.add_argument("--hf-repo", default="ShapeNet/ShapeNetCore",
@@ -226,33 +225,29 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
                 print("\n❌ No files were downloaded successfully")
                 return 1
             
-            # Extract and organize each category
+            # Extract and organize each category (optimized - extract only needed files)
             print("\n" + "=" * 70)
-            print("EXTRACTING AND ORGANIZING")
+            print("EXTRACTING AND ORGANIZING (OPTIMIZED)")
             print("=" * 70 + "\n")
             
+            success_count = 0
             for archive, cat_id, cat_name in downloaded_files:
-                print(f"📦 Processing {cat_name}...")
-                extracted = downloader.extract_archive(archive)
-                
-                # Organize this category
-                success = downloader.organize_real_shapenet(
-                    extracted,
-                    args.objects_per_category
-                )
-                
-                if success:
-                    print(f"✅ {cat_name} organized")
-                else:
-                    print(f"⚠️  {cat_name} organization had issues")
-                
-                # Clean up extracted files (keep the zip)
                 try:
-                    if extracted.exists() and extracted.is_dir():
-                        shutil.rmtree(extracted)
-                        print(f"🧹 Cleaned up extracted files for {cat_name}\n")
+                    # Selective extraction - only extracts required files directly
+                    success = downloader.extract_and_organize_category(
+                        archive,
+                        cat_id,
+                        cat_name,
+                        args.objects_per_category
+                    )
+                    
+                    if success:
+                        success_count += 1
+                        print(f"✅ {cat_name} ready\n")
+                    else:
+                        print(f"⚠️  {cat_name} had issues\n")
                 except Exception as e:
-                    print(f"⚠️  Could not clean up {extracted}: {e}\n")
+                    print(f"❌ Failed to process {cat_name}: {e}\n")
             
             print("\n🎉 Download and organization complete!")
             print(f"📁 Location: {args.data_dir}\n")
@@ -273,22 +268,17 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
                 token=hf_token,
             )
             
-            # Extract
-            extracted = downloader.extract_archive(archive)
+            # Extract category ID from filename (e.g., "02691156.zip")
+            cat_id = args.download_hf.replace('.zip', '')
+            cat_name = downloader.categories.get(cat_id, cat_id)
             
-            # Organize
-            success = downloader.organize_real_shapenet(
-                extracted,
+            # Selective extraction - only extracts required files directly
+            success = downloader.extract_and_organize_category(
+                archive,
+                cat_id,
+                cat_name,
                 args.objects_per_category
             )
-            
-            # Clean up extracted files (keep the zip)
-            try:
-                if extracted.exists() and extracted.is_dir():
-                    shutil.rmtree(extracted)
-                    print(f"🧹 Cleaned up extracted files")
-            except Exception as e:
-                print(f"⚠️  Could not clean up {extracted}: {e}")
             
             if success:
                 print("\n🎉 ShapeNet ready!")
@@ -296,7 +286,7 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
                 print("Next step: python -m src.data.generate_stimuli")
                 return 0
             else:
-                print("\n❌ Organization failed")
+                print("\n❌ Extraction failed")
                 return 1
                 
         except Exception as e:
