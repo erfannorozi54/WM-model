@@ -8,7 +8,7 @@ n_values: [2]
 task_features: ["category"]
 sequence_length: 6  # Paper uses 6 (not 10)
 batch_size: 16
-num_train: 2000  # More sequences for better learning
+num_train: 20000  # More sequences for better learning
 num_val: 200
 num_test: 100
 num_workers: 2
@@ -31,6 +31,7 @@ milestones: [10, 13]  # Adjust for longer training
 gamma: 0.1
 grad_clip: 1.0
 label_smoothing: 0.1
+no_action_loss_weight: 0.01  # Weight for t<n (no_action) loss component
 
 # Validation
 save_hidden: true
