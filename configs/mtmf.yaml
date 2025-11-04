@@ -20,6 +20,7 @@ num_layers: 1
 dropout: 0.0
 pretrained_backbone: true
 freeze_backbone: true
+classifier_layers: []
 
 # Optim
 epochs: 15

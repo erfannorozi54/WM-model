@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from .perceptual import PerceptualModule
 from .cognitive import CognitiveModule
@@ -24,12 +24,22 @@ class WorkingMemoryModel(nn.Module):
         final_state: RNN final state (module-dependent)
     """
 
-    def __init__(self, perceptual: PerceptualModule, cognitive: CognitiveModule, hidden_size: int):
+    def __init__(self, perceptual: PerceptualModule, cognitive: CognitiveModule, hidden_size: int, classifier_layers: Optional[List[int]] = None):
         super().__init__()
         self.perceptual = perceptual
         self.cognitive = cognitive
         self.hidden_size = hidden_size
-        self.classifier = nn.Linear(hidden_size, 3)
+        if classifier_layers:
+            layers = []
+            in_dim = hidden_size
+            for dim in classifier_layers:
+                layers.append(nn.Linear(in_dim, dim))
+                layers.append(nn.ReLU(inplace=True))
+                in_dim = dim
+            layers.append(nn.Linear(in_dim, 3))
+            self.classifier = nn.Sequential(*layers)
+        else:
+            self.classifier = nn.Linear(hidden_size, 3)
 
     def forward(self, images: torch.Tensor, task_vector: torch.Tensor, return_cnn_activations: bool = False):
         B, T = images.shape[0], images.shape[1]

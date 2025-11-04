@@ -130,6 +130,7 @@ def get_default_config() -> Dict[str, Any]:
         "pretrained_backbone": True,
         "freeze_backbone": True,
         "capture_exact_layer42_relu": True,
+        "classifier_layers": [],
         # Optim
         "epochs": 10,
         "lr": 3e-4,
@@ -214,6 +215,7 @@ def main():
         capture_exact_layer42_relu=cfg.get("capture_exact_layer42_relu", True),
         attention_hidden_dim=cfg.get("attention_hidden_dim"),
         attention_dropout=cfg.get("attention_dropout", 0.1),
+        classifier_layers=cfg.get("classifier_layers"),
     )
     model.to(device)
     

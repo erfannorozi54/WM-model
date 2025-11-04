@@ -307,7 +307,8 @@ def main():
         num_layers=cfg["num_layers"],
         dropout=cfg.get("dropout", 0.0),
         pretrained_backbone=cfg.get("pretrained_backbone", True),
-        freeze_backbone=cfg.get("freeze_backbone", True)
+        freeze_backbone=cfg.get("freeze_backbone", True),
+        classifier_layers=cfg.get("classifier_layers"),
     )
     model = model.to(device)
     

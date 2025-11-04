@@ -21,6 +21,7 @@ dropout: 0.0
 pretrained_backbone: true
 freeze_backbone: true
 capture_exact_layer42_relu: true
+classifier_layers: []
 
 # Attention-specific parameters
 attention_hidden_dim: 512

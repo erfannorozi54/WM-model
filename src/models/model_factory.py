@@ -17,7 +17,7 @@ Usage:
     )
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import torch.nn as nn
 
 from .perceptual import PerceptualModule
@@ -79,6 +79,7 @@ def create_model(
     capture_exact_layer42_relu: bool = True,
     attention_hidden_dim: Optional[int] = None,
     attention_dropout: float = 0.1,
+    classifier_layers: Optional[List[int]] = None,
 ) -> nn.Module:
     """
     Factory function to create working memory models.
@@ -145,6 +146,7 @@ def create_model(
             hidden_size=hidden_size,
             attention_hidden_dim=attention_hidden_dim,
             attention_dropout=attention_dropout,
+            classifier_layers=classifier_layers,
         )
     else:
         # Baseline model
@@ -152,6 +154,7 @@ def create_model(
             perceptual=perceptual,
             cognitive=cognitive,
             hidden_size=hidden_size,
+            classifier_layers=classifier_layers,
         )
     
     return model

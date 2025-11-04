@@ -19,7 +19,7 @@ Output: Task-focused context vector (B, C) that emphasizes task-relevant spatial
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from .perceptual import PerceptualModule
 from .cognitive import CognitiveModule
@@ -173,6 +173,7 @@ class AttentionWorkingMemoryModel(nn.Module):
         hidden_size: int,
         attention_hidden_dim: Optional[int] = None,
         attention_dropout: float = 0.1,
+        classifier_layers: Optional[List[int]] = None,
     ):
         super().__init__()
         
@@ -190,7 +191,17 @@ class AttentionWorkingMemoryModel(nn.Module):
         self.cognitive = cognitive
         
         # Classifier: hidden state -> 3 response classes
-        self.classifier = nn.Linear(hidden_size, 3)
+        if classifier_layers:
+            layers = []
+            in_dim = hidden_size
+            for dim in classifier_layers:
+                layers.append(nn.Linear(in_dim, dim))
+                layers.append(nn.ReLU(inplace=True))
+                in_dim = dim
+            layers.append(nn.Linear(in_dim, 3))
+            self.classifier = nn.Sequential(*layers)
+        else:
+            self.classifier = nn.Linear(hidden_size, 3)
         
         # Storage for attention weights (for visualization)
         self._last_attention_weights = None
