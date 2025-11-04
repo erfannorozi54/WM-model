@@ -226,7 +226,8 @@ class NBackDataModule:
                  num_val_novel_identity: Optional[int] = None,
                  num_test: int = 200,
                  num_workers: int = 4,
-                 image_transform: Optional[Callable] = None):
+                 image_transform: Optional[Callable] = None,
+                 match_probability: float = 0.3):
         """
         Initialize the data module.
         
@@ -266,7 +267,8 @@ class NBackDataModule:
         # Create generators for each data split
         self.train_generator = NBackGenerator(
             stimulus_data=stimulus_data,
-            sequence_length=sequence_length
+            sequence_length=sequence_length,
+            match_probability=match_probability,
         )
         
         # Create training dataset
@@ -284,7 +286,8 @@ class NBackDataModule:
         if val_novel_angle_data:
             self.val_novel_angle_generator = NBackGenerator(
                 stimulus_data=val_novel_angle_data,
-                sequence_length=sequence_length
+                sequence_length=sequence_length,
+                match_probability=match_probability,
             )
             self.val_novel_angle_dataset = NBackDataset(
                 generator=self.val_novel_angle_generator,
@@ -302,7 +305,8 @@ class NBackDataModule:
         if val_novel_identity_data:
             self.val_novel_identity_generator = NBackGenerator(
                 stimulus_data=val_novel_identity_data,
-                sequence_length=sequence_length
+                sequence_length=sequence_length,
+                match_probability=match_probability,
             )
             self.val_novel_identity_dataset = NBackDataset(
                 generator=self.val_novel_identity_generator,

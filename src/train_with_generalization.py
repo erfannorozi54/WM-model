@@ -76,6 +76,21 @@ def per_class_metrics(logits: torch.Tensor, targets_idx: torch.Tensor) -> Dict[s
     return metrics
 
 
+def build_mask(n_vals: torch.Tensor, T: int, device: torch.device) -> torch.Tensor:
+    t_idx = torch.arange(T, device=device).unsqueeze(0).expand(n_vals.shape[0], T)
+    return t_idx >= n_vals.unsqueeze(1)
+
+
+def confusion_matrix_from_logits(logits: torch.Tensor, targets_idx: torch.Tensor, num_classes: int = 3) -> torch.Tensor:
+    preds = logits.argmax(dim=-1).flatten()
+    t = targets_idx.flatten()
+    cm = torch.zeros(num_classes, num_classes, dtype=torch.long)
+    for i in range(num_classes):
+        for j in range(num_classes):
+            cm[i, j] = (((t == i) & (preds == j)).long()).sum().item()
+    return cm
+
+
 def save_states_and_activations(
     hidden_seq: torch.Tensor,
     cnn_activations: torch.Tensor,
@@ -148,6 +163,8 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
     total_loss = 0.0
     total_acc = 0.0
     num_batches = 0
+    masked_correct_sum = 0.0
+    masked_total_sum = 0.0
     
     with torch.no_grad():
         val_pbar = tqdm(dataloader, desc=f"Validating {split_name}", leave=False, position=2)
@@ -167,6 +184,12 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
             
             loss = criterion(logits.reshape(-1, 3), targets_idx.reshape(-1))
             acc = accuracy_from_logits(logits, targets_idx)
+            B, T = targets_idx.shape
+            n_vals = batch["n"].to(device).view(-1)
+            mask = build_mask(n_vals, T, device)
+            preds = logits.argmax(dim=-1)
+            masked_correct_sum += ((preds == targets_idx) & mask).float().sum().item()
+            masked_total_sum += mask.sum().item()
             
             total_loss += loss.item()
             total_acc += acc
@@ -193,7 +216,8 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
     
     return {
         'loss': total_loss / max(num_batches, 1),
-        'accuracy': total_acc / max(num_batches, 1)
+        'accuracy': total_acc / max(num_batches, 1),
+        'accuracy_masked': (masked_correct_sum / max(masked_total_sum, 1)) if masked_total_sum > 0 else 0.0,
     }
 
 
@@ -285,6 +309,7 @@ def main():
         num_val_novel_angle=cfg.get("num_val_novel_angle", cfg["num_val"]),
         num_val_novel_identity=cfg.get("num_val_novel_identity", cfg["num_val"]),
         num_workers=cfg["num_workers"],
+        match_probability=cfg.get("match_probability", 0.3),
     )
     
     train_loader = data_module.train_dataloader()
@@ -355,20 +380,27 @@ def main():
     )
     
     # Calculate balanced class weights from training data
-    print("\nCalculating class weights from training data...")
-    class_counts = torch.zeros(3)
+    print("\nCalculating class weights from training data (t>=n)...")
+    class_counts = torch.zeros(3, device=device)
     for batch in train_loader:
-        targets = batch["responses"].argmax(dim=-1)
-        for i in range(3):
-            class_counts[i] += (targets == i).sum().item()
-    
-    # Inverse frequency weighting: weight = total / (n_classes * class_count)
+        targets = batch["responses"].argmax(dim=-1).to(device)
+        n_vals = batch["n"].to(device).view(-1)
+        B, T = targets.shape
+        mask = build_mask(n_vals, T, device)
+        masked_targets = targets[mask]
+        binc = torch.bincount(masked_targets, minlength=3).float()
+        class_counts += binc
     total_samples = class_counts.sum()
-    class_weights = total_samples / (3 * class_counts)
-    class_weights = class_weights.to(device)
-    
-    print(f"Class distribution: No_Action={class_counts[0]:.0f}, Non_Match={class_counts[1]:.0f}, Match={class_counts[2]:.0f}")
-    print(f"Calculated class weights: {[f'{w:.3f}' for w in class_weights.cpu().tolist()]}")
+    present = class_counts > 0
+    K = int(present.sum().item()) if present.any() else 1
+    class_weights = torch.zeros(3, device=device)
+    for c in range(3):
+        if class_counts[c] > 0:
+            class_weights[c] = total_samples / (K * class_counts[c])
+        else:
+            class_weights[c] = 0.0
+    print(f"Class distribution (t>=n): No_Action={class_counts[0].item():.0f}, Non_Match={class_counts[1].item():.0f}, Match={class_counts[2].item():.0f}")
+    print(f"Calculated class weights (t>=n): {[f'{w:.3f}' for w in class_weights.cpu().tolist()]}")
     
     # Create loss with class weights and optional label smoothing
     label_smoothing = cfg.get("label_smoothing", 0.0)
@@ -381,6 +413,7 @@ def main():
     best_val_novel_angle_acc = 0.0
     results_log = []
     
+    mask_trivial_steps = cfg.get("mask_trivial_steps", True)
     for epoch in tqdm(range(cfg["epochs"]), desc="Training Epochs", position=0):
         # Training
         model.train()
@@ -389,8 +422,8 @@ def main():
         num_train_batches = 0
         
         # Collect all predictions and targets for per-class metrics
-        all_train_logits = []
-        all_train_targets = []
+        all_train_logits_m = []
+        all_train_targets_m = []
         
         # Progress bar for batches
         train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{cfg['epochs']}", position=1, leave=False)
@@ -402,7 +435,15 @@ def main():
             
             optimizer.zero_grad()
             logits, _, _ = model(images, task_vec)
-            loss = criterion(logits.reshape(-1, 3), targets_idx.reshape(-1))
+            if mask_trivial_steps:
+                B, T = targets_idx.shape
+                n_vals = batch["n"].to(device).view(-1)
+                mask = build_mask(n_vals, T, device)
+                logits_flat = logits.reshape(-1, 3)
+                targets_flat = targets_idx.reshape(-1)
+                loss = criterion(logits_flat[mask.reshape(-1)], targets_flat[mask.reshape(-1)])
+            else:
+                loss = criterion(logits.reshape(-1, 3), targets_idx.reshape(-1))
             loss.backward()
             
             if cfg.get("grad_clip"):
@@ -416,8 +457,12 @@ def main():
             num_train_batches += 1
             
             # Store for per-class metrics
-            all_train_logits.append(logits.detach().cpu())
-            all_train_targets.append(targets_idx.cpu())
+            if mask_trivial_steps:
+                all_train_logits_m.append(logits_flat[mask.reshape(-1)].detach().cpu())
+                all_train_targets_m.append(targets_flat[mask.reshape(-1)].cpu())
+            else:
+                all_train_logits_m.append(logits.detach().cpu().reshape(-1, 3))
+                all_train_targets_m.append(targets_idx.cpu().reshape(-1))
             
             # Update progress bar with current metrics
             train_pbar.set_postfix({
@@ -429,9 +474,10 @@ def main():
         train_acc /= max(num_train_batches, 1)
         
         # Calculate per-class metrics for training
-        train_logits_all = torch.cat(all_train_logits, dim=0)
-        train_targets_all = torch.cat(all_train_targets, dim=0)
-        train_class_metrics = per_class_metrics(train_logits_all, train_targets_all)
+        train_logits_all_m = torch.cat(all_train_logits_m, dim=0)
+        train_targets_all_m = torch.cat(all_train_targets_m, dim=0)
+        train_class_metrics = per_class_metrics(train_logits_all_m, train_targets_all_m)
+        cm_train = confusion_matrix_from_logits(train_logits_all_m, train_targets_all_m)
         
         # Validation on Novel Angles (with CNN activation saving)
         val_novel_angle_results = evaluate_model(
@@ -463,16 +509,16 @@ def main():
         # Print epoch summary
         tqdm.write(f"\nEpoch {epoch+1}/{cfg['epochs']} Summary:")
         tqdm.write(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
-        tqdm.write(f"  Val (Novel Angle) Loss: {val_novel_angle_results['loss']:.4f}, "
-              f"Acc: {val_novel_angle_results['accuracy']:.4f}")
-        tqdm.write(f"  Val (Novel Identity) Loss: {val_novel_identity_results['loss']:.4f}, "
-              f"Acc: {val_novel_identity_results['accuracy']:.4f}")
+        tqdm.write(f"  Val (Novel Angle) Loss: {val_novel_angle_results['loss']:.4f}, Acc: {val_novel_angle_results['accuracy']:.4f}, Acc_masked: {val_novel_angle_results['accuracy_masked']:.4f}")
+        tqdm.write(f"  Val (Novel Identity) Loss: {val_novel_identity_results['loss']:.4f}, Acc: {val_novel_identity_results['accuracy']:.4f}, Acc_masked: {val_novel_identity_results['accuracy_masked']:.4f}")
         
         # Print per-class training accuracy
-        tqdm.write(f"\n  Per-Class Training Accuracy:")
+        tqdm.write(f"\n  Per-Class Training Accuracy (t>=n):")
         tqdm.write(f"    No_Action:  {train_class_metrics['No_Action_acc']:.3f} ({train_class_metrics['No_Action_count']} samples)")
         tqdm.write(f"    Non_Match:  {train_class_metrics['Non_Match_acc']:.3f} ({train_class_metrics['Non_Match_count']} samples)")
         tqdm.write(f"    Match:      {train_class_metrics['Match_acc']:.3f} ({train_class_metrics['Match_count']} samples)")
+        tqdm.write("\n  Train Confusion Matrix (rows=target, cols=pred):")
+        tqdm.write(str(cm_train.tolist()))
         
         # Visualize sample sequences from all three datasets
         if cfg.get("save_visualizations", True):
