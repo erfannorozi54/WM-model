@@ -202,6 +202,40 @@ class NBackDataset(Dataset):
         }
 
 
+def custom_collate_fn(batch):
+    """
+    Custom collate function to handle string lists in batches.
+    
+    Args:
+        batch: List of dictionaries from __getitem__
+        
+    Returns:
+        Batched dictionary with properly handled string lists
+    """
+    # Stack tensors normally
+    images = torch.stack([item['images'] for item in batch])
+    responses = torch.stack([item['responses'] for item in batch])
+    task_vector = torch.stack([item['task_vector'] for item in batch])
+    n = torch.stack([item['n'] for item in batch])
+    locations = torch.stack([item['locations'] for item in batch])
+    sequence_length = torch.stack([item['sequence_length'] for item in batch])
+    
+    # Keep string lists as lists of lists
+    categories = [item['categories'] for item in batch]
+    identities = [item['identities'] for item in batch]
+    
+    return {
+        'images': images,
+        'responses': responses,
+        'task_vector': task_vector,
+        'n': n,
+        'locations': locations,
+        'categories': categories,
+        'identities': identities,
+        'sequence_length': sequence_length
+    }
+
+
 class NBackDataModule:
     """
     Data module for managing train/validation/test splits and DataLoaders.
@@ -349,7 +383,8 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            pin_memory=torch.cuda.is_available()
+            pin_memory=torch.cuda.is_available(),
+            collate_fn=custom_collate_fn
         )
     
     def val_dataloader(self) -> DataLoader:
@@ -359,7 +394,8 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=torch.cuda.is_available()
+            pin_memory=torch.cuda.is_available(),
+            collate_fn=custom_collate_fn
         )
     
     def val_novel_angle_dataloader(self) -> Optional[DataLoader]:
@@ -371,7 +407,8 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=torch.cuda.is_available()
+            pin_memory=torch.cuda.is_available(),
+            collate_fn=custom_collate_fn
         )
     
     def val_novel_identity_dataloader(self) -> Optional[DataLoader]:
@@ -383,7 +420,8 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=torch.cuda.is_available()
+            pin_memory=torch.cuda.is_available(),
+            collate_fn=custom_collate_fn
         )
     
     def test_dataloader(self) -> DataLoader:
@@ -393,7 +431,8 @@ class NBackDataModule:
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=torch.cuda.is_available()
+            pin_memory=torch.cuda.is_available(),
+            collate_fn=custom_collate_fn
         )
     
     def sample_batch(self, split: str = "train") -> Dict[str, torch.Tensor]:
