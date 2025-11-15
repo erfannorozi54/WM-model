@@ -15,6 +15,7 @@ from pathlib import Path
 import argparse
 import time
 import json
+import logging
 from typing import Dict, Any
 from datetime import datetime
 
@@ -239,7 +240,6 @@ def main():
     
     # Device setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
     
     # Create output directory with unique experiment ID
     exp_name = cfg.get("experiment_name", "wm_experiment")
@@ -250,11 +250,32 @@ def main():
     
     out_dir = Path(args.output_dir) / exp_dir_name
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Set up logger that writes to training.log in this experiment directory
+    logger = logging.getLogger(f"wm_train_{exp_id}")
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler = logging.FileHandler(out_dir / "training.log")
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        logger.propagate = False
+
+    def log(msg: str) -> None:
+        print(msg)
+        logger.info(msg)
+
+    def log_tqdm(msg: str) -> None:
+        tqdm.write(msg)
+        logger.info(msg)
+
+    log(f"Using device: {device}")
     
-    print(f"\n{'='*70}")
-    print(f"EXPERIMENT ID: {exp_id}")
-    print(f"Output Directory: {out_dir}")
-    print(f"{'='*70}")
+    log("\n" + "="*70)
+    log(f"EXPERIMENT ID: {exp_id}")
+    log(f"Output Directory: {out_dir}")
+    log("="*70)
     
     # Create hidden states directory if save_hidden is enabled
     if cfg.get("save_hidden", True):
@@ -279,12 +300,12 @@ def main():
     with open(out_dir / "experiment_metadata.json", 'w') as f:
         json.dump(metadata, f, indent=2)
     
-    print("\n" + "="*70)
-    print("PHASE 6: TRAINING WITH GENERALIZATION EVALUATION")
-    print("="*70)
+    log("\n" + "="*70)
+    log("PHASE 6: TRAINING WITH GENERALIZATION EVALUATION")
+    log("="*70)
     
     # Load and split data
-    print("\n1. Loading Stimuli and Creating Validation Splits...")
+    log("\n1. Loading Stimuli and Creating Validation Splits...")
     train_data, val_novel_angle_data, val_novel_identity_data, split_stats = load_and_split_stimuli(
         stimuli_dir="data/stimuli",
         train_angles=[0, 1, 2],  # Training uses angles 0, 1, 2
@@ -293,16 +314,16 @@ def main():
         val_identities_per_category=2     # 2 identities for novel-identity validation
     )
     
-    print("\nData Split Summary:")
-    print(f"  Training:             {split_stats['training']['num_stimuli']} stimuli, "
-          f"{split_stats['training']['num_identities']} identities")
-    print(f"  Val (Novel Angles):   {split_stats['val_novel_angle']['num_stimuli']} stimuli, "
-          f"{split_stats['val_novel_angle']['num_identities']} identities")
-    print(f"  Val (Novel IDs):      {split_stats['val_novel_identity']['num_stimuli']} stimuli, "
-          f"{split_stats['val_novel_identity']['num_identities']} identities")
+    log("\nData Split Summary:")
+    log(f"  Training:             {split_stats['training']['num_stimuli']} stimuli, "
+        f"{split_stats['training']['num_identities']} identities")
+    log(f"  Val (Novel Angles):   {split_stats['val_novel_angle']['num_stimuli']} stimuli, "
+        f"{split_stats['val_novel_angle']['num_identities']} identities")
+    log(f"  Val (Novel IDs):      {split_stats['val_novel_identity']['num_stimuli']} stimuli, "
+        f"{split_stats['val_novel_identity']['num_identities']} identities")
     
     # Create data module with three splits
-    print("\n2. Creating Data Module...")
+    log("\n2. Creating Data Module...")
     data_module = NBackDataModule(
         stimulus_data=train_data,
         val_novel_angle_data=val_novel_angle_data,
@@ -323,7 +344,7 @@ def main():
     val_novel_identity_loader = data_module.val_novel_identity_dataloader()
     
     # Create model
-    print("\n3. Creating Model...")
+    log("\n3. Creating Model...")
     # Construct model_type string (e.g., "gru" or "attention_gru")
     rnn_type = cfg.get("rnn_type", "gru")
     model_arch = cfg.get("model_type", "baseline")
@@ -346,38 +367,38 @@ def main():
     print_model_summary(model)
     
     # Log detailed trainable parameters breakdown
-    print("\n" + "="*70)
-    print("TRAINABLE PARAMETERS BREAKDOWN")
-    print("="*70)
+    log("\n" + "="*70)
+    log("TRAINABLE PARAMETERS BREAKDOWN")
+    log("="*70)
     
     perceptual_trainable = 0
     cognitive_trainable = 0
     classifier_trainable = 0
     
-    print("\nPerceptual Module (trainable layers):")
+    log("\nPerceptual Module (trainable layers):")
     for name, param in model.perceptual.named_parameters():
         if param.requires_grad:
-            print(f"  {name}: {param.numel():,} parameters")
+            log(f"  {name}: {param.numel():,} parameters")
             perceptual_trainable += param.numel()
     
-    print(f"\nCognitive Module (trainable layers):")
+    log(f"\nCognitive Module (trainable layers):")
     for name, param in model.cognitive.named_parameters():
         if param.requires_grad:
-            print(f"  {name}: {param.numel():,} parameters")
+            log(f"  {name}: {param.numel():,} parameters")
             cognitive_trainable += param.numel()
     
-    print(f"\nClassifier (trainable layers):")
+    log(f"\nClassifier (trainable layers):")
     for name, param in model.classifier.named_parameters():
         if param.requires_grad:
-            print(f"  {name}: {param.numel():,} parameters")
+            log(f"  {name}: {param.numel():,} parameters")
             classifier_trainable += param.numel()
     
-    print("\n" + "-"*70)
-    print(f"Perceptual (trainable):  {perceptual_trainable:,}")
-    print(f"Cognitive (trainable):   {cognitive_trainable:,}")
-    print(f"Classifier (trainable):  {classifier_trainable:,}")
-    print(f"TOTAL TRAINABLE:         {perceptual_trainable + cognitive_trainable + classifier_trainable:,}")
-    print("="*70 + "\n")
+    log("\n" + "-"*70)
+    log(f"Perceptual (trainable):  {perceptual_trainable:,}")
+    log(f"Cognitive (trainable):   {cognitive_trainable:,}")
+    log(f"Classifier (trainable):  {classifier_trainable:,}")
+    log(f"TOTAL TRAINABLE:         {perceptual_trainable + cognitive_trainable + classifier_trainable:,}")
+    log("="*70 + "\n")
     
     # Optimizer and scheduler
     optimizer = optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"])
@@ -386,7 +407,7 @@ def main():
     )
     
     # Calculate balanced class weights from training data
-    print("\nCalculating class weights from training data (t>=n)...")
+    log("\nCalculating class weights from training data (t>=n)...")
     class_counts = torch.zeros(3, device=device)
     for batch in train_loader:
         targets = batch["responses"].argmax(dim=-1).to(device)
@@ -405,8 +426,8 @@ def main():
             class_weights[c] = total_samples / (K * class_counts[c])
         else:
             class_weights[c] = 0.0
-    print(f"Class distribution (t>=n): No_Action={class_counts[0].item():.0f}, Non_Match={class_counts[1].item():.0f}, Match={class_counts[2].item():.0f}")
-    print(f"Calculated class weights (t>=n): {[f'{w:.3f}' for w in class_weights.cpu().tolist()]}")
+    log(f"Class distribution (t>=n): No_Action={class_counts[0].item():.0f}, Non_Match={class_counts[1].item():.0f}, Match={class_counts[2].item():.0f}")
+    log(f"Calculated class weights (t>=n): {[f'{w:.3f}' for w in class_weights.cpu().tolist()]}")
     
     # Create loss with class weights and optional label smoothing
     label_smoothing = cfg.get("label_smoothing", 0.0)
@@ -414,10 +435,10 @@ def main():
     criterion_no_action = nn.CrossEntropyLoss(weight=None, label_smoothing=label_smoothing)
     no_action_loss_weight = cfg.get("no_action_loss_weight", 0.1)
     if label_smoothing > 0:
-        print(f"Using label smoothing: {label_smoothing}")
+        log(f"Using label smoothing: {label_smoothing}")
     
     # Training loop
-    print("\n4. Training...")
+    log("\n4. Training...")
     best_val_novel_angle_acc = 0.0
     results_log = []
     
@@ -497,6 +518,7 @@ def main():
         train_targets_all_m = torch.cat(all_train_targets_m, dim=0)
         train_class_metrics = per_class_metrics(train_logits_all_m, train_targets_all_m)
         cm_train = confusion_matrix_from_logits(train_logits_all_m, train_targets_all_m)
+        train_masked_acc = (train_logits_all_m.argmax(dim=-1) == train_targets_all_m).float().mean().item()
         if len(all_train_logits_na) > 0:
             train_logits_all_na = torch.cat(all_train_logits_na, dim=0)
             train_targets_all_na = torch.cat(all_train_targets_na, dim=0)
@@ -525,28 +547,46 @@ def main():
             'epoch': epoch + 1,
             'train_loss': train_loss,
             'train_acc': train_acc,
+            'train_masked_acc': train_masked_acc,
+            'train_no_action_acc': train_no_action_acc,
+            'train_per_class': train_class_metrics,
+            'train_confusion_matrix': cm_train.tolist(),
             'val_novel_angle_loss': val_novel_angle_results['loss'],
             'val_novel_angle_acc': val_novel_angle_results['accuracy'],
+            'val_novel_angle_acc_masked': val_novel_angle_results['accuracy_masked'],
+            'val_novel_angle_acc_no_action': val_novel_angle_results['accuracy_no_action'],
             'val_novel_identity_loss': val_novel_identity_results['loss'],
             'val_novel_identity_acc': val_novel_identity_results['accuracy'],
+            'val_novel_identity_acc_masked': val_novel_identity_results['accuracy_masked'],
+            'val_novel_identity_acc_no_action': val_novel_identity_results['accuracy_no_action'],
             'lr': optimizer.param_groups[0]['lr']
         }
         results_log.append(epoch_results)
         
         # Print epoch summary
-        tqdm.write(f"\nEpoch {epoch+1}/{cfg['epochs']} Summary:")
-        tqdm.write(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
-        tqdm.write(f"  Val (Novel Angle) Loss: {val_novel_angle_results['loss']:.4f}, Acc: {val_novel_angle_results['accuracy']:.4f}, Acc_masked: {val_novel_angle_results['accuracy_masked']:.4f}, Acc_no_action: {val_novel_angle_results['accuracy_no_action']:.4f}")
-        tqdm.write(f"  Val (Novel Identity) Loss: {val_novel_identity_results['loss']:.4f}, Acc: {val_novel_identity_results['accuracy']:.4f}, Acc_masked: {val_novel_identity_results['accuracy_masked']:.4f}, Acc_no_action: {val_novel_identity_results['accuracy_no_action']:.4f}")
-        
-        # Print per-class training accuracy
-        tqdm.write(f"\n  Per-Class Training Accuracy (t>=n):")
-        tqdm.write(f"    No_Action:  {train_class_metrics['No_Action_acc']:.3f} ({train_class_metrics['No_Action_count']} samples)")
-        tqdm.write(f"    Non_Match:  {train_class_metrics['Non_Match_acc']:.3f} ({train_class_metrics['Non_Match_count']} samples)")
-        tqdm.write(f"    Match:      {train_class_metrics['Match_acc']:.3f} ({train_class_metrics['Match_count']} samples)")
-        tqdm.write("\n  Train Confusion Matrix (rows=target, cols=pred):")
-        tqdm.write(str(cm_train.tolist()))
-        tqdm.write(f"  No_Action (t<n) Train Acc: {train_no_action_acc:.3f} ({train_no_action_count} samples)")
+        log_tqdm(
+            f"[Epoch {epoch+1:03d}/{cfg['epochs']}] "
+            f"lr={optimizer.param_groups[0]['lr']:.2e} | "
+            f"train: loss={train_loss:.4f}, acc={train_acc:.3f}, masked={train_masked_acc:.3f}, no_act={train_no_action_acc:.3f} | "
+            f"val_angle: loss={val_novel_angle_results['loss']:.4f}, acc={val_novel_angle_results['accuracy']:.3f}, "
+            f"masked={val_novel_angle_results['accuracy_masked']:.3f}, no_act={val_novel_angle_results['accuracy_no_action']:.3f} | "
+            f"val_id: loss={val_novel_identity_results['loss']:.4f}, acc={val_novel_identity_results['accuracy']:.3f}, "
+            f"masked={val_novel_identity_results['accuracy_masked']:.3f}, no_act={val_novel_identity_results['accuracy_no_action']:.3f}"
+        )
+
+        # Print concise per-class training stats
+        log_tqdm(
+            "  train per-class (t>=n) acc: "
+            f"NA={train_class_metrics['No_Action_acc']:.3f} ({train_class_metrics['No_Action_count']}), "
+            f"NM={train_class_metrics['Non_Match_acc']:.3f} ({train_class_metrics['Non_Match_count']}), "
+            f"M={train_class_metrics['Match_acc']:.3f} ({train_class_metrics['Match_count']})"
+        )
+        log_tqdm(
+            "  train confusion (rows=target, cols=pred): " + str(cm_train.tolist())
+        )
+        log_tqdm(
+            f"  train no_action (t<n) acc: {train_no_action_acc:.3f} ({train_no_action_count} samples)"
+        )
         
         # Visualize sample sequences from all three datasets
         if cfg.get("save_visualizations", True):
@@ -589,10 +629,10 @@ def main():
             )
             
             if epoch == 0:  # Only print once
-                tqdm.write(f"  ✓ Saved sequence visualizations to: {vis_dir}/")
-                tqdm.write(f"    - Training sample: epoch_XXX_train.png")
-                tqdm.write(f"    - Novel Angle sample: epoch_XXX_val_novel_angle.png")
-                tqdm.write(f"    - Novel Identity sample: epoch_XXX_val_novel_identity.png")
+                log_tqdm(f"  ✓ Saved sequence visualizations to: {vis_dir}/")
+                log_tqdm(f"    - Training sample: epoch_XXX_train.png")
+                log_tqdm(f"    - Novel Angle sample: epoch_XXX_val_novel_angle.png")
+                log_tqdm(f"    - Novel Identity sample: epoch_XXX_val_novel_identity.png")
         
         # Save best model based on novel-angle validation
         if val_novel_angle_results['accuracy'] > best_val_novel_angle_acc:
@@ -605,7 +645,7 @@ def main():
                 'val_novel_identity_acc': val_novel_identity_results['accuracy'],
                 'config': cfg,
             }, out_dir / "best_model.pt")
-            tqdm.write(f"  ✓ Saved best model (val_novel_angle_acc={val_novel_angle_results['accuracy']:.4f})")
+            log_tqdm(f"  ✓ Saved best model (val_novel_angle_acc={val_novel_angle_results['accuracy']:.4f})")
         
         scheduler.step()
     
@@ -620,17 +660,17 @@ def main():
     with open(out_dir / "experiment_metadata.json", 'w') as f:
         json.dump(metadata, f, indent=2)
     
-    print("\n" + "="*70)
-    print("TRAINING COMPLETED")
-    print("="*70)
-    print(f"\nExperiment ID: {exp_id}")
-    print(f"Best Val (Novel Angle) Accuracy: {best_val_novel_angle_acc:.4f}")
-    print(f"\nResults saved to: {out_dir}")
-    print("\nKey Outputs:")
-    print(f"  - Experiment Metadata: {out_dir / 'experiment_metadata.json'}")
-    print(f"  - Model: {out_dir / 'best_model.pt'}")
-    print(f"  - Training Log: {out_dir / 'training_log.json'}")
-    print(f"  - Config: {out_dir / 'config.yaml'}")
+    log("\n" + "="*70)
+    log("TRAINING COMPLETED")
+    log("="*70)
+    log(f"\nExperiment ID: {exp_id}")
+    log(f"Best Val (Novel Angle) Accuracy: {best_val_novel_angle_acc:.4f}")
+    log(f"\nResults saved to: {out_dir}")
+    log("\nKey Outputs:")
+    log(f"  - Experiment Metadata: {out_dir / 'experiment_metadata.json'}")
+    log(f"  - Model: {out_dir / 'best_model.pt'}")
+    log(f"  - Training Log: {out_dir / 'training_log.json'}")
+    log(f"  - Config: {out_dir / 'config.yaml'}")
     
 
 if __name__ == "__main__":

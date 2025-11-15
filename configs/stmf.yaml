@@ -12,6 +12,7 @@ num_train: 600
 num_val: 150
 num_test: 150
 num_workers: 2
+match_probability: 0.5  # Balance match vs non_match for t>=n
 
 # Model
 hidden_size: 512
@@ -30,5 +31,10 @@ milestones: [8, 10]
 gamma: 0.1
 grad_clip: 1.0
 
+label_smoothing: 0.1
+no_action_loss_weight: 0.01  # Weight for t<n (no_action) loss component
+
 # Validation
 save_hidden: true
+save_visualizations: true  # Save sequence visualization images during training
+mask_trivial_steps: true  # Train/evaluate metrics on t>=n only
