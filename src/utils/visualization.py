@@ -115,8 +115,8 @@ def visualize_sequence_prediction(
         
         # Prepare metadata text
         meta_text = f"Loc: {locations[t].item()}\n"
-        meta_text += f"Cat: {categories[t][:8]}\n"  # Truncate long names
-        meta_text += f"ID: {identities[t][:8]}"
+        meta_text += f"Cat: {categories[t][:10]}\n"
+        meta_text += f"ID: {identities[t][-3:]}"  # Show last 3 chars (the ID number)
         
         ax_meta.text(
             0.5, 0.5, meta_text,
