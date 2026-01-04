@@ -14,6 +14,9 @@ import json
 
 from .nback_generator import NBackGenerator, TaskFeature, Sequence, Trial
 
+from ..utils.logger import get_logger
+logger = get_logger()
+
 
 class NBackDataset(Dataset):
     """
@@ -73,7 +76,7 @@ class NBackDataset(Dataset):
     
     def _populate_cache(self):
         """Pre-generate and cache all sequences."""
-        print(f"Pre-generating {self.num_sequences} sequences...")
+        logger.info(f"Pre-generating {self.num_sequences} sequences...")
         
         sequences = self.generator.generate_mixed_batch(
             batch_size=self.num_sequences,
@@ -85,7 +88,7 @@ class NBackDataset(Dataset):
         for i, sequence in enumerate(sequences):
             self._sequence_cache[i] = sequence
             
-        print("Sequence caching completed.")
+        logger.info("Sequence caching completed.")
     
     def _get_sequence(self, idx: int) -> Sequence:
         """Get sequence by index, either from cache or generate on-the-fly."""
@@ -122,7 +125,7 @@ class NBackDataset(Dataset):
             image = Image.open(image_path).convert('RGB')
             return self.image_transform(image)
         except Exception as e:
-            print(f"Warning: Could not load image {image_path}: {e}")
+            logger.warning(f"Could not load image {image_path}: {e}")
             # Return black image as fallback
             return torch.zeros(3, 224, 224)
     

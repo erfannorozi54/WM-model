@@ -2,6 +2,9 @@ import torch
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Iterable
 
+from ..utils.logger import get_logger
+logger = get_logger()
+
 TASK_INDEX_TO_NAME = {0: "location", 1: "identity", 2: "category"}
 PROPERTY_NAMES = {"location", "identity", "category"}
 
@@ -36,7 +39,7 @@ def load_payloads(hidden_root: Path, epochs: Optional[List[int]] = None, limit: 
         try:
             payloads.append(torch.load(f, map_location="cpu"))
         except Exception as e:
-            print(f"Warning: failed to load {f}: {e}")
+            logger.warning(f"Failed to load {f}: {e}")
     return payloads
 
 

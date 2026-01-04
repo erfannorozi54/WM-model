@@ -36,6 +36,7 @@ from .models import (
     print_model_summary,
     get_model_info,
 )
+from .utils.logger import get_logger
 
 try:
     import yaml
@@ -150,7 +151,7 @@ def load_config(path: Optional[str]) -> Dict[str, Any]:
     if path is None:
         return cfg
     if yaml is None:
-        print("PyYAML not available; using default config.")
+        logger.warning("PyYAML not available; using default config.")
         return cfg
     with open(path, "r") as f:
         user = yaml.safe_load(f)
@@ -183,7 +184,7 @@ def main():
     if cfg["use_real_stimuli"]:
         stimulus_data = load_real_stimulus_data()
         if not stimulus_data:
-            print("No real stimuli found; falling back to sample data (images will be black placeholders).")
+            logger.info("No real stimuli found; falling back to sample data (images will be black placeholders).")
             stimulus_data = create_sample_stimulus_data()
     else:
         stimulus_data = create_sample_stimulus_data()
@@ -222,11 +223,7 @@ def main():
     # Print model summary
     print_model_summary(model)
     model_info = get_model_info(model)
-    print(f"\nModel configuration:")
-    print(f"  Type: {cfg['model_type']}")
-    print(f"  Is Attention: {model_info['is_attention']}")
-    print(f"  Hidden Size: {H}")
-    print(f"  Num Layers: {cfg['num_layers']}")
+    logger.info(f"Model configuration: Type={cfg['model_type']}, Is Attention={model_info['is_attention']}, Hidden Size={H}, Num Layers={cfg['num_layers']}")
 
     # Optimizer & Scheduler
     optimizer = optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg["weight_decay"]) 
@@ -240,6 +237,9 @@ def main():
     hidden_dir = run_dir / "hidden_states"
     run_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    # Initialize logger
+    logger = get_logger(log_file=run_dir / "training.log")
 
     best_val_acc = -1.0
     training_log = []  # Track metrics for analysis
@@ -270,10 +270,10 @@ def main():
             n_batches += 1
 
             if (batch_idx + 1) % 20 == 0:
-                print(f"Epoch {epoch} [{batch_idx+1}/{len(train_loader)}] loss={epoch_loss/n_batches:.4f} acc={epoch_acc/n_batches:.3f}")
+                logger.info(f"Epoch {epoch} [{batch_idx+1}/{len(train_loader)}] loss={epoch_loss/n_batches:.4f} acc={epoch_acc/n_batches:.3f}")
 
         scheduler.step()
-        print(f"Epoch {epoch} TRAIN loss={epoch_loss/max(n_batches,1):.4f} acc={epoch_acc/max(n_batches,1):.3f}")
+        logger.info(f"Epoch {epoch} TRAIN loss={epoch_loss/max(n_batches,1):.4f} acc={epoch_acc/max(n_batches,1):.3f}")
 
         # Validation
         model.eval()
@@ -299,7 +299,7 @@ def main():
 
         val_loss /= max(val_batches, 1)
         val_acc /= max(val_batches, 1)
-        print(f"Epoch {epoch} VAL   loss={val_loss:.4f} acc={val_acc:.3f}")
+        logger.info(f"Epoch {epoch} VAL   loss={val_loss:.4f} acc={val_acc:.3f}")
         
         # Log metrics for analysis pipeline
         training_log.append({
@@ -322,7 +322,7 @@ def main():
                 "config": cfg,
                 "val_acc": val_acc,
             }, best_path)
-            print(f"Saved new best checkpoint to {best_path}")
+            logger.info(f"Saved new best checkpoint to {best_path}")
 
     # Final save
     final_path = ckpt_dir / f"final_epoch{cfg['epochs']:03d}.pt"
@@ -334,13 +334,13 @@ def main():
         "config": cfg,
         "val_acc": best_val_acc,
     }, final_path)
-    print(f"Training complete. Final model saved to {final_path}")
+    logger.info(f"Training complete. Final model saved to {final_path}")
     
     # Save training log for analysis pipeline
     log_path = run_dir / "training_log.json"
     with open(log_path, 'w') as f:
         json.dump(training_log, f, indent=2)
-    print(f"Training log saved to {log_path}")
+    logger.info(f"Training log saved to {log_path}")
 
 
 if __name__ == "__main__":

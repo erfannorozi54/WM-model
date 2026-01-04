@@ -15,7 +15,6 @@ from pathlib import Path
 import argparse
 import time
 import json
-import logging
 from typing import Dict, Any
 from datetime import datetime
 
@@ -30,6 +29,7 @@ from .data.dataset import NBackDataModule
 from .data.nback_generator import TaskFeature
 from .models import create_model, print_model_summary
 from .utils.visualization import save_training_sample
+from .utils.logger import get_logger
 
 try:
     import yaml
@@ -251,19 +251,10 @@ def main():
     out_dir = Path(args.output_dir) / exp_dir_name
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set up logger that writes to training.log in this experiment directory
-    logger = logging.getLogger(f"wm_train_{exp_id}")
-    logger.setLevel(logging.INFO)
-    if not logger.handlers:
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        file_handler = logging.FileHandler(out_dir / "training.log")
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-        logger.propagate = False
+    # Initialize centralized logger
+    logger = get_logger(log_file=out_dir / "training.log")
 
     def log(msg: str) -> None:
-        print(msg)
         logger.info(msg)
 
     def log_tqdm(msg: str) -> None:

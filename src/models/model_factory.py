@@ -25,6 +25,9 @@ from .cognitive import VanillaRNN, GRUCog, LSTMCog, CognitiveModule
 from .wm_model import WorkingMemoryModel
 from .attention import AttentionWorkingMemoryModel
 
+from ..utils.logger import get_logger
+logger = get_logger()
+
 
 # Mapping of RNN type names to cognitive module classes
 COGNITIVE_MODULES = {
@@ -205,23 +208,23 @@ def print_model_summary(model: nn.Module):
     """
     info = get_model_info(model)
     
-    print("=" * 70)
-    print("MODEL SUMMARY")
-    print("=" * 70)
-    print(f"Model Type: {info['type']}")
-    print(f"Architecture: {'Attention-Enhanced' if info['is_attention'] else 'Baseline'}")
+    logger.info("=" * 70)
+    logger.info("MODEL SUMMARY")
+    logger.info("=" * 70)
+    logger.info(f"Model Type: {info['type']}")
+    logger.info(f"Architecture: {'Attention-Enhanced' if info['is_attention'] else 'Baseline'}")
     if 'rnn_type' in info:
-        print(f"RNN Type: {info['rnn_type'].upper()}")
-    print(f"Total Parameters: {info['num_parameters']:,}")
-    print(f"Trainable Parameters: {info['num_trainable_parameters']:,}")
+        logger.info(f"RNN Type: {info['rnn_type'].upper()}")
+    logger.info(f"Total Parameters: {info['num_parameters']:,}")
+    logger.info(f"Trainable Parameters: {info['num_trainable_parameters']:,}")
     
     # Print module breakdown
-    print("\nModule Breakdown:")
+    logger.info("Module Breakdown:")
     for name, module in model.named_children():
         num_params = sum(p.numel() for p in module.parameters())
-        print(f"  {name}: {num_params:,} parameters")
+        logger.info(f"  {name}: {num_params:,} parameters")
     
-    print("=" * 70)
+    logger.info("=" * 70)
 
 
 # Convenience functions for specific model types
