@@ -7,39 +7,38 @@ use_real_stimuli: true
 n_values: [2]
 task_features: ["location", "identity", "category"]
 sequence_length: 6
-batch_size: 8
-num_train: 600
-num_val: 150
-num_test: 150
+batch_size: 32
+num_train: 20000
+num_val: 200
+num_test: 100
 num_workers: 2
-match_probability: 0.5  # Balance match vs non_match for t>=n
+match_probability: 0.5
 
 # Model
-model_type: "attention_gru"  # attention_gru|attention_lstm|attention_rnn
-hidden_size: 512
+model_type: "attention"
+hidden_size: 256
+rnn_type: "gru"
 num_layers: 1
 dropout: 0.0
 pretrained_backbone: true
 freeze_backbone: true
-capture_exact_layer42_relu: true
 classifier_layers: []
 
 # Attention-specific parameters
-attention_hidden_dim: 512
+attention_hidden_dim: 256
 attention_dropout: 0.1
 
 # Optim
-epochs: 12
-lr: 0.0003  # 3e-4
-weight_decay: 0.01  # 1e-2
-milestones: [8, 10]
+epochs: 30
+lr: 0.0001
+weight_decay: 0.0001
+milestones: [20, 25]
 gamma: 0.1
 grad_clip: 1.0
-
-label_smoothing: 0.1
-no_action_loss_weight: 0.01  # Weight for t<n (no_action) loss component
+label_smoothing: 0.0
+no_action_loss_weight: 0.1
 
 # Validation
 save_hidden: true
-save_visualizations: true  # Save sequence visualization images during training
-mask_trivial_steps: true  # Train/evaluate metrics on t>=n only
+save_visualizations: true
+mask_trivial_steps: true
