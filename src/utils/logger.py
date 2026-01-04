@@ -3,10 +3,11 @@ import sys
 from pathlib import Path
 
 _logger = None
+_file_handler = None
 _initialized = False
 
 def get_logger(name: str = "wm_model", log_file: Path = None) -> logging.Logger:
-    global _logger, _initialized
+    global _logger, _file_handler, _initialized
     
     if _logger is None:
         _logger = logging.getLogger(name)
@@ -26,9 +27,9 @@ def get_logger(name: str = "wm_model", log_file: Path = None) -> logging.Logger:
         fmt = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s", "%H:%M:%S")
         
         # File handler
-        fh = logging.FileHandler(log_path)
-        fh.setFormatter(fmt)
-        _logger.addHandler(fh)
+        _file_handler = logging.FileHandler(log_path)
+        _file_handler.setFormatter(fmt)
+        _logger.addHandler(_file_handler)
         
         # Console handler
         ch = logging.StreamHandler(sys.stdout)
@@ -45,3 +46,11 @@ def get_logger(name: str = "wm_model", log_file: Path = None) -> logging.Logger:
         _logger.addHandler(ch)
     
     return _logger
+
+
+def log_to_file_only(msg: str):
+    """Log message to file only, skipping console (useful for epoch summaries during tqdm)."""
+    global _file_handler
+    if _file_handler:
+        _file_handler.stream.write(f"{msg}\n")
+        _file_handler.stream.flush()

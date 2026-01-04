@@ -29,7 +29,7 @@ from .data.dataset import NBackDataModule
 from .data.nback_generator import TaskFeature
 from .models import create_model, print_model_summary
 from .utils.visualization import save_training_sample
-from .utils.logger import get_logger
+from .utils.logger import get_logger, log_to_file_only
 
 try:
     import yaml
@@ -257,9 +257,10 @@ def main():
     def log(msg: str) -> None:
         logger.info(msg)
 
-    def log_tqdm(msg: str) -> None:
+    def log_epoch(msg: str) -> None:
+        """Log epoch summary to file only, print to console via tqdm."""
         tqdm.write(msg)
-        logger.info(msg)
+        log_to_file_only(msg)
 
     log(f"Using device: {device}")
     
@@ -555,7 +556,7 @@ def main():
         results_log.append(epoch_results)
         
         # Print epoch summary
-        log_tqdm(
+        log_epoch(
             f"[Epoch {epoch+1:03d}/{cfg['epochs']}] "
             f"lr={optimizer.param_groups[0]['lr']:.2e} | "
             f"train: loss={train_loss:.4f}, acc={train_acc:.3f}, masked={train_masked_acc:.3f}, no_act={train_no_action_acc:.3f} | "
@@ -566,16 +567,16 @@ def main():
         )
 
         # Print concise per-class training stats
-        log_tqdm(
+        log_epoch(
             "  train per-class (t>=n) acc: "
             f"NA={train_class_metrics['No_Action_acc']:.3f} ({train_class_metrics['No_Action_count']}), "
             f"NM={train_class_metrics['Non_Match_acc']:.3f} ({train_class_metrics['Non_Match_count']}), "
             f"M={train_class_metrics['Match_acc']:.3f} ({train_class_metrics['Match_count']})"
         )
-        log_tqdm(
+        log_epoch(
             "  train confusion (rows=target, cols=pred): " + str(cm_train.tolist())
         )
-        log_tqdm(
+        log_epoch(
             f"  train no_action (t<n) acc: {train_no_action_acc:.3f} ({train_no_action_count} samples)"
         )
         
@@ -620,10 +621,10 @@ def main():
             )
             
             if epoch == 0:  # Only print once
-                log_tqdm(f"  ✓ Saved sequence visualizations to: {vis_dir}/")
-                log_tqdm(f"    - Training sample: epoch_XXX_train.png")
-                log_tqdm(f"    - Novel Angle sample: epoch_XXX_val_novel_angle.png")
-                log_tqdm(f"    - Novel Identity sample: epoch_XXX_val_novel_identity.png")
+                log_epoch(f"  ✓ Saved sequence visualizations to: {vis_dir}/")
+                log_epoch(f"    - Training sample: epoch_XXX_train.png")
+                log_epoch(f"    - Novel Angle sample: epoch_XXX_val_novel_angle.png")
+                log_epoch(f"    - Novel Identity sample: epoch_XXX_val_novel_identity.png")
         
         # Save best model based on novel-angle validation
         if val_novel_angle_results['accuracy'] > best_val_novel_angle_acc:
@@ -636,7 +637,7 @@ def main():
                 'val_novel_identity_acc': val_novel_identity_results['accuracy'],
                 'config': cfg,
             }, out_dir / "best_model.pt")
-            log_tqdm(f"  ✓ Saved best model (val_novel_angle_acc={val_novel_angle_results['accuracy']:.4f})")
+            log_epoch(f"  ✓ Saved best model (val_novel_angle_acc={val_novel_angle_results['accuracy']:.4f})")
         
         scheduler.step()
     

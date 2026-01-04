@@ -5,35 +5,35 @@ scenario: STSF
 # Data
 use_real_stimuli: true
 n_values: [2]
-task_features: ["category"]
-sequence_length: 6  # Paper uses 6 (not 10)
-batch_size: 16
-num_train: 20000  # More sequences for better learning
+task_features: ["location"]
+sequence_length: 6
+batch_size: 32
+num_train: 20000
 num_val: 200
 num_test: 100
 num_workers: 2
-match_probability: 0.5  # Balance match vs non_match for t>=n
+match_probability: 0.5
 
 # Model
-hidden_size: 256  # Paper uses 256 for GRU/LSTM (not 512)
-rnn_type: "gru"   # rnn|gru|lstm
-num_layers: 5
-dropout: 0.2
+hidden_size: 256
+rnn_type: "gru"
+num_layers: 1
+dropout: 0.0
 pretrained_backbone: true
 freeze_backbone: true
-classifier_layers: [64,16]
+classifier_layers: []
 
 # Optim
-epochs: 16  # 14000 sequences / 16 batch = 875 batches/epoch * 16 = 14k iterations
-lr: 0.0003  # Paper uses 3e-5
-weight_decay: 0.00001
-milestones: [10, 13]  # Adjust for longer training
+epochs: 30
+lr: 0.0001
+weight_decay: 0.0001
+milestones: [20, 25]
 gamma: 0.1
 grad_clip: 1.0
-label_smoothing: 0.1
-no_action_loss_weight: 0.01  # Weight for t<n (no_action) loss component
+label_smoothing: 0.0
+no_action_loss_weight: 0.1
 
 # Validation
 save_hidden: true
-save_visualizations: true  # Save sequence visualization images during training
-mask_trivial_steps: true  # Train/evaluate metrics on t>=n only
+save_visualizations: true
+mask_trivial_steps: true
