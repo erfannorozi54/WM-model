@@ -37,3 +37,6 @@ no_action_loss_weight: 0.1
 save_hidden: true
 save_visualizations: true
 mask_trivial_steps: true
+
+# Data caching
+cache_train_sequences: false  # false = fresh sequences each epoch (recommended)

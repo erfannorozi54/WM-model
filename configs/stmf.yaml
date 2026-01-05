@@ -18,7 +18,7 @@ match_probability: 0.5
 hidden_size: 256
 rnn_type: "gru"
 num_layers: 1
-dropout: 0.0
+dropout: 0.05
 pretrained_backbone: true
 freeze_backbone: true
 classifier_layers: []
@@ -37,3 +37,6 @@ no_action_loss_weight: 0.1
 save_hidden: true
 save_visualizations: true
 mask_trivial_steps: true
+
+# Data caching
+cache_train_sequences: false  # false = fresh sequences each epoch (recommended)

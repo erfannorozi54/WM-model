@@ -264,7 +264,8 @@ class NBackDataModule:
                  num_test: int = 200,
                  num_workers: int = 4,
                  image_transform: Optional[Callable] = None,
-                 match_probability: float = 0.3):
+                 match_probability: float = 0.3,
+                 cache_train_sequences: bool = False):
         """
         Initialize the data module.
         
@@ -283,6 +284,7 @@ class NBackDataModule:
             num_test: Number of test sequences
             num_workers: Number of DataLoader workers
             image_transform: Optional image preprocessing
+            cache_train_sequences: Whether to cache training sequences (False = fresh each epoch)
         """
         self.stimulus_data = stimulus_data
         self.n_values = n_values
@@ -316,7 +318,7 @@ class NBackDataModule:
             num_sequences=num_train,
             sequence_length=sequence_length,
             image_transform=image_transform,
-            cache_sequences=False  # Don't cache training data for variety
+            cache_sequences=cache_train_sequences
         )
         
         # Create novel-angle validation dataset (same identities, new angles)
