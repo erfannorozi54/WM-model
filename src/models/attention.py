@@ -1,19 +1,23 @@
 """
-Task-Guided Attention Module for Working Memory Model.
+Task-Guided Feature-Channel Attention Module for Working Memory Model.
 
-This module implements a task-guided attention mechanism that allows the model
-to focus on task-relevant features in the visual feature map. The attention
-is conditioned on the task identity vector.
+This module implements a task-guided attention mechanism that filters
+task-irrelevant feature channels based on the task identity vector.
 
-Key Components:
-- TaskGuidedAttention: Attention mechanism that uses task vector to weight spatial features
-- AttentionWorkingMemoryModel: Full model with attention between perceptual and cognitive modules
+Key Insight:
+- Location task: needs spatial/positional features
+- Identity task: needs object-specific features  
+- Category task: needs semantic/categorical features
 
-The attention mechanism computes spatial attention weights based on:
-1. Visual feature map from CNN (B, C, H, W)
-2. Task identity vector (B, 3)
+The attention learns to gate feature channels based on task relevance,
+suppressing task-irrelevant information (distractors) while emphasizing
+task-relevant features.
 
-Output: Task-focused context vector (B, C) that emphasizes task-relevant spatial locations.
+Architecture:
+1. CNN extracts features (B, C) containing all object properties
+2. Task vector (B, 3) specifies which property is relevant
+3. Feature-Channel Attention computes per-channel gates
+4. Gated features are passed to RNN for temporal processing
 """
 
 import torch
@@ -25,26 +29,28 @@ from .perceptual import PerceptualModule
 from .cognitive import CognitiveModule
 
 
-class TaskGuidedAttention(nn.Module):
+class FeatureChannelAttention(nn.Module):
     """
-    Task-Guided Spatial Attention Module.
+    Task-Guided Feature-Channel Attention Module.
     
-    This module computes spatial attention weights over the CNN feature map,
-    conditioned on the task identity. The attention allows the model to focus
-    on task-relevant spatial locations.
+    This module computes channel-wise attention gates based on the task vector,
+    allowing the model to filter out task-irrelevant features and emphasize
+    task-relevant ones.
+    
+    The key idea: different feature channels encode different object properties
+    (location, identity, category). The task vector tells us which property
+    matters, so we learn to gate channels accordingly.
     
     Architecture:
-    1. Project task vector to attention query space
-    2. Project spatial features to attention key space
-    3. Compute attention scores via dot product
-    4. Apply softmax to get attention weights
-    5. Weighted sum of spatial features
+        task_vector (B, 3) → MLP → channel_gates (B, C) ∈ [0, 1]
+        output = features * channel_gates  (element-wise)
     
     Args:
-        feature_dim: Dimension of CNN features (C)
+        feature_dim: Dimension of feature vector (C)
         task_dim: Dimension of task vector (3 for location/identity/category)
-        hidden_dim: Hidden dimension for attention computation
-        dropout: Dropout rate for attention weights
+        hidden_dim: Hidden dimension for gate computation
+        dropout: Dropout rate
+        gate_activation: 'sigmoid' for soft gates, 'softmax' for competitive
     """
     
     def __init__(
@@ -53,110 +59,127 @@ class TaskGuidedAttention(nn.Module):
         task_dim: int = 3,
         hidden_dim: Optional[int] = None,
         dropout: float = 0.1,
+        gate_activation: str = 'sigmoid',
     ):
         super().__init__()
         
         self.feature_dim = feature_dim
         self.task_dim = task_dim
         self.hidden_dim = hidden_dim or feature_dim
+        self.gate_activation = gate_activation
         
-        # Task encoder: project task vector to query space
-        self.task_encoder = nn.Sequential(
+        # Gate network: task → channel gates
+        # Uses task vector to compute which channels are relevant
+        self.gate_network = nn.Sequential(
             nn.Linear(task_dim, self.hidden_dim),
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(self.hidden_dim, self.hidden_dim),
-        )
-        
-        # Spatial feature encoder: project features to key space
-        # Uses 1x1 conv to maintain spatial structure
-        self.feature_encoder = nn.Sequential(
-            nn.Conv2d(feature_dim, self.hidden_dim, kernel_size=1),
             nn.ReLU(inplace=True),
-            nn.Dropout2d(dropout),
+            nn.Dropout(dropout),
+            nn.Linear(self.hidden_dim, feature_dim),
         )
         
-        # Attention scoring: compute compatibility between query and keys
-        self.attention_score = nn.Conv2d(self.hidden_dim, 1, kernel_size=1)
+        # Learnable bias for each task (optional enhancement)
+        # This allows task-specific baseline activations
+        self.task_bias = nn.Parameter(torch.zeros(task_dim, feature_dim))
         
-        # Optional: learnable scaling factor
-        self.scale = nn.Parameter(torch.tensor(1.0 / (self.hidden_dim ** 0.5)))
-        
-        self.dropout = nn.Dropout(dropout)
+        # Temperature for softmax (if used)
+        self.temperature = nn.Parameter(torch.tensor(1.0))
         
     def forward(
         self,
-        feature_map: torch.Tensor,
+        features: torch.Tensor,
         task_vector: torch.Tensor,
-        return_attention_weights: bool = False,
+        return_gates: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
-        Compute task-guided attention over spatial features.
+        Apply task-guided channel gating to features.
         
         Args:
-            feature_map: CNN feature map (B, C, H, W)
+            features: Feature vector (B, C) or (B, T, C)
             task_vector: Task identity one-hot (B, 3)
-            return_attention_weights: If True, return attention weights for visualization
+            return_gates: If True, return gate values for analysis
         
         Returns:
-            context: Attention-weighted feature vector (B, C)
-            attention_weights: Spatial attention weights (B, 1, H, W) if return_attention_weights=True
+            gated_features: Task-filtered features, same shape as input
+            gates: Channel gate values (B, C) if return_gates=True
         """
-        B, C, H, W = feature_map.shape
-        
-        # Encode task vector to query (B, hidden_dim)
-        task_query = self.task_encoder(task_vector)  # (B, hidden_dim)
-        
-        # Encode spatial features to keys (B, hidden_dim, H, W)
-        feature_keys = self.feature_encoder(feature_map)  # (B, hidden_dim, H, W)
-        
-        # Compute attention scores via broadcasting
-        # Expand task_query to match spatial dimensions
-        task_query_expanded = task_query.view(B, self.hidden_dim, 1, 1)  # (B, hidden_dim, 1, 1)
-        
-        # Element-wise product + reduction (can also use additive attention)
-        # Here we use multiplicative attention followed by projection
-        attended_features = feature_keys * task_query_expanded  # (B, hidden_dim, H, W)
-        
-        # Compute attention scores (B, 1, H, W)
-        attention_scores = self.attention_score(attended_features) * self.scale
-        
-        # Normalize with softmax over spatial dimensions
-        attention_scores_flat = attention_scores.view(B, -1)  # (B, H*W)
-        attention_weights_flat = F.softmax(attention_scores_flat, dim=1)  # (B, H*W)
-        attention_weights = attention_weights_flat.view(B, 1, H, W)  # (B, 1, H, W)
-        
-        # Apply dropout to attention weights (during training)
-        attention_weights = self.dropout(attention_weights)
-        
-        # Weighted sum of features
-        # Reshape feature_map for easier computation
-        feature_map_flat = feature_map.view(B, C, H * W)  # (B, C, H*W)
-        attention_weights_for_sum = attention_weights_flat.unsqueeze(1)  # (B, 1, H*W)
-        
-        # Context vector via weighted sum
-        context = torch.bmm(feature_map_flat, attention_weights_for_sum.transpose(1, 2))  # (B, C, 1)
-        context = context.squeeze(-1)  # (B, C)
-        
-        if return_attention_weights:
-            return context, attention_weights
+        # Handle both (B, C) and (B, T, C) inputs
+        if features.dim() == 3:
+            B, T, C = features.shape
+            # Expand task vector for all timesteps
+            task_expanded = task_vector.unsqueeze(1).expand(B, T, -1)  # (B, T, 3)
+            # Reshape for batch processing
+            features_flat = features.reshape(B * T, C)
+            task_flat = task_expanded.reshape(B * T, -1)
+            
+            gated_flat, gates_flat = self._apply_gates(features_flat, task_flat)
+            
+            gated_features = gated_flat.reshape(B, T, C)
+            gates = gates_flat.reshape(B, T, C) if return_gates else None
         else:
-            return context, None
+            gated_features, gates = self._apply_gates(features, task_vector)
+        
+        if return_gates:
+            return gated_features, gates
+        return gated_features, None
+    
+    def _apply_gates(
+        self,
+        features: torch.Tensor,
+        task_vector: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Core gating computation.
+        
+        Args:
+            features: (B, C)
+            task_vector: (B, 3)
+        
+        Returns:
+            gated_features: (B, C)
+            gates: (B, C)
+        """
+        # Compute base gates from task
+        gate_logits = self.gate_network(task_vector)  # (B, C)
+        
+        # Add task-specific bias
+        # task_vector is one-hot, so this selects the bias for the active task
+        task_bias = torch.matmul(task_vector, self.task_bias)  # (B, C)
+        gate_logits = gate_logits + task_bias
+        
+        # Apply activation to get gates in [0, 1]
+        if self.gate_activation == 'sigmoid':
+            gates = torch.sigmoid(gate_logits)
+        elif self.gate_activation == 'softmax':
+            # Softmax makes channels compete (sum to 1)
+            gates = F.softmax(gate_logits / self.temperature, dim=-1) * self.feature_dim
+        else:
+            gates = torch.sigmoid(gate_logits)
+        
+        # Apply gates to features
+        gated_features = features * gates
+        
+        return gated_features, gates
 
 
 class AttentionWorkingMemoryModel(nn.Module):
     """
-    Working Memory Model with Task-Guided Attention.
+    Working Memory Model with Task-Guided Feature-Channel Attention.
+    
+    This model filters task-irrelevant features using channel attention,
+    allowing the RNN to focus on task-relevant information.
     
     Architecture:
-    1. Perceptual Module (CNN): Extracts spatial feature map
-    2. Task-Guided Attention: Focuses on task-relevant spatial locations
-    3. Cognitive Module (RNN): Processes attended features over time
+    1. Perceptual Module (CNN): Extracts visual features (B, T, C)
+    2. Feature-Channel Attention: Gates channels by task relevance
+    3. Cognitive Module (RNN): Processes filtered features over time
     4. Classifier: Predicts responses
     
-    This model differs from the baseline by inserting an attention mechanism
-    between the perceptual and cognitive modules, allowing task-specific
-    spatial focus.
+    Key difference from baseline:
+    - Baseline: All features (location + identity + category) go to RNN
+    - Attention: Task-irrelevant features are suppressed before RNN
     
     Args:
         perceptual: Perceptual module (ResNet50-based)
@@ -180,12 +203,13 @@ class AttentionWorkingMemoryModel(nn.Module):
         self.perceptual = perceptual
         self.hidden_size = hidden_size
         
-        # Task-guided attention module
-        self.attention = TaskGuidedAttention(
-            feature_dim=hidden_size,  # After perceptual 1x1 conv reduction
+        # Feature-channel attention module
+        self.attention = FeatureChannelAttention(
+            feature_dim=hidden_size,
             task_dim=3,
             hidden_dim=attention_hidden_dim or hidden_size,
             dropout=attention_dropout,
+            gate_activation='sigmoid',
         )
         
         self.cognitive = cognitive
@@ -203,69 +227,57 @@ class AttentionWorkingMemoryModel(nn.Module):
         else:
             self.classifier = nn.Linear(hidden_size, 3)
         
-        # Storage for attention weights (for visualization)
-        self._last_attention_weights = None
+        # Storage for attention gates (for analysis)
+        self._last_attention_gates = None
     
     def forward(
         self,
         images: torch.Tensor,
         task_vector: torch.Tensor,
         return_attention: bool = False,
+        return_cnn_activations: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
         """
-        Forward pass with task-guided attention.
+        Forward pass with task-guided feature-channel attention.
         
         Args:
             images: Input images (B, T, 3, H, W)
             task_vector: Task identity one-hot (B, 3)
-            return_attention: If True, return attention weights for visualization
+            return_attention: If True, return attention gate values
+            return_cnn_activations: If True, return CNN activations (for analysis)
         
         Returns:
             logits: Response logits (B, T, 3)
             hidden_seq: Hidden states per timestep (B, T, H)
             final_state: RNN final state
-            attention_weights: Attention weights (B, T, 1, H', W') if return_attention=True
+            attention_gates: Channel gate values (B, T, C) if return_attention=True
         """
         B, T = images.shape[0], images.shape[1]
         
         # Flatten time into batch for perceptual processing
         x = images.reshape(B * T, *images.shape[2:])  # (B*T, 3, H, W)
         
-        # Get spatial feature maps (not pooled yet)
-        _, feature_maps = self.perceptual(x, return_feature_map=True)  # (B*T, C, H', W')
-        
-        if feature_maps is None:
-            raise RuntimeError("Perceptual module must return feature maps for attention")
+        # Get CNN features (pooled)
+        cnn_features, _ = self.perceptual(x, return_feature_map=False)  # (B*T, C)
         
         # Reshape to separate batch and time
-        BT, C, H_feat, W_feat = feature_maps.shape
-        feature_maps = feature_maps.view(B, T, C, H_feat, W_feat)
+        cnn_features = cnn_features.view(B, T, -1)  # (B, T, C)
         
-        # Expand task vector across time
+        # Store CNN activations before attention (for analysis)
+        cnn_activations = cnn_features.clone() if return_cnn_activations else None
+        
+        # Apply task-guided feature-channel attention
+        gated_features, gates = self.attention(
+            cnn_features, task_vector, return_gates=return_attention
+        )  # (B, T, C)
+        
+        # Store gates for later analysis
+        if return_attention:
+            self._last_attention_gates = gates
+        
+        # Concatenate gated features with task vector
         task_rep = task_vector.unsqueeze(1).expand(B, T, 3)  # (B, T, 3)
-        
-        # Apply task-guided attention at each timestep
-        attended_features = []
-        attention_weights_list = [] if return_attention else None
-        
-        for t in range(T):
-            feat_t = feature_maps[:, t]  # (B, C, H', W')
-            task_t = task_rep[:, t]      # (B, 3)
-            
-            context_t, attn_t = self.attention(
-                feat_t, task_t, return_attention_weights=return_attention
-            )
-            attended_features.append(context_t)
-            
-            if return_attention:
-                attention_weights_list.append(attn_t)
-        
-        # Stack attended features
-        attended_seq = torch.stack(attended_features, dim=1)  # (B, T, C)
-        
-        # Concatenate attended features with task vector
-        task_rep_for_rnn = task_vector.unsqueeze(1).expand(B, T, 3)
-        cog_in = torch.cat([attended_seq, task_rep_for_rnn], dim=-1)  # (B, T, C+3)
+        cog_in = torch.cat([gated_features, task_rep], dim=-1)  # (B, T, C+3)
         
         # Process through cognitive module
         outputs, final_state, hidden_seq = self.cognitive(cog_in)
@@ -273,10 +285,10 @@ class AttentionWorkingMemoryModel(nn.Module):
         # Classify
         logits = self.classifier(outputs)  # (B, T, 3)
         
-        # Store attention weights for later visualization
-        if return_attention:
-            self._last_attention_weights = torch.stack(attention_weights_list, dim=1)  # (B, T, 1, H', W')
-            return logits, hidden_seq, final_state, self._last_attention_weights
+        if return_cnn_activations:
+            return logits, hidden_seq, final_state, cnn_activations
+        elif return_attention:
+            return logits, hidden_seq, final_state, gates
         else:
             return logits, hidden_seq, final_state, None
     
@@ -293,25 +305,60 @@ class AttentionWorkingMemoryModel(nn.Module):
         Args:
             images: Input images (B, T, 3, H, W)
             task_vector: Task identity (B, 3)
-            return_attention: Return attention weights
+            return_attention: Return attention gate values
         
         Returns:
             preds: Predicted classes (B, T)
             probs: Prediction probabilities (B, T, 3)
             hidden_seq: Hidden states (B, T, H)
-            attention_weights: Attention weights if return_attention=True
+            attention_gates: Gate values if return_attention=True
         """
-        logits, hidden_seq, _, attention_weights = self.forward(
+        logits, hidden_seq, _, attention_gates = self.forward(
             images, task_vector, return_attention=return_attention
         )
         probs = logits.softmax(dim=-1)
         preds = probs.argmax(dim=-1)  # (B, T)
         
         if return_attention:
-            return preds, probs, hidden_seq, attention_weights
+            return preds, probs, hidden_seq, attention_gates
         else:
             return preds, probs, hidden_seq, None
     
-    def get_last_attention_weights(self) -> Optional[torch.Tensor]:
-        """Get attention weights from last forward pass (for visualization)."""
-        return self._last_attention_weights
+    def get_last_attention_gates(self) -> Optional[torch.Tensor]:
+        """Get attention gates from last forward pass (for analysis)."""
+        return self._last_attention_gates
+    
+    def analyze_gate_statistics(self, task_vector: torch.Tensor) -> dict:
+        """
+        Analyze what the attention gates look like for each task.
+        Useful for understanding if the model learned task-specific filtering.
+        
+        Args:
+            task_vector: One-hot task vector (B, 3)
+        
+        Returns:
+            Dictionary with gate statistics
+        """
+        # Create dummy features to see gate patterns
+        dummy_features = torch.ones(1, self.hidden_size)
+        
+        stats = {}
+        task_names = ['location', 'identity', 'category']
+        
+        for i, name in enumerate(task_names):
+            task = torch.zeros(1, 3)
+            task[0, i] = 1.0
+            
+            _, gates = self.attention(dummy_features, task, return_gates=True)
+            gates = gates.squeeze()
+            
+            stats[name] = {
+                'mean_gate': gates.mean().item(),
+                'std_gate': gates.std().item(),
+                'min_gate': gates.min().item(),
+                'max_gate': gates.max().item(),
+                'active_channels': (gates > 0.5).sum().item(),
+                'suppressed_channels': (gates < 0.5).sum().item(),
+            }
+        
+        return stats
