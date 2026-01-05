@@ -19,19 +19,30 @@ def _list_epoch_dirs(hidden_root: Path, epochs: Optional[List[int]] = None) -> L
     return [d for d in dirs if d.name in epoch_set]
 
 
-def _list_payload_files(hidden_root: Path, epochs: Optional[List[int]] = None) -> List[Path]:
+def _list_payload_files(hidden_root: Path, epochs: Optional[List[int]] = None, split: Optional[str] = None) -> List[Path]:
+    """List payload files from hidden_states directory.
+    
+    Structure: epoch_XXX/<split>/batch_XXXX.pt
+    """
     files: List[Path] = []
     for ed in _list_epoch_dirs(hidden_root, epochs):
-        files += sorted(ed.glob("epoch*_batch*.pt"))
+        for sd in ed.iterdir():
+            if sd.is_dir() and (split is None or sd.name == split):
+                files += sorted(sd.glob("batch_*.pt"))
     return files
 
 
-def load_payloads(hidden_root: Path, epochs: Optional[List[int]] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+def load_payloads(hidden_root: Path, epochs: Optional[List[int]] = None, limit: Optional[int] = None, split: Optional[str] = None) -> List[Dict[str, Any]]:
     """Load hidden-state payload dicts saved by train.py.
-    hidden_root typically points to runs/<exp>/hidden_states
+    
+    Args:
+        hidden_root: Path to hidden_states directory
+        epochs: Optional list of epoch numbers to load
+        limit: Optional max number of files to load
+        split: Optional split name filter ('val_novel_angle' or 'val_novel_identity')
     """
     hidden_root = Path(hidden_root)
-    files = _list_payload_files(hidden_root, epochs)
+    files = _list_payload_files(hidden_root, epochs, split)
     if limit is not None:
         files = files[:limit]
     payloads: List[Dict[str, Any]] = []
