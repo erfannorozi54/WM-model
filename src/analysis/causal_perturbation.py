@@ -243,7 +243,7 @@ def run_causal_perturbation(
         W_array = decoder_weights
     perturbation_direction = torch.from_numpy(W_array.mean(axis=0)).float()
     perturbation_direction = perturbation_direction / perturbation_direction.norm()  # Normalize
-    perturbation_direction = perturbation_direction.to(device)
+    # Keep perturbation_direction on CPU since hidden_states is on CPU
     
     # Store results
     prob_match_all = np.zeros((D, N))
@@ -252,13 +252,13 @@ def run_causal_perturbation(
     
     with torch.no_grad():
         for d_idx, distance in enumerate(perturbation_distances):
-            # Perturb all hidden states by the same distance
+            # Perturb all hidden states by the same distance (on CPU)
             h_perturbed = hidden_states + distance * perturbation_direction.unsqueeze(0)  # (N, H)
             
             # Run through classifier in batches
             all_probs = []
             for i in range(0, N, batch_size):
-                batch_h = h_perturbed[i:i+batch_size].to(device)
+                batch_h = h_perturbed[i:i+batch_size].to(device)  # Move batch to device
                 logits = model.classifier(batch_h)  # (B, 3)
                 probs = torch.softmax(logits, dim=-1)  # (B, 3)
                 all_probs.append(probs.cpu())
