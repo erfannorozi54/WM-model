@@ -329,6 +329,7 @@ def main():
         num_workers=cfg["num_workers"],
         match_probability=cfg.get("match_probability", 0.3),
         cache_train_sequences=cfg.get("cache_train_sequences", False),
+        cache_val_sequences=cfg.get("cache_val_sequences", True),
     )
     
     train_loader = data_module.train_dataloader()
