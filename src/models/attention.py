@@ -215,7 +215,7 @@ class AttentionWorkingMemoryModel(nn.Module):
         task_vector: torch.Tensor,
         return_attention: bool = False,
         return_cnn_activations: bool = False,
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    ):
         B, T = images.shape[0], images.shape[1]
         
         # Perceptual processing
@@ -247,7 +247,7 @@ class AttentionWorkingMemoryModel(nn.Module):
         elif return_attention:
             return logits, hidden_seq, final_state, gates
         else:
-            return logits, hidden_seq, final_state, None
+            return logits, hidden_seq, final_state
     
     def get_last_attention_gates(self) -> Optional[torch.Tensor]:
         return self._last_attention_gates
