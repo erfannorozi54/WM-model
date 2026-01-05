@@ -32,10 +32,10 @@ DEFAULT_CATEGORIES = {
 }
 
 DEFAULT_VIEWING_ANGLES = [
-    (0, 0, 0),              # angle0: front view (0°)
-    (0, 0.785, 0),          # angle1: Y rotation (45° = π/4) - rotated right
-    (0, -0.785, 0),         # angle2: Y rotation (-45° = -π/4) - rotated left
-    (0.524, 0, 0),          # angle3: X rotation (30° = π/6) - tilted down
+    (0, 3.14159, 0),        # angle0: front view (180° Y rotation)
+    (0, 3.927, 0),          # angle1: front + 45° right (180° + 45° = 225°)
+    (0, 2.356, 0),          # angle2: front + 45° left (180° - 45° = 135°)
+    (0.524, 3.14159, 0),    # angle3: front + tilted down (30° X)
 ]
 
 
