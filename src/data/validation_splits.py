@@ -22,8 +22,7 @@ class ValidationSplitter:
                  all_stimulus_data: Dict[str, Dict[str, List[str]]],
                  train_angles: List[int] = [0, 1, 2],  # angles 0,1,2 for training
                  val_angles: List[int] = [3],           # angle 3 for novel-angle validation
-                 train_identities_per_category: int = 3, # Use 3 identities for training
-                 val_identities_per_category: int = 2):  # Use 2 identities for validation
+                 train_identity_ratio: float = 0.6):    # 60% identities for training
         """
         Initialize the validation splitter.
         
@@ -32,14 +31,12 @@ class ValidationSplitter:
                               Format: {category: {identity: [paths]}}
             train_angles: Angle indices to use for training (e.g., [0,1,2])
             val_angles: Angle indices to use for novel-angle validation (e.g., [3])
-            train_identities_per_category: Number of identities per category for training
-            val_identities_per_category: Number of identities per category for novel-identity val
+            train_identity_ratio: Fraction of identities for training (rest for validation)
         """
         self.all_stimulus_data = all_stimulus_data
         self.train_angles = train_angles
         self.val_angles = val_angles
-        self.train_identities_per_category = train_identities_per_category
-        self.val_identities_per_category = val_identities_per_category
+        self.train_identity_ratio = train_identity_ratio
         
     def _parse_stimulus_path(self, path: str) -> Tuple[str, str, int, int]:
         """
@@ -80,19 +77,21 @@ class ValidationSplitter:
         for category, identities_dict in self.all_stimulus_data.items():
             # Get sorted list of identities
             all_identities = sorted(identities_dict.keys())
+            num_identities = len(all_identities)
             
-            if len(all_identities) < (self.train_identities_per_category + 
-                                     self.val_identities_per_category):
+            # Calculate split based on ratio (at least 1 for each split)
+            num_train = max(1, int(num_identities * self.train_identity_ratio))
+            num_val = num_identities - num_train
+            
+            if num_val < 1:
                 raise ValueError(
-                    f"Category {category} has only {len(all_identities)} identities, "
-                    f"but need {self.train_identities_per_category + self.val_identities_per_category}"
+                    f"Category {category} has only {num_identities} identities, "
+                    f"need at least 2 for train/val split"
                 )
             
             # Split identities
-            train_identities = all_identities[:self.train_identities_per_category]
-            val_identities = all_identities[self.train_identities_per_category:
-                                           self.train_identities_per_category + 
-                                           self.val_identities_per_category]
+            train_identities = all_identities[:num_train]
+            val_identities = all_identities[num_train:]
             
             # Initialize category dictionaries
             train_data[category] = {}
@@ -178,11 +177,16 @@ def load_and_split_stimuli(
     stimuli_dir: str = "data/stimuli",
     train_angles: List[int] = [0, 1, 2],
     val_angles: List[int] = [3],
-    train_identities_per_category: int = 3,
-    val_identities_per_category: int = 2
+    train_identity_ratio: float = 0.6
 ) -> Tuple[Dict, Dict, Dict, Dict]:
     """
     Load all stimuli and create training/validation splits.
+    
+    Args:
+        stimuli_dir: Directory containing stimulus images
+        train_angles: Angle indices for training
+        val_angles: Angle indices for novel-angle validation
+        train_identity_ratio: Fraction of identities for training (e.g., 0.6 = 60%)
     
     Returns:
         Tuple of (train_data, val_novel_angle_data, val_novel_identity_data, statistics)
@@ -200,8 +204,7 @@ def load_and_split_stimuli(
         all_stimulus_data,
         train_angles=train_angles,
         val_angles=val_angles,
-        train_identities_per_category=train_identities_per_category,
-        val_identities_per_category=val_identities_per_category
+        train_identity_ratio=train_identity_ratio
     )
     
     train_data, val_novel_angle_data, val_novel_identity_data = splitter.create_splits()

@@ -20,8 +20,7 @@ def test_validation_splits():
         stimuli_dir="data/stimuli",
         train_angles=[0, 1, 2],  # Use angles 0, 1, 2 for training
         val_angles=[3],           # Use angle 3 for novel-angle validation
-        train_identities_per_category=3,  # 3 identities for training
-        val_identities_per_category=2     # 2 identities for novel-identity validation
+        train_identity_ratio=0.6  # 60% for training, 40% for validation
     )
     
     print("\n2. Split Statistics:")

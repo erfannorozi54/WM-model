@@ -302,8 +302,7 @@ def main():
         stimuli_dir="data/stimuli",
         train_angles=[0, 1, 2],  # Training uses angles 0, 1, 2
         val_angles=[3],           # Novel-angle validation uses angle 3
-        train_identities_per_category=3,  # 3 identities for training
-        val_identities_per_category=2     # 2 identities for novel-identity validation
+        train_identity_ratio=0.6  # 60% identities for training, 40% for validation
     )
     
     log("\nData Split Summary:")

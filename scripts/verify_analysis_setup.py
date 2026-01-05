@@ -77,8 +77,7 @@ def test_data_splits():
             stimuli_dir=str(stimuli_dir),
             train_angles=[0, 1, 2],
             val_angles=[3],
-            train_identities_per_category=3,
-            val_identities_per_category=2
+            train_identity_ratio=0.6
         )
         
         print(f"\n  Training data: {stats['training']['num_stimuli']} stimuli")

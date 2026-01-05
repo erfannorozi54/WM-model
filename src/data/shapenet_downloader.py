@@ -143,7 +143,7 @@ class ShapeNetDownloader:
         
         # Use default categories or provided ones
         self.categories = categories if categories is not None else DEFAULT_CATEGORIES.copy()
-        self.objects_per_category = 5  # Required: 3 for training + 2 for validation splits
+        self.objects_per_category = 10  # 10 identities per category
         
     def generate_placeholder(self, category_id: str, category_name: str) -> bool:
         """
