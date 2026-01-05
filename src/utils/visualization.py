@@ -211,8 +211,8 @@ def save_training_sample(
         # Get predictions (without CNN activations to save memory)
         logits, _, _ = model(images, task_vec)
     
-    # Create save path with split name
-    save_path = save_dir / f"epoch_{epoch:03d}_{split_name}.png"
+    # Create save path with split name and batch index
+    save_path = save_dir / f"epoch_{epoch:03d}_{split_name}_{batch_idx:02d}.png"
     
     # Visualize
     visualize_sequence_prediction(
