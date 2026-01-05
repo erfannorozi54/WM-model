@@ -1,7 +1,7 @@
 from .perceptual import PerceptualModule
 from .cognitive import CognitiveModule, VanillaRNN, GRUCog, LSTMCog
 from .wm_model import WorkingMemoryModel
-from .attention import TaskGuidedAttention, AttentionWorkingMemoryModel
+from .attention import FeatureChannelAttention, AttentionWorkingMemoryModel
 from .model_factory import (
     create_model,
     create_baseline_model,
@@ -18,7 +18,7 @@ __all__ = [
     "GRUCog",
     "LSTMCog",
     "WorkingMemoryModel",
-    "TaskGuidedAttention",
+    "FeatureChannelAttention",
     "AttentionWorkingMemoryModel",
     "create_model",
     "create_baseline_model",
