@@ -2,8 +2,8 @@
 
 ## Complete Technical Documentation
 
-**Version**: 2.0 (Phase 6)  
-**Date**: October 2025  
+**Version**: 2.1 (Updated January 2026)  
+**Date**: January 2026  
 **Status**: All 5 Analyses Implemented
 
 ---
@@ -23,7 +23,7 @@ This document provides comprehensive documentation of our complete analysis pipe
 ### Key Features
 
 - **Dual validation splits**: Novel-angle and novel-identity generalization
-- **CNN + RNN activations**: Compare perceptual vs encoding spaces
+- **CNN + RNN activations**: Compare perceptual vs encoding spaces (Analysis 3 fully implemented)
 - **Comprehensive analysis pipeline**: Single command runs all 5 analyses
 - **Automatic pattern verification**: Expected results auto-checked
 - **Publication-ready outputs**: Plots and JSON results
@@ -81,8 +81,8 @@ payload = {
     # RNN encoding space
     "hidden": (B, T, H),              # RNN hidden states
     
-    # CNN perceptual space (NEW in Phase 6)
-    "cnn_activations": (B, T, H),     # CNN penultimate layer activations
+    # CNN perceptual space
+    "cnn_activations": (B, T, H),     # CNN penultimate layer activations (may be None)
     
     # Model outputs
     "logits": (B, T, 3),              # Model predictions
@@ -94,11 +94,11 @@ payload = {
     "targets": (B, T),                # Correct responses
     
     # Object properties
-    "locations": (B, T),              # Location indices
+    "locations": (B, T),              # Location indices (LongTensor)
     "categories": List[List[str]],    # Category strings
     "identities": List[List[str]],    # Identity strings
     
-    # Validation split tracking (NEW)
+    # Validation split tracking
     "split": str,                     # "val_novel_angle" or "val_novel_identity"
 }
 ```
@@ -293,64 +293,70 @@ python -m src.analysis.comprehensive_analysis \
 For each feature value, train binary classifier:
 
 ```python
-def one_vs_rest_weights(X, y):
+def one_vs_rest_weights(X: torch.Tensor, y: torch.Tensor) -> Dict[int, np.ndarray]:
     """
     Train one-vs-rest classifiers and extract hyperplane normals.
     
     Returns:
-        W: (C, H) array where W[c] is unit normal vector for class c
+        W: Dict mapping class labels to unit normal vectors (H,)
     """
-    classes = sorted(set(y))
-    W = []
+    classes = sorted(set(y.tolist()))
+    W: Dict[int, np.ndarray] = {}
     
     for c in classes:
-        y_binary = (y == c).astype(int)
+        y_binary = (y.numpy() == c).astype(np.int32)
         clf = Pipeline([
             ('scaler', StandardScaler()),
             ('svc', LinearSVC(class_weight='balanced'))
         ])
-        clf.fit(X, y_binary)
+        clf.fit(X.numpy(), y_binary)
         
         # Extract and normalize weight vector
         w = clf.named_steps['svc'].coef_[0]
         w_norm = w / (np.linalg.norm(w) + 1e-12)
-        W.append(w_norm)
+        W[c] = w_norm
     
-    return np.stack(W)  # (C, H)
+    return W  # Dict[int, np.ndarray]
 ```
 
 #### Step 2: Compute Orthogonalization Index
 
 ```python
-def orthogonalization_index(W):
+def orthogonalization_index(W: Dict[int, np.ndarray]) -> float:
     """
     Compute O = 1 - mean(|cosine_similarity|) for all pairs.
     
     O = 0: Completely overlapping (poor separation)
     O = 1: Perfectly orthogonal (excellent separation)
     """
-    C, H = W.shape
-    similarities = []
+    keys = sorted(W.keys())
+    if len(keys) < 2:
+        return 0.0
     
-    for i in range(C):
-        for j in range(i+1, C):
-            cos_sim = np.dot(W[i], W[j])  # Already normalized
-            similarities.append(abs(cos_sim))
+    cos_vals = []
+    for i in range(len(keys)):
+        for j in range(i + 1, len(keys)):
+            cos_sim = np.dot(W[keys[i]], W[keys[j]])  # Already normalized
+            cos_vals.append(float(cos_sim))
     
-    O = 1.0 - np.mean(similarities)
-    return O
+    O = 1.0 - np.mean(cos_vals)
+    return float(O)
 ```
 
 #### Step 3: Compare CNN vs RNN
 
-```python
-# RNN encoding space
-X_rnn = payload["hidden"][:, 0, :]  # First timestep
-O_rnn = orthogonalization_index(one_vs_rest_weights(X_rnn, y))
+CNN activations are now automatically loaded from payloads when available:
 
-# CNN perceptual space (NEW in Phase 6)
-X_cnn = payload["cnn_activations"][:, 0, :]
-O_cnn = orthogonalization_index(one_vs_rest_weights(X_cnn, y))
+```python
+# RNN encoding space (from build_matrix)
+X_rnn, y, _ = build_matrix(payloads, "location", time=0)
+W_rnn = one_vs_rest_weights(X_rnn, y)
+O_rnn = orthogonalization_index(W_rnn)
+
+# CNN perceptual space (from build_cnn_matrix)
+X_cnn, y, _ = build_cnn_matrix(payloads, "location", time=0)
+W_cnn = one_vs_rest_weights(X_cnn, y)
+O_cnn = orthogonalization_index(W_cnn)
 
 # Plot O(CNN) vs O(RNN) - Figure 3b
 plt.scatter(O_cnn, O_rnn)
@@ -378,8 +384,10 @@ python -m src.analysis.comprehensive_analysis \
 ```
 
 **Outputs**:
-- `analysis3_orthogonalization.png` - O(CNN) vs O(RNN) scatter (Figure 3b)
+- `analysis3_orthogonalization.png` - O(CNN) vs O(RNN) scatter (Figure 3b) or bar chart if CNN unavailable
 - `analysis3_orthogonalization.json` - O indices for all properties
+
+**Note**: CNN activations are automatically loaded from payloads if available. Ensure training was run with `save_hidden: true` in the config.
 
 ---
 
@@ -765,11 +773,6 @@ See [Section 7.2](#72-individual-analysis-commands) for reproducible commands.
 - May have high variance in some analyses
 - **Mitigation**: Pool across epochs, use bootstrap
 
-**CNN Orthogonalization**:
-- Analysis 3 code needs update to load CNN data
-- CNN activations are saved, but comparison not yet plotted
-- **Future**: Update `comprehensive_analysis.py` to load and compare
-
 **Causal Perturbation**:
 - Uses mean decoder direction (not class-specific)
 - Tested on executive timestep only
@@ -816,6 +819,7 @@ See [Section 7.2](#72-individual-analysis-commands) for reproducible commands.
 - `src/analysis/procrustes.py` - Temporal dynamics (with swap test documentation)
 - `src/analysis/orthogonalization.py` - Representational geometry
 - `src/analysis/decoding.py` - Linear decoding
+- `src/analysis/activations.py` - Data loading utilities (`build_matrix`, `build_cnn_matrix`)
 - `src/train_with_generalization.py` - Training with validation splits
 
 **For usage guides**:

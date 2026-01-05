@@ -205,7 +205,7 @@ def select_match_trials(
 def run_causal_perturbation(
     model: nn.Module,
     hidden_states: torch.Tensor,
-    decoder_weights: np.ndarray,
+    decoder_weights: Dict[int, np.ndarray],
     perturbation_distances: np.ndarray,
     device: torch.device,
     batch_size: int = 32
@@ -216,7 +216,7 @@ def run_causal_perturbation(
     Args:
         model: Trained model (only classifier layer will be used)
         hidden_states: (N, H) hidden states to perturb
-        decoder_weights: (C, H) decoder normal vectors (from one-vs-rest SVM)
+        decoder_weights: Dict mapping class labels to weight vectors (from one_vs_rest_weights)
         perturbation_distances: (D,) array of distances to perturb
         device: Device for computation
         batch_size: Batch size for inference
@@ -236,7 +236,12 @@ def run_causal_perturbation(
     
     # Choose a random decoder direction (or use mean)
     # For simplicity, use mean of all decoder normals
-    perturbation_direction = torch.from_numpy(decoder_weights.mean(axis=0)).float()
+    # decoder_weights is Dict[int, np.ndarray] from one_vs_rest_weights
+    if isinstance(decoder_weights, dict):
+        W_array = np.stack(list(decoder_weights.values()), axis=0)  # (C, H)
+    else:
+        W_array = decoder_weights
+    perturbation_direction = torch.from_numpy(W_array.mean(axis=0)).float()
     perturbation_direction = perturbation_direction / perturbation_direction.norm()  # Normalize
     perturbation_direction = perturbation_direction.to(device)
     
@@ -411,7 +416,7 @@ def analyze_causal_perturbation(
     if X.numel() == 0:
         raise RuntimeError("No data found for decoder training")
     
-    decoder_weights = one_vs_rest_weights(X, y)  # (C, H)
+    decoder_weights = one_vs_rest_weights(X, y)  # Dict[int, np.ndarray] with C classes
     print(f"✓ Trained decoder with {len(decoder_weights)} classes")
     
     # Step 3: Select match trials

@@ -30,7 +30,7 @@ from scipy.linalg import orthogonal_procrustes
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .activations import load_payloads, build_matrix, build_matrix_with_values, TASK_INDEX_TO_NAME
+from .activations import load_payloads, build_matrix, build_matrix_with_values, build_cnn_matrix, TASK_INDEX_TO_NAME
 from .orthogonalization import one_vs_rest_weights, orthogonalization_index
 from .procrustes import compute_procrustes_alignment
 
@@ -461,7 +461,7 @@ class ComprehensiveAnalysis:
         
         Args:
             encoding_time: RNN timestep to analyze (default=0)
-            cnn_activations_path: Path to saved CNN activations (optional)
+            cnn_activations_path: Path to saved CNN activations (optional, deprecated)
         
         Returns:
             Dictionary with orthogonalization indices
@@ -476,6 +476,9 @@ class ComprehensiveAnalysis:
         properties = ["location", "identity", "category"]
         results = {"encoding": {}, "perceptual": {}}
         
+        # Check if CNN activations are available in payloads
+        has_cnn = any(p.get("cnn_activations") is not None for p in self.payloads)
+        
         # Compute O for encoding space (RNN)
         print("\nComputing O for Encoding Space (RNN)...")
         for prop in properties:
@@ -484,13 +487,15 @@ class ComprehensiveAnalysis:
             print(f"  {prop}: O = {O_encoding:.4f}")
         
         # Compute O for perceptual space (CNN) if available
-        if cnn_activations_path and cnn_activations_path.exists():
+        if has_cnn:
             print("\nComputing O for Perceptual Space (CNN)...")
-            # TODO: Load CNN activations and compute O
-            print("  ⚠ CNN activation analysis not yet implemented")
-            results["perceptual"] = {"status": "not_implemented"}
+            for prop in properties:
+                O_perceptual = self._compute_cnn_orthogonalization_index(prop, encoding_time)
+                results["perceptual"][prop] = O_perceptual
+                print(f"  {prop}: O = {O_perceptual:.4f}")
         else:
-            print("\n  ⚠ CNN activations not provided, skipping perceptual space analysis")
+            print("\n  ⚠ CNN activations not available in payloads")
+            print("    To enable CNN analysis, train with save_hidden=True")
             results["perceptual"] = {"status": "not_available"}
         
         # Plot results
@@ -503,8 +508,25 @@ class ComprehensiveAnalysis:
         return results
     
     def _compute_orthogonalization_index(self, property_name: str, time: int) -> float:
-        """Compute orthogonalization index for a property."""
+        """Compute orthogonalization index for a property from RNN hidden states."""
         X, y, label2idx = build_matrix(
+            self.payloads, property_name, time=time, task_index=None, n_value=None
+        )
+        
+        if X.numel() == 0:
+            return 0.0
+        
+        # Train one-vs-rest decoders
+        W = one_vs_rest_weights(X, y)
+        
+        # Compute orthogonalization index
+        O = orthogonalization_index(W)
+        
+        return float(O)
+    
+    def _compute_cnn_orthogonalization_index(self, property_name: str, time: int) -> float:
+        """Compute orthogonalization index for a property from CNN activations."""
+        X, y, label2idx = build_cnn_matrix(
             self.payloads, property_name, time=time, task_index=None, n_value=None
         )
         
@@ -525,9 +547,10 @@ class ComprehensiveAnalysis:
         
         properties = ["location", "identity", "category"]
         colors = {'location': '#FF6B6B', 'identity': '#4ECDC4', 'category': '#45B7D1'}
+        markers = {'location': 'o', 'identity': 's', 'category': '^'}
         
-        if results["perceptual"].get("status") == "not_available":
-            # Just plot encoding space O values
+        if results["perceptual"].get("status") in ["not_available", "not_implemented"]:
+            # Just plot encoding space O values as bar chart
             x_pos = np.arange(len(properties))
             y_vals = [results["encoding"][p] for p in properties]
             
@@ -539,13 +562,37 @@ class ComprehensiveAnalysis:
             ax.set_ylim([0, 1])
             ax.grid(True, axis='y', alpha=0.3)
         else:
-            # Plot perceptual vs encoding (if both available)
-            # This would create the scatter plot from Figure 3b
-            ax.plot([0, 1], [0, 1], 'k--', alpha=0.3, label='Diagonal')
-            ax.set_xlabel('O (Perceptual Space)', fontsize=12)
-            ax.set_ylabel('O (Encoding Space)', fontsize=12)
-            ax.set_title('Representational Orthogonalization (Figure 3b)', fontsize=14, fontweight='bold')
-            ax.legend()
+            # Plot perceptual vs encoding scatter (Figure 3b style)
+            ax.plot([0, 1], [0, 1], 'k--', alpha=0.5, linewidth=1, label='Diagonal (no change)')
+            
+            for prop in properties:
+                O_cnn = results["perceptual"].get(prop, 0)
+                O_rnn = results["encoding"].get(prop, 0)
+                ax.scatter(O_cnn, O_rnn, c=colors[prop], s=150, marker=markers[prop], 
+                          label=f'{prop.capitalize()}', edgecolors='black', linewidths=1, zorder=5)
+            
+            ax.set_xlabel('O (Perceptual Space - CNN)', fontsize=12)
+            ax.set_ylabel('O (Encoding Space - RNN)', fontsize=12)
+            ax.set_title('Representational Orthogonalization (Figure 3b)\nExpected: Points below diagonal', 
+                        fontsize=14, fontweight='bold')
+            ax.set_xlim([0, 1])
+            ax.set_ylim([0, 1])
+            ax.legend(loc='upper left', fontsize=10)
+            ax.grid(True, alpha=0.3)
+            
+            # Add annotation about expected pattern
+            ax.text(0.95, 0.05, 'Below diagonal:\nRNN de-orthogonalizes',
+                   transform=ax.transAxes, fontsize=9, style='italic',
+                   verticalalignment='bottom', horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            
+            # Check if pattern matches expectation
+            below_diagonal = sum(1 for p in properties 
+                                if results["encoding"].get(p, 0) < results["perceptual"].get(p, 0))
+            if below_diagonal == len(properties):
+                print(f"  ✓ Expected pattern: All points below diagonal (RNN de-orthogonalizes)")
+            else:
+                print(f"  ⚠ {below_diagonal}/{len(properties)} points below diagonal")
         
         plt.tight_layout()
         plt.savefig(self.output_dir / "analysis3_orthogonalization.png", dpi=150, bbox_inches='tight')

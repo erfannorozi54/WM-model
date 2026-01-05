@@ -1,6 +1,6 @@
 # Analysis package for Phase 3 (activations, decoding, orthogonalization)
 
-from .activations import load_payloads, build_matrix
+from .activations import load_payloads, build_matrix, build_cnn_matrix
 from .decoding import train_decoder
 from .orthogonalization import one_vs_rest_weights, orthogonalization_index
 from .procrustes import (
