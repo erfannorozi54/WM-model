@@ -588,48 +588,41 @@ def main():
         if cfg.get("save_visualizations", True):
             vis_dir = out_dir / "visualizations"
             num_vis = cfg.get("num_visualizations", 1)
+            task_names = cfg["task_features"]  # e.g., ["location", "identity", "category"]
             
-            # Save samples from training set
-            train_iter = iter(train_loader)
-            for vis_idx in range(min(num_vis, len(train_loader))):
-                train_batch = next(train_iter)
-                save_training_sample(
-                    model=model,
-                    batch=train_batch,
-                    device=device,
-                    save_dir=vis_dir,
-                    epoch=epoch + 1,
-                    batch_idx=vis_idx,
-                    split_name="train"
-                )
+            def save_task_visualizations(data_loader, split_name):
+                """Save visualizations for each task from a dataloader."""
+                task_samples = {t: [] for t in task_names}  # Collect samples per task
+                
+                for batch in data_loader:
+                    task_idx = batch["task_vector"].argmax(dim=-1)  # (B,)
+                    for b in range(len(task_idx)):
+                        t_idx = task_idx[b].item()
+                        if t_idx < len(task_names):
+                            t_name = task_names[t_idx]
+                            if len(task_samples[t_name]) < num_vis:
+                                task_samples[t_name].append((batch, b))
+                    # Check if we have enough samples for all tasks
+                    if all(len(v) >= num_vis for v in task_samples.values()):
+                        break
+                
+                # Save visualizations for each task
+                for t_name, samples in task_samples.items():
+                    for vis_idx, (batch, sample_idx) in enumerate(samples[:num_vis]):
+                        save_training_sample(
+                            model=model,
+                            batch=batch,
+                            device=device,
+                            save_dir=vis_dir,
+                            epoch=epoch + 1,
+                            batch_idx=vis_idx,
+                            split_name=f"{split_name}_{t_name}",
+                            sample_idx=sample_idx
+                        )
             
-            # Save samples from novel angle validation
-            val_angle_iter = iter(val_novel_angle_loader)
-            for vis_idx in range(min(num_vis, len(val_novel_angle_loader))):
-                val_angle_batch = next(val_angle_iter)
-                save_training_sample(
-                    model=model,
-                    batch=val_angle_batch,
-                    device=device,
-                    save_dir=vis_dir,
-                    epoch=epoch + 1,
-                    batch_idx=vis_idx,
-                    split_name="val_novel_angle"
-                )
-            
-            # Save samples from novel identity validation
-            val_identity_iter = iter(val_novel_identity_loader)
-            for vis_idx in range(min(num_vis, len(val_novel_identity_loader))):
-                val_identity_batch = next(val_identity_iter)
-                save_training_sample(
-                    model=model,
-                    batch=val_identity_batch,
-                    device=device,
-                    save_dir=vis_dir,
-                    epoch=epoch + 1,
-                    batch_idx=vis_idx,
-                    split_name="val_novel_identity"
-                )
+            save_task_visualizations(train_loader, "train")
+            save_task_visualizations(val_novel_angle_loader, "val_novel_angle")
+            save_task_visualizations(val_novel_identity_loader, "val_novel_identity")
             
             if epoch == 0:  # Only print once
                 log_epoch(f"  ✓ Saved sequence visualizations to: {vis_dir}/")

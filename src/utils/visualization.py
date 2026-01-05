@@ -188,7 +188,8 @@ def save_training_sample(
     save_dir: Path,
     epoch: int,
     batch_idx: int = 0,
-    split_name: str = "sample"
+    split_name: str = "sample",
+    sample_idx: int = 0
 ):
     """
     Convenience function to save a visualization during training.
@@ -199,8 +200,9 @@ def save_training_sample(
         device: Device to run inference on
         save_dir: Directory to save visualizations
         epoch: Current epoch number
-        batch_idx: Index within the batch to visualize
+        batch_idx: Visualization index for filename
         split_name: Name of the data split (e.g., 'train', 'val_novel_angle', 'val_novel_identity')
+        sample_idx: Index within the batch to visualize
     """
     model.eval()
     
@@ -218,7 +220,7 @@ def save_training_sample(
     visualize_sequence_prediction(
         batch=batch,
         logits=logits.cpu(),
-        sample_idx=batch_idx,
+        sample_idx=sample_idx,
         save_path=save_path,
         denormalize=True
     )
