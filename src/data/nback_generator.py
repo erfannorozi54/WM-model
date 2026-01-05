@@ -101,15 +101,20 @@ class NBackGenerator:
         except:
             return random.randint(0, self.n_locations - 1)
     
-    def _create_task_vector(self, task_feature: TaskFeature) -> torch.Tensor:
+    def _create_task_vector(self, task_feature: TaskFeature, n: int) -> torch.Tensor:
         """
-        Create task identity vector.
+        Create task identity vector encoding both feature and N.
+        
+        Format: 6-digit vector [feature(3), n(3)]
+        - First 3: one-hot feature (location/identity/category)
+        - Last 3: one-hot N value (1-back/2-back/3-back)
         
         Args:
             task_feature: Type of task feature
+            n: N-back value (1, 2, or 3)
             
         Returns:
-            One-hot encoded task vector
+            Task vector of shape (6,)
         """
         task_mapping = {
             TaskFeature.LOCATION: 0,
@@ -117,8 +122,12 @@ class NBackGenerator:
             TaskFeature.CATEGORY: 2
         }
         
-        vector = torch.zeros(3)
+        vector = torch.zeros(6)
+        # Feature encoding (first 3)
         vector[task_mapping[task_feature]] = 1.0
+        # N encoding (last 3): n=1 -> index 3, n=2 -> index 4, n=3 -> index 5
+        if 1 <= n <= 3:
+            vector[2 + n] = 1.0
         return vector
     
     def _get_match_stimulus(self, 
@@ -246,8 +255,8 @@ class NBackGenerator:
             )
             trials.append(trial)
         
-        # Create task vector
-        task_vector = self._create_task_vector(task_feature)
+        # Create task vector (includes both feature and N)
+        task_vector = self._create_task_vector(task_feature, n)
         
         return Sequence(
             trials=trials,

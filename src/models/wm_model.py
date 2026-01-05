@@ -12,12 +12,12 @@ class WorkingMemoryModel(nn.Module):
 
     Components:
     - PerceptualModule (ResNet50-based) -> embedding of size H
-    - CognitiveModule (RNN/GRU/LSTM) taking [embedding ; task_one_hot] per timestep
+    - CognitiveModule (RNN/GRU/LSTM) taking [embedding ; task_vector] per timestep
     - Classifier projecting hidden state to 3 response classes
 
     Forward input:
         images: (B, T, 3, H, W)
-        task_vector: (B, 3) one-hot
+        task_vector: (B, 6) - [feature(3), n(3)]
     Returns:
         logits: (B, T, 3)
         hidden_seq: (B, T, H)
@@ -43,27 +43,28 @@ class WorkingMemoryModel(nn.Module):
 
     def forward(self, images: torch.Tensor, task_vector: torch.Tensor, return_cnn_activations: bool = False):
         B, T = images.shape[0], images.shape[1]
+        task_dim = task_vector.shape[-1]  # 6 (or 3 for backward compat)
+        
         # Flatten time into batch for perceptual encoder
         x = images.reshape(B * T, *images.shape[2:])  # (B*T, 3, H, W)
         
         # Optionally capture CNN penultimate layer activations
         if return_cnn_activations:
-            emb, feat_map = self.perceptual(x, return_feature_map=True)  # (B*T, H), (B*T, H, H', W')
-            # Global average pool the feature map for analysis
-            cnn_activations = feat_map.mean(dim=[2, 3])  # (B*T, H)
-            cnn_activations = cnn_activations.view(B, T, self.hidden_size)  # (B, T, H)
+            emb, feat_map = self.perceptual(x, return_feature_map=True)
+            cnn_activations = feat_map.mean(dim=[2, 3])
+            cnn_activations = cnn_activations.view(B, T, self.hidden_size)
         else:
-            emb, _ = self.perceptual(x)  # (B*T, H)
+            emb, _ = self.perceptual(x)
             cnn_activations = None
         
-        emb = emb.view(B, T, self.hidden_size)  # (B, T, H)
+        emb = emb.view(B, T, self.hidden_size)
 
         # Expand task vector across time and concatenate
-        task_rep = task_vector.unsqueeze(1).expand(B, T, 3)  # (B, T, 3)
-        cog_in = torch.cat([emb, task_rep], dim=-1)  # (B, T, H+3)
+        task_rep = task_vector.unsqueeze(1).expand(B, T, task_dim)
+        cog_in = torch.cat([emb, task_rep], dim=-1)  # (B, T, H+6)
 
         outputs, final_state, hidden_seq = self.cognitive(cog_in)
-        logits = self.classifier(outputs)  # (B, T, 3)
+        logits = self.classifier(outputs)
         
         if return_cnn_activations:
             return logits, hidden_seq, final_state, cnn_activations
@@ -73,5 +74,5 @@ class WorkingMemoryModel(nn.Module):
     def predict(self, images: torch.Tensor, task_vector: torch.Tensor):
         logits, hidden_seq, _ = self.forward(images, task_vector)
         probs = logits.softmax(dim=-1)
-        preds = probs.argmax(dim=-1)  # (B, T)
+        preds = probs.argmax(dim=-1)
         return preds, probs, hidden_seq

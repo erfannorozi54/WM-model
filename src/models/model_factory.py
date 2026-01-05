@@ -82,6 +82,7 @@ def create_model(
     capture_exact_layer42_relu: bool = True,
     attention_hidden_dim: Optional[int] = None,
     attention_dropout: float = 0.1,
+    attention_mode: str = 'task_only',
     classifier_layers: Optional[List[int]] = None,
 ) -> nn.Module:
     """
@@ -99,6 +100,7 @@ def create_model(
         capture_exact_layer42_relu: Capture exact layer4[2].relu activation
         attention_hidden_dim: Hidden dimension for attention (attention models only)
         attention_dropout: Dropout rate for attention (attention models only)
+        attention_mode: 'task_only' or 'dual' (attention models only)
     
     Returns:
         Model instance (WorkingMemoryModel or AttentionWorkingMemoryModel)
@@ -131,10 +133,10 @@ def create_model(
     )
     
     # Create cognitive module
-    # Input size = hidden_size + 3 (task vector)
+    # Input size = hidden_size + 6 (task vector: 3 feature + 3 N)
     cognitive = create_cognitive_module(
         rnn_type=rnn_type,
-        input_size=hidden_size + 3,
+        input_size=hidden_size + 6,
         hidden_size=hidden_size,
         num_layers=num_layers,
         dropout=dropout,
@@ -149,6 +151,7 @@ def create_model(
             hidden_size=hidden_size,
             attention_hidden_dim=attention_hidden_dim,
             attention_dropout=attention_dropout,
+            attention_mode=attention_mode,
             classifier_layers=classifier_layers,
         )
     else:

@@ -27,6 +27,7 @@ classifier_layers: []
 # Attention-specific parameters
 attention_hidden_dim: 256
 attention_dropout: 0.1
+attention_mode: "task_only"  # "task_only" or "dual"
 
 # Optim
 epochs: 30

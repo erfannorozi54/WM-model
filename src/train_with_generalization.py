@@ -352,6 +352,9 @@ def main():
         dropout=cfg.get("dropout", 0.0),
         pretrained_backbone=cfg.get("pretrained_backbone", True),
         freeze_backbone=cfg.get("freeze_backbone", True),
+        attention_hidden_dim=cfg.get("attention_hidden_dim"),
+        attention_dropout=cfg.get("attention_dropout", 0.1),
+        attention_mode=cfg.get("attention_mode", "task_only"),
         classifier_layers=cfg.get("classifier_layers"),
     )
     model = model.to(device)

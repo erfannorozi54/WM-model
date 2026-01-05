@@ -1,11 +1,11 @@
-# Attention-Enhanced Single-Task Single-Feature
-experiment_name: wm_attention_stsf
-scenario: STSF_ATTENTION
+# Dual Attention Multi-Task Multi-Feature
+experiment_name: wm_dual_attention_mtmf
+scenario: MTMF_DUAL_ATTENTION
 
 # Data
 use_real_stimuli: true
-n_values: [2]
-task_features: ["location"]
+n_values: [1, 2, 3]
+task_features: ["location", "identity", "category"]
 sequence_length: 6
 batch_size: 32
 num_train: 20000
@@ -27,7 +27,7 @@ classifier_layers: []
 # Attention-specific parameters
 attention_hidden_dim: 256
 attention_dropout: 0.1
-attention_mode: "task_only"  # "task_only" or "dual"
+attention_mode: "dual"  # Gates depend on both task AND features
 
 # Optim
 epochs: 30
