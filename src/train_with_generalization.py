@@ -587,42 +587,49 @@ def main():
         # Visualize sample sequences from all three datasets
         if cfg.get("save_visualizations", True):
             vis_dir = out_dir / "visualizations"
+            num_vis = cfg.get("num_visualizations", 1)
             
-            # Save sample from training set
-            train_batch = next(iter(train_loader))
-            save_training_sample(
-                model=model,
-                batch=train_batch,
-                device=device,
-                save_dir=vis_dir,
-                epoch=epoch + 1,
-                batch_idx=0,
-                split_name="train"
-            )
+            # Save samples from training set
+            train_iter = iter(train_loader)
+            for vis_idx in range(min(num_vis, len(train_loader))):
+                train_batch = next(train_iter)
+                save_training_sample(
+                    model=model,
+                    batch=train_batch,
+                    device=device,
+                    save_dir=vis_dir,
+                    epoch=epoch + 1,
+                    batch_idx=vis_idx,
+                    split_name="train"
+                )
             
-            # Save sample from novel angle validation
-            val_angle_batch = next(iter(val_novel_angle_loader))
-            save_training_sample(
-                model=model,
-                batch=val_angle_batch,
-                device=device,
-                save_dir=vis_dir,
-                epoch=epoch + 1,
-                batch_idx=0,
-                split_name="val_novel_angle"
-            )
+            # Save samples from novel angle validation
+            val_angle_iter = iter(val_novel_angle_loader)
+            for vis_idx in range(min(num_vis, len(val_novel_angle_loader))):
+                val_angle_batch = next(val_angle_iter)
+                save_training_sample(
+                    model=model,
+                    batch=val_angle_batch,
+                    device=device,
+                    save_dir=vis_dir,
+                    epoch=epoch + 1,
+                    batch_idx=vis_idx,
+                    split_name="val_novel_angle"
+                )
             
-            # Save sample from novel identity validation
-            val_identity_batch = next(iter(val_novel_identity_loader))
-            save_training_sample(
-                model=model,
-                batch=val_identity_batch,
-                device=device,
-                save_dir=vis_dir,
-                epoch=epoch + 1,
-                batch_idx=0,
-                split_name="val_novel_identity"
-            )
+            # Save samples from novel identity validation
+            val_identity_iter = iter(val_novel_identity_loader)
+            for vis_idx in range(min(num_vis, len(val_novel_identity_loader))):
+                val_identity_batch = next(val_identity_iter)
+                save_training_sample(
+                    model=model,
+                    batch=val_identity_batch,
+                    device=device,
+                    save_dir=vis_dir,
+                    epoch=epoch + 1,
+                    batch_idx=vis_idx,
+                    split_name="val_novel_identity"
+                )
             
             if epoch == 0:  # Only print once
                 log_epoch(f"  ✓ Saved sequence visualizations to: {vis_dir}/")
