@@ -76,7 +76,7 @@ def orthogonalization_index(W: Dict[int, np.ndarray]) -> float:
     cos_vals = []
     for i in range(len(keys)):
         for j in range(i + 1, len(keys)):
-            cos_vals.append(float(np.dot(W[keys[i]], W[keys[j]])))
+            cos_vals.append(abs(float(np.dot(W[keys[i]], W[keys[j]]))))
     if not cos_vals:
         return 0.0
     return float(1.0 - np.mean(cos_vals))
