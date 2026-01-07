@@ -1,12 +1,16 @@
 # Attention-Based Working Memory Model: Architecture Guide
 
-This document provides a comprehensive walkthrough of the attention-based working memory model architecture, with exact tensor dimensions at each stage.
+This document provides a comprehensive explanation of the attention-based working memory model architecture.
 
 ## Overview
 
 The model performs N-back tasks on naturalistic images. Given a sequence of object images and a task instruction (match by location, identity, or category), the model must determine if the current stimulus matches the one seen N steps ago.
 
 **Key Innovation**: The Feature-Channel Attention mechanism filters task-irrelevant features before they enter the RNN, allowing the model to focus on task-relevant information and suppress distractors.
+
+---
+
+## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -44,38 +48,36 @@ The model performs N-back tasks on naturalistic images. Given a sequence of obje
 
 ---
 
-## The Key Idea: Feature-Channel Attention
+## The Problem: Why Attention is Needed
 
-### Problem with Baseline Model
-The CNN extracts features that encode ALL object properties:
+### Baseline Model Limitation
+
+The CNN extracts features that encode ALL object properties simultaneously:
 - **Location features**: Where is the object in the image?
 - **Identity features**: Which specific object is this?
 - **Category features**: What type of object is this?
 
-In the baseline model, ALL these features go to the RNN, even when only one property matters for the task.
+In the baseline model, ALL these features pass directly to the RNN, even when only one property matters for the current task. This creates interference and reduces generalization performance.
 
 ### Solution: Task-Guided Channel Gating
+
 The Feature-Channel Attention learns to:
 1. **Amplify** channels encoding task-relevant information
 2. **Suppress** channels encoding task-irrelevant information
 
+This filtering happens BEFORE the RNN, so the memory system only receives task-relevant information.
+
 ```
-Example: Location Task (task_vector = [1, 0, 0, 0, 1, 0] for 2-back)
+Example: Location Task
 
 CNN Features (256 channels):
 ┌────────────────────────────────────────────────────────────────┐
 │ ch 0-85: location info │ ch 86-170: identity │ ch 171-255: category │
-│        HIGH            │       LOW           │        LOW           │
 └────────────────────────────────────────────────────────────────┘
                               │
                               ▼ Task-guided gates
 ┌────────────────────────────────────────────────────────────────┐
-│ gates ≈ 0.9            │ gates ≈ 0.1         │ gates ≈ 0.1          │
-└────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼ Gated output
-┌────────────────────────────────────────────────────────────────┐
-│ PRESERVED              │ SUPPRESSED          │ SUPPRESSED           │
+│ gates ≈ 0.9 (KEEP)     │ gates ≈ 0.1 (SUPPRESS) │ gates ≈ 0.1 (SUPPRESS) │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -83,145 +85,115 @@ CNN Features (256 channels):
 
 ## Attention Modes
 
-The `FeatureChannelAttention` module (in `src/models/attention.py`) supports two modes:
+The model supports two attention modes, controlled by the `attention_mode` configuration parameter.
 
-### 1. Task-Only Mode (`attention_mode: "task_only"`)
+### 1. Task-Only Mode
 
-Gates depend **only** on the task vector - same gates applied to all timesteps.
+In this mode, the gates depend **only** on the task vector. The same gates are applied to all timesteps in a sequence.
 
-```python
-# Architecture
-gate_network: Linear(6 → H) → ReLU → Dropout → Linear(H → H) → ReLU → Dropout → Linear(H → 256)
-task_bias: Parameter(6, 256)  # Learnable task-specific bias
+**How it works:**
+- The task vector (6 dimensions) passes through a 3-layer MLP
+- A learnable task-specific bias is added
+- Sigmoid activation produces gates in the range [0, 1]
+- Gates are multiplied element-wise with CNN features
 
-# Forward pass
-gate_logits = gate_network(task_vector)           # (B, 256)
-task_bias_contrib = task_vector @ task_bias       # (B, 256)
-gates = sigmoid(gate_logits + task_bias_contrib)  # (B, 256)
-gated_features = features * gates                 # (B, T, 256)
-```
+**Characteristics:**
+- Simpler architecture with fewer parameters
+- More interpretable - each task learns a fixed gating pattern
+- Consistent filtering regardless of input content
+- Recommended for most use cases
 
-**Pros**: Simpler, more interpretable, consistent gating per task
-**Cons**: Cannot adapt to specific input content
+### 2. Dual Mode
 
-### 2. Dual Mode (`attention_mode: "dual"`)
+In this mode, the gates depend on **both** the task vector AND the current input features. This allows adaptive gating based on stimulus content.
 
-Gates depend on **both** task vector AND input features - adaptive gating.
+**How it works:**
+- Task vector is projected to a query space
+- CNN features are projected to a key space
+- Query and key are combined via element-wise multiplication
+- Combined representation passes through an MLP to produce gates
 
-```python
-# Architecture
-task_proj: Linear(6 → H) → ReLU
-feature_proj: Linear(256 → H) → ReLU
-gate_network: Linear(H → H) → ReLU → Dropout → Linear(H → 256)
-
-# Forward pass
-task_query = task_proj(task_vector)       # (B, H)
-feature_key = feature_proj(features)      # (B, H)
-combined = task_query * feature_key       # (B, H) element-wise
-gate_logits = gate_network(combined)      # (B, 256)
-gates = sigmoid(gate_logits)              # (B, 256)
-gated_features = features * gates         # (B, T, 256)
-```
-
-**Pros**: Can adapt gating based on current stimulus
-**Cons**: More complex, harder to interpret
+**Characteristics:**
+- More expressive - can adapt gating to specific inputs
+- Higher capacity but more complex
+- Harder to interpret
+- Slightly better performance on multi-task scenarios (MTMF)
 
 ---
 
-## Model Architecture Details
+## Module Descriptions
 
-### AttentionWorkingMemoryModel
+### 1. Perceptual Module
 
-Located in `src/models/attention.py`:
+The perceptual module extracts visual features from input images using a pre-trained ResNet50 backbone.
 
-```python
-class AttentionWorkingMemoryModel(nn.Module):
-    def __init__(
-        self,
-        perceptual: PerceptualModule,      # ResNet50-based
-        cognitive: CognitiveModule,         # GRU/LSTM/RNN
-        hidden_size: int,                   # 256
-        attention_hidden_dim: int = None,   # Default: hidden_size
-        attention_dropout: float = 0.1,
-        attention_mode: str = 'task_only',  # or 'dual'
-        classifier_layers: List[int] = None,
-    ):
-        self.perceptual = perceptual
-        self.attention = FeatureChannelAttention(...)
-        self.cognitive = cognitive
-        self.classifier = nn.Linear(hidden_size, 3)
-```
+**Components:**
+- ResNet50 backbone (frozen weights from ImageNet pre-training)
+- 1×1 convolution layer reducing 2048 channels to 256
+- Global Average Pooling (GAP) to produce a single feature vector per image
 
-### Forward Pass
+**Processing:**
+- Input images are flattened across batch and time dimensions
+- Each 224×224 RGB image produces a 256-dimensional feature vector
+- Features are reshaped back to (Batch, Time, 256) format
 
-```python
-def forward(self, images, task_vector, return_attention=False, return_cnn_activations=False):
-    B, T = images.shape[:2]
-    
-    # 1. Perceptual: CNN feature extraction
-    x = images.reshape(B * T, 3, 224, 224)
-    cnn_features, _ = self.perceptual(x)          # (B*T, 256)
-    cnn_features = cnn_features.view(B, T, -1)    # (B, T, 256)
-    
-    # 2. Attention: Task-guided channel gating
-    gated_features, gates = self.attention(cnn_features, task_vector)  # (B, T, 256)
-    
-    # 3. Cognitive: RNN processing
-    task_rep = task_vector.unsqueeze(1).expand(B, T, 6)
-    cog_in = torch.cat([gated_features, task_rep], dim=-1)  # (B, T, 262)
-    outputs, final_state, hidden_seq = self.cognitive(cog_in)
-    
-    # 4. Classifier
-    logits = self.classifier(outputs)  # (B, T, 3)
-    
-    return logits, hidden_seq, final_state
-```
+The frozen backbone ensures stable visual representations while the 1×1 convolution learns task-relevant channel combinations.
 
----
+### 2. Feature-Channel Attention Module
 
-## Configuration
+This is the key innovation of the attention model. It computes channel-wise gates based on task identity.
 
-### YAML Config Parameters
+**Architecture (Task-Only Mode):**
+- Gate network: 3-layer MLP (6 → 256 → 256 → 256) with ReLU and dropout
+- Task bias: Learnable parameter matrix (6 × 256)
+- Output activation: Sigmoid to constrain gates to [0, 1]
 
-```yaml
-# Model type selection
-model_type: "attention"  # Enables AttentionWorkingMemoryModel
+**Architecture (Dual Mode):**
+- Task projection: Linear layer (6 → 256) with ReLU
+- Feature projection: Linear layer (256 → 256) with ReLU
+- Gate network: 2-layer MLP with dropout
+- Output activation: Sigmoid
 
-# Attention-specific parameters
-attention_hidden_dim: 256    # Hidden dim for gate computation
-attention_dropout: 0.1       # Dropout in gate network
-attention_mode: "task_only"  # "task_only" or "dual"
+**Gate Application:**
+Gates are applied via element-wise multiplication with the CNN features. A gate value of 1.0 preserves the channel completely, while 0.0 suppresses it entirely.
 
-# Standard model parameters
-hidden_size: 256
-rnn_type: "gru"              # gru|lstm|rnn
-num_layers: 1
-```
+### 3. Cognitive Module
 
-### Available Configs
+The cognitive module processes the gated features over time using a recurrent neural network.
 
-| Config | Mode | Description |
-|--------|------|-------------|
-| `attention_stmf.yaml` | task_only | Single-task multi-feature with attention |
-| `attention_mtmf.yaml` | task_only | Multi-task multi-feature with attention |
-| `dual_attention_stmf.yaml` | dual | STMF with dual (adaptive) attention |
-| `dual_attention_mtmf.yaml` | dual | MTMF with dual (adaptive) attention |
+**Preprocessor:**
+- Linear projection from (256 + 6) to 256 dimensions
+- Layer normalization for training stability
+- ReLU activation
+
+**RNN Options:**
+- GRU (default): Gated Recurrent Unit with update and reset gates
+- LSTM: Long Short-Term Memory with cell state
+- Vanilla RNN: Simple recurrent network with tanh activation
+
+The preprocessor normalizes the concatenated input (gated features + task vector) before RNN processing. This improves training stability and convergence.
+
+### 4. Classifier
+
+A simple linear layer mapping RNN hidden states to response logits.
+
+**Output Classes:**
+- Class 0: `no_action` - timesteps before N-back comparison is possible
+- Class 1: `non_match` - current stimulus differs from N-back stimulus
+- Class 2: `match` - current stimulus matches N-back stimulus
 
 ---
 
-## Dimension Summary Table
+## Tensor Dimensions
 
 | Stage | Tensor | Shape | Description |
 |-------|--------|-------|-------------|
-| Input | images | (B, T, 3, 224, 224) | RGB images |
-| Input | task_vector | (B, 6) | [feature(3), n(3)] |
-| Perceptual | resnet_out | (B*T, 2048, 7, 7) | Raw CNN features |
-| Perceptual | reduced | (B*T, 256, 7, 7) | After 1×1 conv |
-| Perceptual | cnn_features | (B, T, 256) | After GAP + reshape |
-| Attention | gates | (B, T, 256) | Sigmoid gates [0,1] |
+| Input | images | (B, T, 3, 224, 224) | RGB image sequences |
+| Input | task_vector | (B, 6) | One-hot: [feature(3), n_back(3)] |
+| Perceptual | cnn_features | (B, T, 256) | Visual embeddings |
+| Attention | gates | (B, T, 256) | Channel gates [0,1] |
 | Attention | gated_features | (B, T, 256) | Filtered features |
-| Cognitive | cog_input | (B, T, 262) | Gated features + task |
-| Cognitive | preprocessed | (B, T, 256) | After Linear+LN+ReLU |
+| Cognitive | rnn_input | (B, T, 262) | Gated features + task |
 | Cognitive | hidden_seq | (B, T, 256) | RNN hidden states |
 | Classifier | logits | (B, T, 3) | Response scores |
 
@@ -229,20 +201,45 @@ num_layers: 1
 
 ## Comparison: Baseline vs Attention Model
 
-| Aspect | Baseline (`WorkingMemoryModel`) | Attention (`AttentionWorkingMemoryModel`) |
-|--------|--------------------------------|------------------------------------------|
-| CNN Output | Features (B, T, 256) | Features (B, T, 256) |
-| Task Usage | Concatenated with features | **Gates channels** + concatenated |
-| Feature Filtering | None | Task-irrelevant suppressed |
-| RNN Input | CNN features + task (262) | **Gated** features + task (262) |
-| Task-Irrelevant Info | Preserved in RNN | **Filtered before RNN** |
+| Aspect | Baseline Model | Attention Model |
+|--------|----------------|-----------------|
+| Feature filtering | None | Task-guided channel gating |
+| Task information | Concatenated with features | Gates channels + concatenated |
+| Task-irrelevant info | Preserved in RNN | Suppressed before RNN |
+| Generalization | Lower | Higher (+12-16%) |
+| Training convergence | Faster initial learning | Slower start, better final |
+
+---
+
+## Configuration Options
+
+### Model Selection
+
+Set `model_type: "attention"` in the YAML config to use the attention model instead of the baseline.
+
+### Attention Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `attention_mode` | "task_only" or "dual" | "task_only" |
+| `attention_hidden_dim` | Hidden dimension for gate MLP | 256 |
+| `attention_dropout` | Dropout rate in gate network | 0.1 |
+
+### Available Configurations
+
+| Config File | Attention Mode | Tasks | N-back Values |
+|-------------|----------------|-------|---------------|
+| `attention_stmf.yaml` | task_only | location, identity, category | 2 |
+| `attention_mtmf.yaml` | task_only | location, identity, category | 1, 2, 3 |
+| `dual_attention_stmf.yaml` | dual | location, identity, category | 2 |
+| `dual_attention_mtmf.yaml` | dual | location, identity, category | 1, 2, 3 |
 
 ---
 
 ## Experimental Results
 
-| Model | Train Masked | Val Novel Angle | Val Novel Identity |
-|-------|--------------|-----------------|-------------------|
+| Model | Train Masked Acc | Val Novel Angle | Val Novel Identity |
+|-------|------------------|-----------------|-------------------|
 | STMF (Baseline) | 82.7% | 80.0% | 57.6% |
 | MTMF (Baseline) | 83.0% | 78.8% | 57.0% |
 | **STMF + Attention** | **98.7%** | **92.4%** | **72.6%** |
@@ -250,51 +247,31 @@ num_layers: 1
 | **MTMF + Attention** | **99.0%** | **90.1%** | **70.6%** |
 | **MTMF + Dual Attention** | **98.9%** | **92.3%** | **73.5%** |
 
-**Key Findings**:
-- Attention improves novel angle generalization by ~12-13%
-- Novel identity generalization improves by ~15-16%
-- Dual attention slightly better for MTMF (multi-task scenarios)
+### Key Findings
+
+1. **Dramatic improvement on multi-feature tasks**: Attention improves novel angle generalization by 12-13 percentage points.
+
+2. **Better identity generalization**: Novel identity accuracy improves by 15-16 percentage points.
+
+3. **Dual attention benefits MTMF**: The adaptive gating of dual attention provides marginal gains when handling multiple N-back levels.
+
+4. **Training dynamics differ**: Attention models show slower initial learning (flat for ~10 epochs) but achieve much higher final performance.
 
 ---
 
-## Usage
+## Why Attention Helps: Theoretical Explanation
 
-### Training
+The Feature-Channel Attention addresses a fundamental limitation identified in the original paper: baseline RNNs maintain task-irrelevant information because nothing filters it out.
 
-```bash
-# Task-only attention
-python -m src.train_with_generalization --config configs/attention_stmf.yaml
+**Mechanism:**
+- The attention learns which feature channels encode which properties
+- For location tasks: spatial encoding channels are preserved, object identity channels are suppressed
+- For identity tasks: object-specific channels are preserved, location channels are suppressed
+- For category tasks: semantic channels are preserved, fine-grained identity channels are suppressed
 
-# Dual attention
-python -m src.train_with_generalization --config configs/dual_attention_mtmf.yaml
-```
+**Benefits:**
+1. **Reduced interference**: Task-irrelevant features don't clutter RNN memory
+2. **Cleaner comparisons**: N-back matching operates on relevant features only
+3. **Better generalization**: Model learns task-specific feature selection rather than memorizing training examples
 
-### Accessing Attention Gates
-
-```python
-model = AttentionWorkingMemoryModel(...)
-logits, hidden, state, gates = model(images, task_vector, return_attention=True)
-
-# gates shape: (B, T, 256) - gate values per channel per timestep
-# Analyze which channels are activated for each task
-```
-
-### Visualizing Attention
-
-```bash
-python -m src.analysis.visualize_attention \
-  --checkpoint experiments/<exp>/best_model.pt \
-  --output_dir attention_viz/
-```
-
----
-
-## Key Insight: Why Attention Helps
-
-The Feature-Channel Attention computes **channel-wise** gates:
-- It learns which **feature channels** are important for each task
-- For **location tasks**: Keeps spatial encoding channels, suppresses object identity channels
-- For **identity tasks**: Keeps object-specific channels, suppresses location channels
-- For **category tasks**: Keeps semantic channels, suppresses fine-grained identity channels
-
-**This directly addresses the paper's finding**: The baseline model maintains task-irrelevant information because nothing filters it out. The attention model explicitly gates channels based on task relevance, leading to better generalization.
+This explicit gating mechanism complements the RNN's memory dynamics, creating a more effective working memory system.
