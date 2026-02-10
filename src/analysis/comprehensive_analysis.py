@@ -429,10 +429,11 @@ class ComprehensiveAnalysis:
         clf.fit(X.numpy(), y.numpy())
         return clf
     
-    def _align_test_labels(self, y_test: torch.Tensor, train_label2idx: Dict) -> Tuple[np.ndarray, np.ndarray]:
+    def _align_test_labels(self, y_test, train_label2idx: Dict) -> Tuple[np.ndarray, np.ndarray]:
         """Align test labels to training label space."""
         y_test_idx = []
-        for v in y_test.tolist():
+        y_list = y_test.tolist() if hasattr(y_test, 'tolist') else y_test
+        for v in y_list:
             if v in train_label2idx:
                 y_test_idx.append(train_label2idx[v])
             else:
