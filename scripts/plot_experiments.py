@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Plot training metrics across all experiments for comparison."""
+"""Plot training metrics across all experiments for comparison.
+
+Modified to compute mean across multiple runs of the same experiment.
+"""
 
 import json
 from pathlib import Path
 import matplotlib.pyplot as plt
 import argparse
 import numpy as np
+from collections import defaultdict
 
 # Better labels for metrics
 METRIC_LABELS = {
@@ -46,47 +50,95 @@ EXP_NAMES = {
 
 
 def load_experiments(exp_dir: Path):
-    """Load all training logs from experiments directory."""
-    experiments = {}
+    """Load all training logs, grouping multiple runs of same experiment."""
+    experiments_raw = defaultdict(list)
+    
     for exp_path in sorted(exp_dir.iterdir()):
+        if not exp_path.is_dir():
+            continue
         log_file = exp_path / "training_log.json"
         if log_file.exists():
             with open(log_file) as f:
                 data = json.load(f)
+            # Extract experiment name (remove timestamp suffix)
             name = "_".join(exp_path.name.split("_")[:-2])
-            experiments[name] = data
+            experiments_raw[name].append(data)
+    
+    # Aggregate multiple runs
+    experiments = {}
+    for name, runs in experiments_raw.items():
+        experiments[name] = {
+            'runs': runs,
+            'n_runs': len(runs)
+        }
+    
     return experiments
 
 
 def get_all_metrics(experiments):
     """Get all numeric metrics available across experiments."""
     metrics = set()
-    for data in experiments.values():
-        if data:
-            for k, v in data[0].items():
-                if isinstance(v, (int, float)) and k != "epoch":
-                    metrics.add(k)
+    for exp_data in experiments.values():
+        for run in exp_data['runs']:
+            if run:
+                for k, v in run[0].items():
+                    if isinstance(v, (int, float)) and k != "epoch":
+                        metrics.add(k)
     return sorted(metrics)
 
 
 def plot_metric(experiments, metric, output_dir):
-    """Plot a single metric across all experiments."""
+    """Plot a single metric across all experiments using mean of multiple runs."""
     plt.figure(figsize=(12, 7))
     
-    for i, (name, data) in enumerate(experiments.items()):
-        epochs = [d["epoch"] for d in data if metric in d]
-        values = [d[metric] for d in data if metric in d]
-        if epochs:
-            style = STYLES[i % len(STYLES)]
-            label = EXP_NAMES.get(name, name)
-            plt.plot(epochs, values, 
-                     color=style["color"],
-                     linestyle=style["linestyle"],
-                     marker=style["marker"],
-                     markersize=4,
-                     linewidth=2,
-                     label=label,
-                     markevery=max(1, len(epochs)//15))
+    for i, (name, exp_data) in enumerate(experiments.items()):
+        runs = exp_data['runs']
+        n_runs = exp_data['n_runs']
+        
+        # Collect all epochs and values from all runs
+        all_epochs = []
+        all_values_by_epoch = defaultdict(list)
+        
+        for run in runs:
+            for entry in run:
+                if metric in entry:
+                    epoch = entry["epoch"]
+                    all_epochs.append(epoch)
+                    all_values_by_epoch[epoch].append(entry[metric])
+        
+        if not all_epochs:
+            continue
+        
+        # Get unique sorted epochs
+        epochs = sorted(set(all_epochs))
+        
+        # Compute mean and std for each epoch
+        mean_values = []
+        std_values = []
+        for epoch in epochs:
+            values = all_values_by_epoch[epoch]
+            mean_values.append(np.mean(values))
+            std_values.append(np.std(values) if len(values) > 1 else 0)
+        
+        # Plot
+        style = STYLES[i % len(STYLES)]
+        label = f"{EXP_NAMES.get(name, name)} (n={n_runs})"
+        
+        line = plt.plot(epochs, mean_values, 
+                 color=style["color"],
+                 linestyle=style["linestyle"],
+                 marker=style["marker"],
+                 markersize=4,
+                 linewidth=2,
+                 label=label,
+                 markevery=max(1, len(epochs)//15))
+        
+        # Add shaded error region if multiple runs
+        if n_runs > 1:
+            plt.fill_between(epochs, 
+                           np.array(mean_values) - np.array(std_values),
+                           np.array(mean_values) + np.array(std_values),
+                           color=style["color"], alpha=0.2)
     
     plt.xlabel("Epoch", fontsize=12)
     ylabel = METRIC_LABELS.get(metric, metric.replace("_", " ").title())
@@ -111,11 +163,14 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     experiments = load_experiments(exp_dir)
-    print(f"Found {len(experiments)} experiments: {list(experiments.keys())}")
+    
+    print(f"Found {len(experiments)} experiment types:")
+    for name, exp_data in experiments.items():
+        print(f"  {name}: {exp_data['n_runs']} run(s)")
 
     all_metrics = get_all_metrics(experiments)
     metrics_to_plot = args.metrics if args.metrics else all_metrics
-    print(f"Plotting {len(metrics_to_plot)} metrics")
+    print(f"\nPlotting {len(metrics_to_plot)} metrics (using mean across runs)")
 
     for metric in metrics_to_plot:
         if metric in all_metrics:
@@ -123,6 +178,8 @@ def main():
             print(f"  Saved {metric}.png")
 
     print(f"\nPlots saved to {output_dir}/")
+    print("\nNote: Plots show mean values across multiple runs.")
+    print("      Shaded regions indicate ±1 standard deviation.")
 
 
 if __name__ == "__main__":
