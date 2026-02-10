@@ -2,17 +2,17 @@
 
 ## Executive Summary
 
-**Status**: All 5 analyses from the paper have been implemented and are ready to run.
+**Status**: All 5 analyses from the paper (arXiv:2411.02685) have been implemented and are ready to run.
 
 **Verification**: ✅ All systems operational (5/5 tests passed)
 
 **What's Implemented**:
 
-1. ✅ **Analysis 1**: Model Behavioral Performance (100%)
-2. ✅ **Analysis 2**: Encoding of Object Properties (100%)
-3. ⚠️ **Analysis 3**: Representational Orthogonalization (70% - needs CNN data)
-4. ⚠️ **Analysis 4**: Mechanisms of WM Dynamics (80% - simplified Procrustes swap)
-5. ❌ **Analysis 5**: Causal Perturbation Test (0% - documented but not implemented)
+1. ✅ **Analysis 1**: Model Behavioral Performance (Figure A1c) - 100%
+2. ✅ **Analysis 2**: Encoding of Object Properties (Figures 2a, 2b, 2c) - 100%
+3. ✅ **Analysis 3**: Representational Orthogonalization (Figure 3b) - 100%
+4. ✅ **Analysis 4**: Mechanisms of WM Dynamics (Figures 4b, 4d, 4g) - 100%
+5. ✅ **Analysis 5**: Causal Perturbation Test (Figure A7) - 100%
 
 ---
 
@@ -131,30 +131,27 @@ python -m src.analysis.comprehensive_analysis \
 
 ---
 
-### Analysis 3: Representational Orthogonalization ⚠️
+### Analysis 3: Representational Orthogonalization ✅
 
 **Implemented**: `ComprehensiveAnalysis.analyze_orthogonalization()`
 
-**Status**: Partially complete - RNN encoding space done, CNN perceptual space pending
+**Status**: Complete - CNN activations now saved during training
+
+**Paper Reference**: Figure 3b - Compares orthogonalization between perceptual (CNN) and encoding (RNN) spaces
 
 **What It Does**:
 
-- Trains one-vs-rest decoders for each feature value
-- Extracts hyperplane normal vectors
-- Computes pairwise cosine similarities
-- Calculates orthogonalization index O = 1 - mean(cosine_sim)
+- Trains one-vs-rest SVM decoders for each feature value (location, identity, category)
+- Extracts hyperplane normal vectors W from each decoder
+- Computes pairwise cosine similarities between all normal vectors
+- Calculates orthogonalization index: O = E[triu(W̃)] where W̃ij = 1 - |cos(Wi, Wj)|
+- Compares O(Perceptual/CNN) vs O(Encoding/RNN)
 
-**Expected Pattern**:
+**Expected Pattern** (from paper):
 
-- Points should fall below diagonal
-- RNN "de-orthogonalizes" compared to CNN
-
-**To Complete**:
-
-1. Save CNN penultimate layer activations during training
-2. Load CNN activations in analysis
-3. Compute O for both spaces
-4. Plot O(CNN) vs O(RNN)
+- Points should fall BELOW the diagonal in O(CNN) vs O(RNN) scatter plot
+- RNN "de-orthogonalizes" compared to CNN (O_rnn < O_cnn)
+- Interpretation: RNN creates more efficient, lower-dimensional representations
 
 **Command**:
 
@@ -167,33 +164,37 @@ python -m src.analysis.comprehensive_analysis \
 
 ---
 
-### Analysis 4: Mechanisms of WM Dynamics ⚠️
+### Analysis 4: Mechanisms of WM Dynamics ✅
 
 **Implemented**: `ComprehensiveAnalysis.analyze_wm_dynamics()`
 
-**Status**: Core analyses done, Procrustes swap simplified
+**Status**: Complete - All three hypothesis tests implemented
+
+**Paper Reference**: Figures 4a-g - Tests three hypotheses about memory maintenance
 
 **Sub-Analyses**:
 
 #### A. Test H1: Slot-Based Memory (Figure 4b) ✅
 
-- Train decoder on encoding space (t=0)
-- Test on later timesteps (t=1..5)
-- **Expected**: Accuracy drops over time
-- **Conclusion**: H1 (slot-based) DISPROVED
+- Train decoder on encoding space E(S,T=encoding)
+- Test on later memory timesteps M(S,T=1..5)
+- **Expected**: Accuracy drops over time (not sustained)
+- **Conclusion**: H1 (slot-based) DISPROVED - representations are NOT temporally stable
 
 #### B. Test H2 vs H3: Shared Encoding (Figure 4d) ✅
 
-- Train on E(S=i, T=i)
-- Test on E(S=j, T=j)
-- **Expected**: Validation ≈ Generalization
-- **Conclusion**: H2 (shared encoding) SUPPORTED
+- Train on E(S=i, T=i) - encoding space of stimulus i
+- Test on E(S=j, T=j) - encoding space of different stimulus j
+- **Expected**: Validation ≈ Generalization (almost identical)
+- **Conclusion**: H2 (chronological memory) SUPPORTED - encoding space is shared across stimuli
 
-#### C. Test H2 Dynamics: Procrustes (Figure 4g) ⚠️
+#### C. Test H2 Dynamics: Procrustes Swap (Figure 4g) ✅
 
-- Compute rotation matrices between timepoints
-- **Simplified** - needs stimulus-level tracking for full swap test
-- **To Complete**: Track individual stimulus IDs through sequences
+- Compute rotation matrices R between timepoints using orthogonal Procrustes analysis
+- Test Eq. 2: R(S=i, T=j) vs R(S=i, T=j+1) - time swap
+- Test Eq. 3: R(S=i, T=j) vs R(S=i+k, T=j+k) - stimulus swap
+- **Expected**: Stimulus swap maintains accuracy, time swap does NOT
+- **Conclusion**: Transformations are consistent across stimuli but NOT across time
 
 **Command**:
 
@@ -207,26 +208,51 @@ python -m src.analysis.comprehensive_analysis \
 
 ---
 
-### Analysis 5: Causal Perturbation Test ❌
+### Analysis 5: Causal Perturbation Test ✅
 
-**Status**: Not implemented
+**Implemented**: `src/analysis/causal_perturbation.py`
 
-**What It Would Do**:
+**Status**: Complete - Standalone and integrated modes available
 
-1. Select trials where model outputs "match"
-2. Get hidden state at executive timestep
-3. Perturb: h' = h + d·W (where W is decoder normal vector)
-4. Pass h' through final layers
-5. Plot P(match), P(non-match), P(no-action) vs distance d
+**Paper Reference**: Figure A7 - Establishes causal relationship between decoder subspaces and network behavior
 
-**Expected Result**:
+**What It Does**:
 
-- P(match) drops as distance increases
-- P(no-action) rises
-- Clear boundary visible
+1. Select trials where model outputs "match" (subsampled matched trials)
+2. Get hidden state at executive timestep (when decision is made)
+3. Train feature-based two-way decoders to get decision hyperplane normal vector W
+4. Perturb hidden states: h' = h + d·W (move along hyperplane direction)
+5. Pass perturbed h' through the recurrent module with paired stimulus
+6. Compute probabilities of all three actions: P(match), P(non-match), P(no-action)
 
-**To Implement**:
-Create `src/analysis/causal_perturbation.py` with model inference capability
+**Expected Result** (from paper Figure A7):
+
+- P(match) DROPS significantly as distance increases (0.85 → 0.25)
+- P(no-action) RISES as state becomes ambiguous (0.10 → 0.61)
+- P(non-match) rises slightly but less than no-action
+- Clear boundary visible at d=0
+
+**Conclusion**: Decoder-defined subspaces are CAUSALLY related to network behavior
+
+**Commands**:
+
+```bash
+# Standalone
+python -m src.analysis.causal_perturbation \
+  --model experiments/wm_mtmf/best_model.pt \
+  --hidden_root experiments/wm_mtmf/hidden_states \
+  --property location \
+  --timestep 3 \
+  --output_dir analysis_results
+
+# Integrated
+python -m src.analysis.comprehensive_analysis \
+  --analysis 5 \
+  --model experiments/wm_mtmf/best_model.pt \
+  --hidden_root experiments/wm_mtmf/hidden_states \
+  --property location \
+  --output_dir analysis_results
+```
 
 ---
 
@@ -336,22 +362,22 @@ Overall: 5/5 tests passed
 
 ---
 
-## Expected Patterns (From Paper)
+## Expected Patterns (From Paper arXiv:2411.02685)
 
 After running all analyses, you should observe:
 
-| Finding | Analysis | Expected Result |
-|---------|----------|-----------------|
-| Novel identity weaker | 1 | ✅ val_novel_identity < val_novel_angle |
-| Task-relevant high (STSF) | 2A | ✅ Diagonal > off-diagonal |
-| All features high (MTMF) | 2A | ✅ All > 85% |
-| Low cross-task (GRU/LSTM) | 2B | ✅ Off-diagonal < diagonal |
-| High cross-task (RNN) | 2B | ⚠️ Off-diagonal ≈ diagonal |
-| RNN de-orthogonalizes | 3 | ⚠️ Points below diagonal |
-| H1 disproved | 4A | ✅ Accuracy drops over time |
-| H2 supported | 4B | ✅ Validation ≈ generalization |
-| Chronological transforms | 4C | ⚠️ Swap test results |
-| Causal subspaces | 5 | ❌ Not implemented |
+| Finding | Analysis | Figure | Expected Result |
+|---------|----------|--------|-----------------|
+| Novel identity weaker | 1 | A1c | ✅ val_novel_identity < val_novel_angle |
+| Task-relevant high (STSF) | 2A | 2b | ✅ Diagonal > off-diagonal |
+| All features high (MTMF) | 2A | 2b | ✅ All > 85% (mixed representations) |
+| Low cross-task (GRU/LSTM) | 2B | 2a,2c | ✅ Off-diagonal < diagonal (task-specific) |
+| High cross-task (RNN) | 2B | 2a,2c | ✅ Off-diagonal ≈ diagonal (shared encoding) |
+| RNN de-orthogonalizes | 3 | 3b | ✅ O(RNN) < O(CNN), points below diagonal |
+| H1 disproved | 4A | 4b | ✅ Accuracy drops over time (not slot-based) |
+| H2 supported | 4B | 4d | ✅ Validation ≈ generalization (shared encoding) |
+| Chronological transforms | 4C | 4g | ✅ Stimulus swap OK, time swap NOT OK |
+| Causal subspaces | 5 | A7 | ✅ P(match) drops, P(no-action) rises |
 
 ---
 
@@ -444,15 +470,15 @@ Your implementation is successful if:
 
 - [x] ✅ Data splits work (novel-angle & novel-identity separated)
 - [x] ✅ Training tracks both validation sets
-- [x] ✅ Novel identity shows weaker performance
-- [x] ✅ Task-relevance decoding works
-- [x] ✅ Cross-task matrices generated
-- [x] ✅ Orthogonalization indices computed
-- [x] ✅ Cross-time decoding shows accuracy drop
-- [x] ✅ Cross-stimulus decoding supports H2
-- [x] ✅ Procrustes swap test complete (simplified version, documented)
-- [x] ✅ CNN vs RNN orthogonalization comparison (CNN activations now saved)
-- [x] ✅ Causal perturbation test implemented (standalone + integrated)
+- [x] ✅ Novel identity shows weaker performance (Figure A1c)
+- [x] ✅ Task-relevance decoding works (Figure 2b)
+- [x] ✅ Cross-task matrices generated (Figure 2a)
+- [x] ✅ Orthogonalization indices computed for CNN and RNN (Figure 3b)
+- [x] ✅ Cross-time decoding shows accuracy drop (Figure 4b - H1 test)
+- [x] ✅ Cross-stimulus decoding supports H2 (Figure 4d)
+- [x] ✅ Procrustes swap test complete (Figure 4g)
+- [x] ✅ CNN vs RNN orthogonalization comparison
+- [x] ✅ Causal perturbation test implemented (Figure A7)
 
 ### Current Score: 11/11 (100%) All Features Complete! 🎉
 
