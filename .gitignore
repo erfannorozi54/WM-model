@@ -260,3 +260,5 @@ plots/
 # HDF5 files
 *.h5
 *.hdf5
+slidev-presentation/node_modules/*
+slidev-presentation/package-lock.json
