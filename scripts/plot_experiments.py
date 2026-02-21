@@ -46,6 +46,7 @@ EXP_NAMES = {
     "wm_attention_stmf": "STMF + Attention",
     "wm_dual_attention_stmf": "STMF + Dual Attention",
     "wm_attention_mtmf": "MTMF + Attention",
+    "wm_dual_attention_mtmf": "MTMF + Dual Attention",
 }
 
 
@@ -80,8 +81,11 @@ def get_all_metrics(experiments):
     metrics = set()
     for exp_data in experiments.values():
         for run in exp_data['runs']:
-            if run:
-                for k, v in run[0].items():
+            if run and isinstance(run, list):
+                first_entry = next((e for e in run if isinstance(e, dict)), None)
+                if not first_entry:
+                    continue
+                for k, v in first_entry.items():
                     if isinstance(v, (int, float)) and k != "epoch":
                         metrics.add(k)
     return sorted(metrics)
@@ -94,17 +98,22 @@ def plot_metric(experiments, metric, output_dir):
     for i, (name, exp_data) in enumerate(experiments.items()):
         runs = exp_data['runs']
         n_runs = exp_data['n_runs']
+        contributing_runs = 0
         
         # Collect all epochs and values from all runs
         all_epochs = []
         all_values_by_epoch = defaultdict(list)
         
         for run in runs:
+            run_has_metric = False
             for entry in run:
                 if metric in entry:
                     epoch = entry["epoch"]
                     all_epochs.append(epoch)
                     all_values_by_epoch[epoch].append(entry[metric])
+                    run_has_metric = True
+            if run_has_metric:
+                contributing_runs += 1
         
         if not all_epochs:
             continue
@@ -122,7 +131,7 @@ def plot_metric(experiments, metric, output_dir):
         
         # Plot
         style = STYLES[i % len(STYLES)]
-        label = f"{EXP_NAMES.get(name, name)} (n={n_runs})"
+        label = f"{EXP_NAMES.get(name, name)} (n={contributing_runs}/{n_runs})"
         
         line = plt.plot(epochs, mean_values, 
                  color=style["color"],
@@ -134,7 +143,7 @@ def plot_metric(experiments, metric, output_dir):
                  markevery=max(1, len(epochs)//15))
         
         # Add shaded error region if multiple runs
-        if n_runs > 1:
+        if contributing_runs > 1:
             plt.fill_between(epochs, 
                            np.array(mean_values) - np.array(std_values),
                            np.array(mean_values) + np.array(std_values),
