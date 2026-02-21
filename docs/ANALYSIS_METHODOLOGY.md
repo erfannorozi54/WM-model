@@ -689,7 +689,7 @@ python -m src.analysis.comprehensive_analysis \
 
 ```bash
 # 1. Verify setup
-python scripts/verify_analysis_setup.py
+python -m src.scripts.verify_analysis_setup
 # Expected: 5/5 tests passed
 
 # 2. Generate stimuli (if needed)

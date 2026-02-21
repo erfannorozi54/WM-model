@@ -9,14 +9,10 @@ This script verifies:
 4. Example workflows can run
 
 Usage:
-    python scripts/verify_analysis_setup.py
+    python -m src.scripts.verify_analysis_setup
 """
 
-import sys
 from pathlib import Path
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def test_imports():
     """Test that all required modules can be imported."""
@@ -26,7 +22,7 @@ def test_imports():
     
     try:
         print("  Importing data modules...")
-        from src.data.validation_splits import load_and_split_stimuli, ValidationSplitter
+        from src.data.validation_splits import load_and_split_stimuli
         print("    ✓ validation_splits")
         
         from src.data.dataset import NBackDataModule
@@ -126,8 +122,6 @@ def test_analysis_functions():
     
     try:
         from src.analysis.comprehensive_analysis import ComprehensiveAnalysis
-        from pathlib import Path
-        
         # Create analyzer instance
         analyzer = ComprehensiveAnalysis(
             hidden_root=Path("experiments/test/hidden_states"),
@@ -259,4 +253,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

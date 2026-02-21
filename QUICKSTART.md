@@ -22,7 +22,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Verify setup
-python scripts/verify_analysis_setup.py
+python -m src.scripts.verify_analysis_setup
 # Expected: 5/5 tests passed ✅
 ```
 
@@ -117,7 +117,7 @@ python -m src.analysis.comprehensive_analysis --analysis 5 \
 ```bash
 # 1. Setup
 source venv/bin/activate
-python scripts/verify_analysis_setup.py
+python -m src.scripts.verify_analysis_setup
 
 # 2. Data
 python -m src.data.download_shapenet --placeholder
@@ -177,7 +177,7 @@ python -m src.data.generate_stimuli
 **Analysis fails?**
 
 ```bash
-python scripts/verify_analysis_setup.py
+python -m src.scripts.verify_analysis_setup
 pip install seaborn  # If missing
 ```
 

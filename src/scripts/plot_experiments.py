@@ -2,6 +2,9 @@
 """Plot training metrics across all experiments for comparison.
 
 Modified to compute mean across multiple runs of the same experiment.
+
+Usage:
+    python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 """
 
 import json
@@ -133,7 +136,7 @@ def plot_metric(experiments, metric, output_dir):
         style = STYLES[i % len(STYLES)]
         label = f"{EXP_NAMES.get(name, name)} (n={contributing_runs}/{n_runs})"
         
-        line = plt.plot(epochs, mean_values, 
+        plt.plot(epochs, mean_values,
                  color=style["color"],
                  linestyle=style["linestyle"],
                  marker=style["marker"],
