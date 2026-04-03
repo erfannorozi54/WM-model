@@ -301,13 +301,13 @@ transition: fade-out
 
 # Analysis 2: Encoding Properties
 
-<div class="grid grid-cols-2 gap-8">
+<div class="grid grid-cols-2 gap-1 -mt8">
 
-<div class="p-4 bg-blue-500/10 rounded-lg">
+<div class="p-4 bg-blue-500/10 rounded-lg text-[0.54rem] leading-tight -mt2">
 
-### 2A: Task-Relevance Decoding <span class="text-sm opacity-60">(Figure 2b)</span>
+### 2A: Task-Relevance Decoding
 
-**Question**: Does the network only encode task-relevant information, or does it preserve everything?
+**Question** (Figure 2b): Does the network only encode task-relevant information, or does it preserve everything?
 
 **Method**: Within each task context, train a linear decoder to predict each property (location, identity, category) from the hidden states. This produces a 3×3 matrix where rows = task context and columns = decoded property.
 
@@ -315,17 +315,20 @@ transition: fade-out
 - **Diagonal** (e.g., decode location from location task) → task-relevant → should be high (>85%)
 - **Off-diagonal** (e.g., decode identity from location task) → task-irrelevant
 
-**Finding**:
-- **STSF**: Only diagonal is high — irrelevant info is discarded
-- **MTMF**: All cells >85% — full object representation preserved across tasks
+**Findings (STSF, n=1 task)**:
+- STSF (actual): Off-diagonal also high — identity 99.8%, category 91.8%. Does **not** discard irrelevant info (contradicts paper expectation)
+- STSF (theory): Only diagonal high → irrelevant info discarded
+- MTMF (actual): All cells >85% ✅ — full object representation preserved across tasks
+
+**Note**: STSF only has 1 task (location), so there's no multi-task 3×3 matrix to compare diagonal vs off-diagonal within a single model.
 
 </div>
 
-<div class="p-4 bg-purple-500/10 rounded-lg">
+<div class="p-4 bg-purple-500/10 rounded-lg text-[0.54rem] leading-tight -mt2">
 
-### 2B: Cross-Task Generalization <span class="text-sm opacity-60">(Figure 2a)</span>
+### 2B: Cross-Task Generalization
 
-**Question**: Are the neural representations for a property (e.g., identity) the same across different tasks, or does the network use separate subspaces?
+**Question** (Figure 2a): Are the neural representations for a property (e.g., identity) the same across different tasks, or does the network use separate subspaces?
 
 **Method**: Train a decoder on Task A (e.g., identity from location task), then test it on Task B (identity from identity task). This produces a 3×3 matrix per property where rows = train task and columns = test task.
 
@@ -333,15 +336,18 @@ transition: fade-out
 - **Diagonal** (train on A, test on A) → baseline decoding accuracy
 - **Off-diagonal** (train on A, test on B) → do representations generalize?
 
-**Finding**:
-- **Vanilla RNN**: High off-diagonal → shared/overlapping representations
-- **GRU/LSTM**: Low off-diagonal (8-35%) → task-specific subspaces
+**Findings (GRU MTMF, 3 tasks × 3 properties)**:
+- Vanilla RNN: *Theory only* — predicted high off-diagonal (shared representations). **No data** — all experiments use GRU.
+- GRU/LSTM (actual): Off-diagonal low for **location** (22-35%) and **identity** (8-35%) ✅. But **category** has high off-diagonal (31-75%) ❌ — category representations partially transfer across tasks.
+- GRU/LSTM (theory): Low off-diagonal (8-35%) → fully task-specific subspaces
+
+**Note**: Category cross-task generalization reaches 75% (train=category → test=identity, contradicting the "fully task-specific" claim.
 
 </div>
 
 </div>
 
-<div class="mt-6 p-3 bg-yellow-500/10 rounded-lg text-sm">
+<div class="mt-4 p-3 bg-yellow-500/10 rounded-lg text-xs">
 
 **The difference**: 2A asks *"what information is present within one task?"* while 2B asks *"do representations transfer between tasks?"* — they probe different aspects of the encoding geometry.
 
@@ -351,27 +357,27 @@ transition: fade-out
 
 # Analysis 2A: Task-Relevance Results
 
-<div class="flex gap-6 justify-center">
+<div class="flex gap-4 justify-center -mt6">
 
 <div class="text-center">
-<p class="text-sm font-bold mb-2">Baseline MTMF</p>
+<p class="text-sm font-bold mb-1">Baseline MTMF</p>
 <img src="/results/wm_mtmf_20260105_182040/analysis2a_task_relevance.png" class="h-72 rounded shadow-lg" />
 </div>
 
 <div class="text-center">
-<p class="text-sm font-bold mb-2">Dual Attention MTMF</p>
+<p class="text-sm font-bold mb-1">Dual Attention MTMF</p>
 <img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis2a_task_relevance.png" class="h-72 rounded shadow-lg" />
 </div>
 
 </div>
 
-<div class="mt-4 p-4 bg-blue-500/10 rounded-lg text-sm">
+<div class="-mt-4 p-4 bg-blue-500/10 rounded-lg text-sm">
 
 **What this shows**: Each cell = decoding accuracy for one property (columns) within one task context (rows).
 
-- **Baseline MTMF**: All cells >87% — the model preserves the full object representation regardless of task
-- **Dual Attention MTMF**: All cells >90% — attention further strengthens this mixed representation
-- ✅ Both models encode *all* properties, not just task-relevant ones (unlike STSF which only encodes the diagonal)
+- **Baseline MTMF**: All cells >87% ✅
+- **Dual Attention MTMF**: All cells >90% ✅
+- ⚠️ STSF off-diagonal also high (91-100%) — does **not** discard irrelevant info (contradicts paper expectation)
 
 </div>
 
@@ -379,26 +385,30 @@ transition: fade-out
 
 # Analysis 2B: Cross-Task Generalization
 
-<div class="flex gap-6 justify-center">
+<div class="flex gap-3 justify-center -mt-2">
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_location.png" class="h-72 rounded shadow-lg" />
+<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_location.png" class="h-60 rounded shadow-lg" />
 </div>
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_identity.png" class="h-72 rounded shadow-lg" />
+<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_identity.png" class="h-60 rounded shadow-lg" />
+</div>
+
+<div>
+<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_category.png" class="h-60 rounded shadow-lg" />
 </div>
 
 </div>
 
-<div class="mt-4 p-4 bg-red-500/10 rounded-lg text-sm">
+<div class="-mt-4 p-4 bg-red-500/10 rounded-lg text-sm">
 
 **What this shows**: Each cell = decoder trained on one task (rows), tested on another task (columns).
 
-- **Diagonal (same task)**: 90-100% accuracy → baseline decoding works well
-- **Off-diagonal (cross-task)**: 8-35% accuracy → decoder fails when switching tasks
-- ✅ Confirms GRU uses **task-specific subspaces** — "location" in the location task vs "location" in the identity task live in different subspaces
-- This matches the paper's finding for gated RNNs (GRU/LSTM): they segregate representations by task context
+- **Diagonal (same task)**: 88-100% accuracy ✅
+- **Off-diagonal**: location 22-35% ✅, identity 8-23% ✅, **category 31-75%** ❌
+- ⚠️ Category representations partially transfer across tasks (up to 75%) — not fully task-specific
+- Vanilla RNN: *theory only* (no experiment data; all models use GRU)
 
 </div>
 
