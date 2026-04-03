@@ -1,34 +1,46 @@
 ---
-theme: default
+theme: academic
 title: Working Memory in RNNs
 info: |
   ## Geometry of Naturalistic Object Representations
   Based on paper arXiv:2411.02685
+coverAuthor: Erfan Norozi
+coverDate: "February 2026"
 class: text-center
 highlighter: shiki
 drawings:
   persist: false
 transition: slide-left
 mdc: true
+themeConfig:
+  paginationX: r
+  paginationY: b
 ---
 
 # Geometry of Naturalistic Object Representations in RNN Models of Working Memory
 
-**Based on:** Lei, Ito & Bashivan (NeurIPS 2024)
+<div class="pt-4 text-lg opacity-80">
+Lei, Ito & Bashivan — NeurIPS 2024
+</div>
 
-**Implementation & Extension:** Task-Guided Attention Models
+<div class="pt-2 text-sm opacity-60">
+Implementation & Extension: Task-Guided Attention Models
+</div>
 
-<div class="pt-12">
-  <span class="px-2 py-1 rounded cursor-pointer" hover="bg-white bg-opacity-10">
-    Press Space for next slide →
-  </span>
+<div class="abs-br m-6 flex gap-2">
+  <a href="https://arxiv.org/abs/2411.02685" target="_blank" class="text-xl slidev-icon-btn opacity-50 !border-none !hover:text-white">
+    📄
+  </a>
 </div>
 
 ---
-layout: two-cols
+layout: two-cols-header
+transition: fade-out
 ---
 
 # The Problem
+
+::left::
 
 <v-clicks>
 
@@ -44,7 +56,7 @@ layout: two-cols
 
 ::right::
 
-<div class="ml-4 mt-8">
+<div class="ml-6 mt-4">
 
 ```
 Traditional Input:
@@ -62,14 +74,16 @@ Viewpoint: 4 angles
 </div>
 
 ---
+transition: fade-out
+---
 
 # Research Goals
 
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### Paper Goals
+### 📄 Paper Goals
 
 <v-clicks>
 
@@ -87,7 +101,7 @@ Viewpoint: 4 angles
 
 <div>
 
-### Our Extension
+### 🔬 Our Extension
 
 <v-clicks>
 
@@ -104,12 +118,13 @@ Viewpoint: 4 angles
 </div>
 
 ---
+layout: two-cols-header
+transition: slide-up
+---
 
 # N-back Task Design
 
-<div class="grid grid-cols-2 gap-8">
-
-<div>
+::left::
 
 ### Task Structure
 
@@ -125,20 +140,22 @@ Viewpoint: 4 angles
 - 4 Locations (quadrants)
 - 4 Viewing angles
 
-</div>
+::right::
 
-<div>
+<div class="ml-4">
 
 ```
 Example: 2-back Category Task
 
 Trial 1: 🪑 chair    → no_action
 Trial 2: 🚗 car      → no_action  
-Trial 3: 🪑 chair    → MATCH! (same as T1)
+Trial 3: 🪑 chair    → MATCH! (= T1)
 Trial 4: ✈️ plane    → non_match
 Trial 5: 🚗 car      → non_match
-Trial 6: ✈️ plane    → MATCH! (same as T4)
+Trial 6: ✈️ plane    → MATCH! (= T4)
 ```
+
+<div class="mt-4 p-3 bg-blue-500/10 rounded-lg">
 
 **Responses**: `no_action` | `non_match` | `match`
 
@@ -147,55 +164,60 @@ Trial 6: ✈️ plane    → MATCH! (same as T4)
 </div>
 
 ---
+transition: fade-out
+---
 
 # Model Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Two-Stage Sensory-Cognitive Model            │
-├─────────────────────────────────────────────────────────────────┤
-│  Images (B,T,3,224,224)                                        │
-│       ↓                                                         │
-│  ┌─────────────┐                                               │
-│  │  ResNet50   │  ← Frozen ImageNet weights                    │
-│  │  (CNN)      │  → 2048-dim features                          │
-│  └─────────────┘                                               │
-│       ↓                                                         │
-│  1×1 Conv → GAP → Visual Embedding (B,T,H)                     │
-│       ↓                                                         │
-│  Concat with Task Vector (B,T,H+3)                             │
-│       ↓                                                         │
-│  ┌─────────────┐                                               │
-│  │ RNN/GRU/LSTM│  ← Trainable                                  │
-│  └─────────────┘                                               │
-│       ↓                                                         │
-│  Linear Classifier → Logits (B,T,3)                            │
-│       ↓                                                         │
-│  Predictions: no_action | non_match | match                    │
-└─────────────────────────────────────────────────────────────────┘
+<div class="flex justify-center">
+
+```mermaid {scale: 0.75}
+graph TD
+    A["🖼️ Images (B,T,3,224,224)"] --> B["ResNet50 (frozen)"]
+    B --> C["1×1 Conv → GAP"]
+    C --> D["Visual Embedding (B,T,H)"]
+    E["Task Vector (one-hot)"] --> F["Concat"]
+    D --> F
+    F --> G["RNN / GRU / LSTM"]
+    G --> H["Linear Classifier"]
+    H --> I["no_action | non_match | match"]
+    
+    style A fill:#4a9eff,color:#fff
+    style B fill:#ff6b6b,color:#fff
+    style G fill:#51cf66,color:#fff
+    style I fill:#ffd43b,color:#333
 ```
 
+</div>
+
+---
+transition: slide-up
 ---
 
 # Training Scenarios
 
 | Scenario | Description | N-values | Tasks | Complexity |
 |----------|-------------|----------|-------|------------|
-| **STSF** | Single-Task Single-Feature | [2] | 1 (e.g., category) | Simplest |
-| **STMF** | Single-Task Multi-Feature | [2] | 3 (L, I, C) | Medium |
-| **MTMF** | Multi-Task Multi-Feature | [1,2,3] | 9 (all combinations) | Hardest |
+| **STSF** | Single-Task Single-Feature | [2] | 1 (category) | ⭐ |
+| **STMF** | Single-Task Multi-Feature | [2] | 3 (L, I, C) | ⭐⭐ |
+| **MTMF** | Multi-Task Multi-Feature | [1,2,3] | 9 (all) | ⭐⭐⭐ |
 
 <v-click>
 
+<div class="mt-6 p-4 bg-green-500/10 rounded-lg">
+
 ### Validation Splits
 
-- **Novel Angle**: Same objects, new viewing angle (tests view-invariance)
-- **Novel Identity**: New object instances (tests generalization)
+- **Novel Angle**: Same objects, new viewing angle → tests view-invariance
+- **Novel Identity**: New object instances → tests generalization
+
+</div>
 
 </v-click>
 
 ---
 layout: section
+transition: fade
 ---
 
 # Paper's 5 Analyses
@@ -203,105 +225,125 @@ layout: section
 Understanding Working Memory Representations
 
 ---
+layout: quote
+transition: fade-out
+---
 
 # Analysis 1: Behavioral Performance
 
-### Goal
-Validate model achieves expected generalization patterns
+<div class="text-base">
 
-### Method
+> "Novel identity generalization is substantially weaker than novel angle — models learn view-invariant but not identity-invariant representations"
+
+</div>
+
+<v-clicks>
+
+<div class="text-sm">
+
 - Track accuracy on training, novel-angle, and novel-identity sets
-- Compare generalization gaps
+- Expected: Training ~95%, Novel Angle ~90%, Novel Identity ~70%
+- **Key Finding**: Generalization gap reveals what the model truly learns
 
-### Expected Pattern (Figure A1c)
-```
-Training Accuracy:        ~95%
-Novel Angle Accuracy:     ~90% (slight drop - view invariance works)
-Novel Identity Accuracy:  ~70% (substantial drop - generalization gap)
-```
+</div>
 
-<v-click>
-
-### Key Finding
-**Novel identity generalization is substantially weaker** than novel angle - models learn view-invariant but not identity-invariant representations
-
-</v-click>
+</v-clicks>
 
 ---
-
-# Analysis 1: Our Results - Baseline MTMF
-
-<div class="grid grid-cols-2 gap-4">
-
-<div>
-<img src="/results/wm_mtmf_20260105_182040/analysis1_training_curves.png" class="h-60" />
-</div>
-
-<div>
-<img src="/results/wm_mtmf_20260105_182040/analysis1_generalization_comparison.png" class="h-60" />
-</div>
-
-</div>
-
-**Observations:**
-- Training: 88.6% | Novel Angle: 85.9% | Novel Identity: 70.7%
-- ✅ **Pattern confirmed**: Novel Identity < Novel Angle (15% gap)
-- Model plateaus at ~88% training accuracy
-
+layout: two-cols-header
+transition: fade-out
 ---
 
-# Analysis 1: Our Results - Dual Attention MTMF
+# Analysis 1: Baseline MTMF
 
-<div class="grid grid-cols-2 gap-4">
+::left::
 
-<div>
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_training_curves.png" class="h-60" />
+<img src="/results/wm_mtmf_20260105_182040/analysis1_training_curves.png" class="h-72 rounded shadow-lg" />
+
+::right::
+
+<img src="/results/wm_mtmf_20260105_182040/analysis1_generalization_comparison.png" class="h-72 rounded shadow-lg" />
+
+<div class="mt-3 p-3 bg-orange-500/10 rounded-lg text-xs">
+
+**Training**: 88.6% &nbsp;|&nbsp; **Novel Angle**: 85.9% &nbsp;|&nbsp; **Novel Identity**: 70.7%
+
+✅ Pattern confirmed: Novel Identity < Novel Angle (15% gap)
+
 </div>
 
-<div>
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_generalization_comparison.png" class="h-60" />
-</div>
+---
+layout: two-cols-header
+transition: fade-out
+---
+
+# Analysis 1: Dual Attention MTMF
+
+::left::
+
+<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_training_curves.png" class="h-60 rounded shadow-lg" />
+
+::right::
+
+<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_generalization_comparison.png" class="h-60 rounded shadow-lg" />
+
+<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-xs">
+
+**Training**: 99.3% &nbsp;|&nbsp; **Novel Angle**: 94.6% &nbsp;|&nbsp; **Novel Identity**: 81.2%
+
+✅ Attention dramatically improves all metrics (+10% across the board)
 
 </div>
 
-**Observations:**
-- Training: 99.3% | Novel Angle: 94.6% | Novel Identity: 81.2%
-- ✅ **Attention dramatically improves** all metrics (+10% across the board)
-- Sharp improvement at epoch ~12 when attention "kicks in"
-
+---
+transition: fade-out
 ---
 
 # Analysis 2: Encoding Properties
 
-<div class="grid grid-cols-2 gap-4">
+<div class="grid grid-cols-2 gap-8">
 
-<div>
+<div class="p-4 bg-blue-500/10 rounded-lg">
 
-### 2A: Task-Relevance (Figure 2b)
+### 2A: Task-Relevance Decoding <span class="text-sm opacity-60">(Figure 2b)</span>
 
-**Question**: Do RNNs preserve task-irrelevant info?
+**Question**: Does the network only encode task-relevant information, or does it preserve everything?
 
-**Method**: Decode each property from each task context
+**Method**: Within each task context, train a linear decoder to predict each property (location, identity, category) from the hidden states. This produces a 3×3 matrix where rows = task context and columns = decoded property.
+
+**Key distinction**:
+- **Diagonal** (e.g., decode location from location task) → task-relevant → should be high (>85%)
+- **Off-diagonal** (e.g., decode identity from location task) → task-irrelevant
 
 **Finding**:
-- STSF: Only task-relevant features preserved
-- MTMF: **All features preserved** (>85%)
+- **STSF**: Only diagonal is high — irrelevant info is discarded
+- **MTMF**: All cells >85% — full object representation preserved across tasks
 
 </div>
 
-<div>
+<div class="p-4 bg-purple-500/10 rounded-lg">
 
-### 2B: Cross-Task Generalization (Figure 2a)
+### 2B: Cross-Task Generalization <span class="text-sm opacity-60">(Figure 2a)</span>
 
-**Question**: Are encodings shared across tasks?
+**Question**: Are the neural representations for a property (e.g., identity) the same across different tasks, or does the network use separate subspaces?
 
-**Method**: Train decoder on Task A, test on Task B
+**Method**: Train a decoder on Task A (e.g., identity from location task), then test it on Task B (identity from identity task). This produces a 3×3 matrix per property where rows = train task and columns = test task.
+
+**Key distinction**:
+- **Diagonal** (train on A, test on A) → baseline decoding accuracy
+- **Off-diagonal** (train on A, test on B) → do representations generalize?
 
 **Finding**:
-- **Vanilla RNN**: High cross-task generalization
-- **GRU/LSTM**: Low cross-task generalization (task-specific)
+- **Vanilla RNN**: High off-diagonal → shared/overlapping representations
+- **GRU/LSTM**: Low off-diagonal (8-35%) → task-specific subspaces
 
 </div>
+
+</div>
+
+<div class="mt-6 p-3 bg-yellow-500/10 rounded-lg text-sm">
+
+**The difference**: 2A asks *"what information is present within one task?"* while 2B asks *"do representations transfer between tasks?"* — they probe different aspects of the encoding geometry.
 
 </div>
 
@@ -309,145 +351,159 @@ Novel Identity Accuracy:  ~70% (substantial drop - generalization gap)
 
 # Analysis 2A: Task-Relevance Results
 
-<div class="grid grid-cols-2 gap-4">
+<div class="flex gap-6 justify-center">
 
-<div>
-
-### Baseline MTMF
-<img src="/results/wm_mtmf_20260105_182040/analysis2a_task_relevance.png" class="h-55" />
-
-All cells >87% - **full object representation preserved**
-
+<div class="text-center">
+<p class="text-sm font-bold mb-2">Baseline MTMF</p>
+<img src="/results/wm_mtmf_20260105_182040/analysis2a_task_relevance.png" class="h-72 rounded shadow-lg" />
 </div>
 
-<div>
-
-### Dual Attention MTMF
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis2a_task_relevance.png" class="h-55" />
-
-All cells >90% - attention maintains full representation
-
+<div class="text-center">
+<p class="text-sm font-bold mb-2">Dual Attention MTMF</p>
+<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis2a_task_relevance.png" class="h-72 rounded shadow-lg" />
 </div>
 
 </div>
 
-**Key Finding**: Both models preserve task-relevant AND irrelevant features (>85%)
+<div class="mt-4 p-4 bg-blue-500/10 rounded-lg text-sm">
+
+**What this shows**: Each cell = decoding accuracy for one property (columns) within one task context (rows).
+
+- **Baseline MTMF**: All cells >87% — the model preserves the full object representation regardless of task
+- **Dual Attention MTMF**: All cells >90% — attention further strengthens this mixed representation
+- ✅ Both models encode *all* properties, not just task-relevant ones (unlike STSF which only encodes the diagonal)
+
+</div>
 
 ---
 
 # Analysis 2B: Cross-Task Generalization
 
-<div class="grid grid-cols-2 gap-4">
+<div class="flex gap-6 justify-center">
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_location.png" class="h-55" />
+<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_location.png" class="h-72 rounded shadow-lg" />
 </div>
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_identity.png" class="h-55" />
+<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_identity.png" class="h-72 rounded shadow-lg" />
 </div>
 
 </div>
 
-**Results**: 
-- **Diagonal (same task)**: 90-100% accuracy
-- **Off-diagonal (cross-task)**: 8-35% accuracy
-- ✅ Confirms GRU uses **task-specific subspaces** (paper's finding for gated RNNs)
+<div class="mt-4 p-4 bg-red-500/10 rounded-lg text-sm">
 
+**What this shows**: Each cell = decoder trained on one task (rows), tested on another task (columns).
+
+- **Diagonal (same task)**: 90-100% accuracy → baseline decoding works well
+- **Off-diagonal (cross-task)**: 8-35% accuracy → decoder fails when switching tasks
+- ✅ Confirms GRU uses **task-specific subspaces** — "location" in the location task vs "location" in the identity task live in different subspaces
+- This matches the paper's finding for gated RNNs (GRU/LSTM): they segregate representations by task context
+
+</div>
+
+---
+transition: fade-out
 ---
 
 # Analysis 3: Orthogonalization
 
-### Goal
-Compare representational geometry between CNN (perceptual) and RNN (encoding) spaces
+<div class="grid grid-cols-2 gap-6">
+
+<div>
 
 ### Method
+
 1. Train one-vs-rest SVM for each feature value
-2. Extract hyperplane normal vectors W
+2. Extract hyperplane normal vectors **W**
 3. Compute orthogonalization index:
 
 $$O = E[\text{triu}(\tilde{W})] \quad \text{where} \quad \tilde{W}_{ij} = 1 - |\cos(W_i, W_j)|$$
 
-### Expected Pattern (Figure 3b)
-- O = 1: Perfectly orthogonal (excellent separation)
-- O = 0: Completely overlapping
+<div class="mt-4 text-sm">
+
+- **O = 1**: Perfectly orthogonal (excellent separation)
+- **O = 0**: Completely overlapping
 - **Points below diagonal** = RNN de-orthogonalizes
 
+</div>
+
+</div>
+
+<div class="flex flex-col items-center gap-2">
+
+<img src="/results/wm_mtmf_20260105_182040/analysis3_orthogonalization.png" class="h-48 rounded shadow-lg" />
+
+<div class="text-sm opacity-80">Location & Category below diagonal ✅</div>
+
+</div>
+
+</div>
+
+---
+layout: two-cols-header
+transition: fade-out
 ---
 
-# Analysis 3: Orthogonalization Results
+# Analysis 4: WM Dynamics — H1 Test
 
-<div class="grid grid-cols-2 gap-4">
+<div class="mb-2 p-2 bg-yellow-500/10 rounded-lg text-sm">
 
-<div>
+**Hypothesis H1 (Slot-Based)**: If memory uses fixed slots, a decoder trained at t=0 should work at t=1,2,3...
+
+</div>
+
+::left::
 
 ### Baseline MTMF
-<img src="/results/wm_mtmf_20260105_182040/analysis3_orthogonalization.png" class="h-55" />
+<img src="/results/wm_mtmf_20260105_182040/analysis4a_cross_time_decoding.png" class="h-48 rounded shadow-lg" />
 
-Location & Category below diagonal ✅
-
-</div>
-
-<div>
+::right::
 
 ### Dual Attention MTMF
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis3_orthogonalization.png" class="h-55" />
+<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis4a_cross_time_decoding.png" class="h-48 rounded shadow-lg" />
 
-Similar pattern - attention doesn't change geometry
+<div class="mt-2 p-3 bg-red-500/10 rounded-lg">
+
+**Result**: Accuracy drops 100% → ~5% immediately → **H1 DISPROVED** — Memory is NOT stored in fixed slots!
 
 </div>
-
-</div>
-
-**Finding**: RNN de-orthogonalizes for Location & Category (more efficient representation)
 
 ---
-
-# Analysis 4: WM Dynamics - H1 Test
-
-### Hypothesis H1: Slot-Based Memory
-If true, decoder trained at t=0 should work at t=1,2,3...
-
-<div class="grid grid-cols-2 gap-4">
-
-<div>
-
-### Baseline MTMF
-<img src="/results/wm_mtmf_20260105_182040/analysis4a_cross_time_decoding.png" class="h-50" />
-
-</div>
-
-<div>
-
-### Dual Attention MTMF
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis4a_cross_time_decoding.png" class="h-50" />
-
-</div>
-
-</div>
-
-**Result**: Accuracy drops from 100% → ~5% immediately → **H1 DISPROVED**
-Memory is NOT stored in fixed slots!
-
+layout: fact
+transition: slide-up
 ---
 
-# Summary: All Analysis Results
+# All Paper Findings Replicated ✅
 
-| Analysis | Paper Finding | Our Result | Status |
-|----------|---------------|------------|--------|
-| **1. Behavioral** | Novel identity < Novel angle | ✅ 70.7% vs 85.9% (baseline) | ✅ |
-| **2A. Task-Relevance** | MTMF preserves all features | ✅ All >87% accuracy | ✅ |
-| **2B. Cross-Task** | GRU task-specific | ✅ Diagonal 90-100%, Off-diag 8-35% | ✅ |
-| **3. Orthogonalization** | RNN de-orthogonalizes | ✅ Location/Category below diagonal | ✅ |
-| **4. H1 Test** | Slot-based disproved | ✅ 100%→5% drop over time | ✅ |
+<div class="text-lg mt-4">
 
-**All paper findings replicated!**
+| Analysis | Paper Finding | Our Result |
+|----------|---------------|------------|
+| **1. Behavioral** | Novel identity < Novel angle | 70.7% vs 85.9% ✅ |
+| **2A. Task-Relevance** | MTMF preserves all features | All >87% ✅ |
+| **2B. Cross-Task** | GRU task-specific | Diag 90-100%, Off 8-35% ✅ |
+| **3. Orthogonalization** | RNN de-orthogonalizes | Below diagonal ✅ |
+| **4. H1 Test** | Slot-based disproved | 100%→5% drop ✅ |
+
+</div>
 
 ---
+layout: section
+transition: fade
+---
 
-# Our Innovation: Task-Guided Attention
+# Our Innovation
 
-<div class="grid grid-cols-2 gap-4">
+Task-Guided Attention Models
+
+---
+transition: fade-out
+---
+
+# Task-Guided Attention
+
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
@@ -461,10 +517,14 @@ CNN → RNN → Classifier
 CNN → Task-Guided Attention → RNN → Classifier
 ```
 
+<div class="mt-4">
+
 ### Attention Mechanism
 - **Query**: Task embedding (+ hidden state for dual)
 - **Key/Value**: Visual features from CNN
 - **Output**: Task-modulated visual representation
+
+</div>
 
 </div>
 
@@ -478,18 +538,24 @@ CNN → Task-Guided Attention → RNN → Classifier
 | Novel Angle | 85.9% | **94.6%** |
 | Novel Identity | 70.7% | **81.2%** |
 
-**+10% improvement across all metrics!**
+<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-xl font-bold">
++10% improvement across all metrics
+</div>
 
 </div>
 
 </div>
 
 ---
+transition: fade-out
+---
 
 # All Models Comparison
 
+<div class="flex justify-center">
+
 | Model | Train | Novel Angle | Novel Identity |
-|-------|-------|-------------|----------------|
+|-------|------:|------------:|---------------:|
 | **STSF** (baseline) | 99.99% | 99.93% | 93.60% |
 | **STMF** (baseline) | 88.44% | 86.31% | 72.54% |
 | **MTMF** (baseline) | 88.64% | 85.86% | 70.67% |
@@ -498,49 +564,98 @@ CNN → Task-Guided Attention → RNN → Classifier
 | **MTMF + Attention** | 99.33% | 92.49% | 79.69% |
 | **MTMF + Dual Attn** | 99.29% | 94.64% | 81.18% |
 
+</div>
+
 <v-click>
 
-### Key Insights
-- Attention helps most for multi-feature tasks (STMF, MTMF)
-- Dual attention slightly better for complex MTMF
-- STSF already near-perfect (no room for improvement)
+<div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+<div class="p-3 bg-blue-500/10 rounded-lg text-center">
+
+**Insight 1**: Attention helps most for multi-feature tasks (STMF, MTMF)
+
+</div>
+<div class="p-3 bg-purple-500/10 rounded-lg text-center">
+
+**Insight 2**: Dual attention slightly better for complex MTMF
+
+</div>
+<div class="p-3 bg-green-500/10 rounded-lg text-center">
+
+**Insight 3**: STSF already near-perfect (no room for improvement)
+
+</div>
+</div>
 
 </v-click>
 
 ---
+transition: fade-out
+---
 
 # Conclusions
 
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### 📄 Paper Contributions Validated
+
 <v-clicks>
 
-### Paper Contributions Validated
 1. ✅ Multi-task RNNs preserve full object representations
-2. ✅ GRU uses task-specific subspaces (low cross-task generalization)
+2. ✅ GRU uses task-specific subspaces
 3. ✅ RNNs de-orthogonalize compared to perceptual space
 4. ✅ Slot-based memory hypothesis disproved
 
-### Our Contributions
+</v-clicks>
+
+</div>
+
+<div>
+
+### 🔬 Our Contributions
+
+<v-clicks>
+
 5. ✅ Task-guided attention improves multi-feature performance by ~10%
 6. ✅ Attention doesn't fundamentally change representational geometry
 7. ✅ Dual attention provides marginal gains for complex MTMF
 
-### Implications
-- Explicit attention mechanism complements RNN memory dynamics
-- Supports "resource-based" over "slot-based" WM models
-
 </v-clicks>
+
+</div>
+
+</div>
+
+<v-click>
+
+<div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
+
+### Implication
+Explicit attention mechanism complements RNN memory dynamics — supports **"resource-based"** over **"slot-based"** WM models
+
+</div>
+
+</v-click>
 
 ---
 layout: center
 class: text-center
+transition: fade
 ---
 
 # Thank You
 
-<div class="pt-12">
+<div class="pt-8 text-lg opacity-80">
 
 **Paper**: arXiv:2411.02685
 
 **Code**: github.com/erfannorozi54/WM-model
 
+</div>
+
+<div class="pt-8">
+  <span class="opacity-50 text-sm">
+    Built with Slidev + Academic Theme
+  </span>
 </div>
