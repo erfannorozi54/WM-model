@@ -26,7 +26,6 @@ from sklearn.svm import LinearSVC, SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import cross_val_score
 from scipy.linalg import orthogonal_procrustes
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -192,28 +191,37 @@ class ComprehensiveAnalysis:
     def analyze_encoding_properties(
         self,
         encoding_time: int = 0,
-        task_relevant: Dict[str, str] = None
+        task_relevant: Dict[str, str] = None,
+        best_epoch_by: str = "val_novel_identity_acc"
     ) -> Dict[str, Any]:
         """
         Analysis 2: Encoding of Object Properties (Section 4.1)
-        
+
         A. Task-Relevance Decoding (Figure 2b)
         B. Cross-Task Generalization (Figure 2a, 2c)
-        
+
         Args:
             encoding_time: Timestep to analyze (default=0, first timestep)
             task_relevant: Mapping of task name to relevant feature
                           e.g., {"location": "location", "identity": "identity", "category": "category"}
-        
+            best_epoch_by: Which metric to select best epoch (default: val_novel_identity_acc)
+
         Returns:
             Dictionary with decoding results
         """
         print("\n" + "="*70)
         print("ANALYSIS 2: ENCODING OF OBJECT PROPERTIES")
         print("="*70)
-        
+
         if self.payloads is None:
-            self.load_data()
+            # Discover best epoch from training log
+            best_epoch = self._find_best_epoch(best_epoch_by)
+            if best_epoch is not None:
+                print(f"  Loading payloads from best epoch {best_epoch} (by {best_epoch_by})")
+                self.load_data(epochs=[best_epoch])
+            else:
+                print("  No training log found, loading all epochs")
+                self.load_data()
         
         results = {}
         
@@ -236,10 +244,12 @@ class ComprehensiveAnalysis:
     def _analyze_task_relevance(self, time: int) -> Dict:
         """
         Decode task-relevant and task-irrelevant features.
-        Uses 5-fold cross-validation for held-out accuracy estimates.
+        Uses 80/20 stratified train/test split. Reports decoder train and test accuracy.
         Expected: relevant > 85%, irrelevant < 85% for STSF models.
         """
-        print("  Decoding all properties at all task contexts (5-fold CV)...")
+        from sklearn.model_selection import train_test_split
+
+        print("  Decoding all properties at all task contexts (80/20 split)...")
 
         properties = ["location", "identity", "category"]
         tasks = ["location", "identity", "category"]
@@ -257,33 +267,34 @@ class ComprehensiveAnalysis:
                     )
 
                     if X.numel() == 0:
-                        results[task][prop] = {"accuracy": None, "n_samples": 0}
+                        results[task][prop] = {"train_accuracy": None, "test_accuracy": None, "n_train": 0, "n_test": 0}
                         continue
 
-                    # 5-fold cross-validation for held-out accuracy
                     X_np, y_np = X.numpy(), y.numpy()
                     n_classes = len(label2idx)
-                    cv_folds = min(5, min(np.bincount(y_np)))  # ensure each class has samples for each fold
 
-                    if cv_folds < 2:
-                        # Not enough samples per class for CV, use train accuracy as fallback
-                        clf = self._train_decoder(X, y)
-                        y_pred = clf.predict(X_np)
-                        acc = accuracy_score(y_np, y_pred)
-                        cv_std = 0.0
-                    else:
-                        clf = Pipeline([
-                            ("scaler", StandardScaler(with_mean=True, with_std=True)),
-                            ("svc", SVC(kernel="linear", class_weight="balanced")),
-                        ])
-                        cv_scores = cross_val_score(clf, X_np, y_np, cv=cv_folds, scoring="accuracy")
-                        acc = float(cv_scores.mean())
-                        cv_std = float(cv_scores.std())
+                    # 80/20 stratified split
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X_np, y_np, test_size=0.2, random_state=42, stratify=y_np
+                    )
+
+                    # Train decoder on 80%
+                    clf = Pipeline([
+                        ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                        ("svc", SVC(kernel="linear", class_weight="balanced")),
+                    ])
+                    clf.fit(X_train, y_train)
+
+                    # Evaluate on both splits
+                    train_acc = float(accuracy_score(y_train, clf.predict(X_train)))
+                    test_acc = float(accuracy_score(y_test, clf.predict(X_test)))
 
                     results[task][prop] = {
-                        "accuracy": acc,
-                        "cv_std": cv_std,
-                        "n_samples": int(len(y)),
+                        "accuracy": test_acc,
+                        "train_accuracy": train_acc,
+                        "test_accuracy": test_acc,
+                        "n_train": int(len(y_train)),
+                        "n_test": int(len(y_test)),
                         "n_classes": int(n_classes),
                         "is_relevant": (prop == task)
                     }
@@ -291,16 +302,15 @@ class ComprehensiveAnalysis:
                 except Exception as e:
                     results[task][prop] = {"error": str(e)}
 
-        # Print summary of results
-        print("  Results (held-out accuracy via 5-fold CV):")
+        # Print summary
+        print("  Results (80/20 train/test split):")
         for task in tasks:
             for prop in properties:
                 if task in results and prop in results[task]:
                     r = results[task][prop]
-                    if "error" not in r and r.get("accuracy") is not None:
+                    if "error" not in r and r.get("train_accuracy") is not None:
                         rel = "relevant" if r.get("is_relevant") else "irrelevant"
-                        std = r.get("cv_std", 0)
-                        print(f"    {task} → {prop} ({rel}): {r['accuracy']:.3f} ± {std:.3f}")
+                        print(f"    {task} → {prop} ({rel}): train={r['train_accuracy']:.3f} (n={r['n_train']})  test={r['test_accuracy']:.3f} (n={r['n_test']})")
 
         # Plot results
         self._plot_task_relevance(results)
@@ -343,65 +353,100 @@ class ComprehensiveAnalysis:
         """
         Cross-task generalization matrix (Figure 2a).
         Train on task A, test on task B for each property.
+        Uses 80/20 stratified split: train SVM on 80%, report train and test accuracy.
         """
-        print("  Computing cross-task generalization matrices...")
-        
+        from sklearn.model_selection import train_test_split
+
+        print("  Computing cross-task generalization matrices (80/20 split)...")
+
         properties = ["location", "identity", "category"]
         tasks = ["location", "identity", "category"]
-        
+
         results = {}
-        
+
         for prop in properties:
             print(f"    Property: {prop}")
             matrix = np.zeros((len(tasks), len(tasks)))
-            
+            detail = {}  # store train_acc, n_train, n_test per cell
+
             for i, train_task in enumerate(tasks):
                 train_task_idx = self._task_name_to_index(train_task)
-                
-                # Train decoder on this task
+
                 try:
-                    X_train, y_train, label2idx = build_matrix(
+                    X_all, y_all, label2idx = build_matrix(
                         self.payloads, prop, time=time, task_index=train_task_idx, n_value=None
                     )
-                    
-                    if X_train.numel() == 0:
+
+                    if X_all.numel() == 0:
                         continue
-                    
-                    clf = self._train_decoder(X_train, y_train)
-                    
+
+                    X_np, y_np = X_all.numpy(), y_all.numpy()
+                    n_classes = len(label2idx)
+
+                    # 80/20 stratified split
+                    if n_classes < 2 or len(y_np) < n_classes * 2:
+                        continue
+
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X_np, y_np, test_size=0.2, random_state=42, stratify=y_np
+                    )
+
+                    # Train decoder on 80%
+                    clf = Pipeline([
+                        ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                        ("svc", SVC(kernel="linear", class_weight="balanced")),
+                    ])
+                    clf.fit(X_train, y_train)
+
                     # Test on all tasks
                     for j, test_task in enumerate(tasks):
                         test_task_idx = self._task_name_to_index(test_task)
-                        
+
                         try:
-                            X_test, y_test, _, raw_vals = build_matrix_with_values(
+                            X_te, y_te, _, raw_vals = build_matrix_with_values(
                                 self.payloads, prop, time=time, task_index=test_task_idx, n_value=None
                             )
-                            
-                            if X_test.numel() == 0:
+
+                            if X_te.numel() == 0:
                                 continue
-                            
-                            # Align labels
-                            y_test_idx, keep = self._align_test_labels(raw_vals, label2idx)
-                            if keep.sum() == 0:
-                                continue
-                            
-                            X_test_np = X_test.numpy()[keep]
-                            y_pred = clf.predict(X_test_np)
-                            acc = accuracy_score(y_test_idx, y_pred)
-                            
+
+                            if i == j:
+                                # Same task → use the held-out 20% test split
+                                y_test_aligned = y_test
+                                X_te_np = X_test
+                                n_test = int(len(y_test))
+                            else:
+                                # Different task → align labels
+                                y_test_idx, keep = self._align_test_labels(raw_vals, label2idx)
+                                if keep.sum() == 0:
+                                    continue
+                                y_test_aligned = y_test_idx
+                                X_te_np = X_te.numpy()[keep]
+                                n_test = int(keep.sum())
+
+                            y_pred = clf.predict(X_te_np)
+                            acc = float(accuracy_score(y_test_aligned, y_pred))
                             matrix[i, j] = acc
-                            
+
+                            cell_key = f"{train_task}→{test_task}"
+                            detail[cell_key] = {
+                                "n_test": n_test,
+                            }
+                            if i == j:
+                                detail[cell_key]["train_accuracy"] = float(accuracy_score(y_train, clf.predict(X_train)))
+                                detail[cell_key]["test_accuracy"] = acc
+                                detail[cell_key]["n_train"] = int(len(y_train))
+
                         except Exception as e:
                             print(f"      Warning: {train_task}→{test_task}: {e}")
                             continue
-                    
+
                 except Exception as e:
                     print(f"      Warning: train on {train_task}: {e}")
                     continue
-            
-            results[prop] = matrix.tolist()
-            
+
+            results[prop] = {"matrix": matrix.tolist(), "detail": detail}
+
             # Plot this property's matrix
             self._plot_cross_task_matrix(matrix, prop, tasks)
         
@@ -440,7 +485,22 @@ class ComprehensiveAnalysis:
     # ========================================================================
     # Helper Methods
     # ========================================================================
-    
+
+    def _find_best_epoch(self, metric: str = "val_novel_identity_acc") -> Optional[int]:
+        """Find the epoch with the highest value of the given metric from training_log.json."""
+        log_path = self.hidden_root.parent / "training_log.json"
+        if not log_path.exists():
+            return None
+        try:
+            with open(log_path, 'r') as f:
+                log = json.load(f)
+            if not log:
+                return None
+            best = max(log, key=lambda x: x.get(metric, 0))
+            return int(best["epoch"])
+        except (KeyError, IndexError, ValueError):
+            return None
+
     def _task_name_to_index(self, name: Optional[str]) -> Optional[int]:
         """Convert task name to index."""
         if name is None or name == "any":
