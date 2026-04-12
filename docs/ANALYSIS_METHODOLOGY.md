@@ -182,21 +182,19 @@ python -m src.analysis.comprehensive_analysis \
 
 #### Methodology
 
-Train linear SVM to decode each property from each task context:
+Train linear SVM to decode each property from each task context.
+Uses **5-fold cross-validation** for held-out accuracy estimates (not training accuracy).
 
 ```python
 # Example: Decode location from location task (relevant)
 X, y, _ = build_matrix(payloads, "location", time=0, task_index=0)
 clf = Pipeline([
     ('scaler', StandardScaler()),
-    ('svc', LinearSVC(class_weight='balanced'))
+    ('svc', SVC(kernel="linear", class_weight='balanced'))
 ])
-clf.fit(X, y)
-accuracy_relevant = clf.score(X_test, y_test)
-
-# Example: Decode location from identity task (irrelevant)
-X, y, _ = build_matrix(payloads, "location", time=0, task_index=1)
-accuracy_irrelevant = clf.score(X_test, y_test)
+# 5-fold CV for held-out accuracy
+cv_scores = cross_val_score(clf, X, y, cv=5, scoring='accuracy')
+accuracy_relevant = cv_scores.mean()
 ```
 
 #### Expected Patterns

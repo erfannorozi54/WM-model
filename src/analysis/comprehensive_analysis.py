@@ -26,6 +26,7 @@ from sklearn.svm import LinearSVC, SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import cross_val_score
 from scipy.linalg import orthogonal_procrustes
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -235,46 +236,75 @@ class ComprehensiveAnalysis:
     def _analyze_task_relevance(self, time: int) -> Dict:
         """
         Decode task-relevant and task-irrelevant features.
+        Uses 5-fold cross-validation for held-out accuracy estimates.
         Expected: relevant > 85%, irrelevant < 85% for STSF models.
         """
-        print("  Decoding all properties at all task contexts...")
-        
+        print("  Decoding all properties at all task contexts (5-fold CV)...")
+
         properties = ["location", "identity", "category"]
         tasks = ["location", "identity", "category"]
-        
+
         results = {}
-        
+
         for task in tasks:
             task_idx = self._task_name_to_index(task)
             results[task] = {}
-            
+
             for prop in properties:
                 try:
                     X, y, label2idx = build_matrix(
                         self.payloads, prop, time=time, task_index=task_idx, n_value=None
                     )
-                    
+
                     if X.numel() == 0:
                         results[task][prop] = {"accuracy": None, "n_samples": 0}
                         continue
-                    
-                    # Train decoder
-                    clf = self._train_decoder(X, y)
-                    y_pred = clf.predict(X.numpy())
-                    acc = accuracy_score(y.numpy(), y_pred)
-                    
+
+                    # 5-fold cross-validation for held-out accuracy
+                    X_np, y_np = X.numpy(), y.numpy()
+                    n_classes = len(label2idx)
+                    cv_folds = min(5, min(np.bincount(y_np)))  # ensure each class has samples for each fold
+
+                    if cv_folds < 2:
+                        # Not enough samples per class for CV, use train accuracy as fallback
+                        clf = self._train_decoder(X, y)
+                        y_pred = clf.predict(X_np)
+                        acc = accuracy_score(y_np, y_pred)
+                        cv_std = 0.0
+                    else:
+                        clf = Pipeline([
+                            ("scaler", StandardScaler(with_mean=True, with_std=True)),
+                            ("svc", SVC(kernel="linear", class_weight="balanced")),
+                        ])
+                        cv_scores = cross_val_score(clf, X_np, y_np, cv=cv_folds, scoring="accuracy")
+                        acc = float(cv_scores.mean())
+                        cv_std = float(cv_scores.std())
+
                     results[task][prop] = {
-                        "accuracy": float(acc),
+                        "accuracy": acc,
+                        "cv_std": cv_std,
                         "n_samples": int(len(y)),
+                        "n_classes": int(n_classes),
                         "is_relevant": (prop == task)
                     }
-                    
+
                 except Exception as e:
                     results[task][prop] = {"error": str(e)}
-        
+
+        # Print summary of results
+        print("  Results (held-out accuracy via 5-fold CV):")
+        for task in tasks:
+            for prop in properties:
+                if task in results and prop in results[task]:
+                    r = results[task][prop]
+                    if "error" not in r and r.get("accuracy") is not None:
+                        rel = "relevant" if r.get("is_relevant") else "irrelevant"
+                        std = r.get("cv_std", 0)
+                        print(f"    {task} → {prop} ({rel}): {r['accuracy']:.3f} ± {std:.3f}")
+
         # Plot results
         self._plot_task_relevance(results)
-        
+
         return results
     
     def _plot_task_relevance(self, results: Dict):
@@ -421,7 +451,7 @@ class ComprehensiveAnalysis:
         raise ValueError(f"Unknown task name: {name}")
     
     def _train_decoder(self, X: torch.Tensor, y: torch.Tensor) -> Pipeline:
-        """Train a standard linear SVC decoder."""
+        """Train a standard linear SVC decoder with StandardScaler."""
         clf = Pipeline([
             ("scaler", StandardScaler(with_mean=True, with_std=True)),
             ("svc", SVC(kernel="linear", class_weight="balanced")),
