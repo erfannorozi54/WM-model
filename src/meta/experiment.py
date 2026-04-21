@@ -6,14 +6,50 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 import torch
+import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
+import torchvision.transforms as transforms
+from PIL import Image
 
-from ..data.dataset import NBackDataset, load_stimulus_data
+from ..train import load_real_stimulus_data as load_stimulus_data
 from ..models import create_model
 from .tasks import NOVEL_TASKS, generate_novel_sequences
 from .adaptation import ADAPTATION_METHODS
 from .training import train_epoch, evaluate
+
+
+class SimpleNBackDataset(Dataset):
+    """Simple dataset for meta-learning sequences."""
+    
+    def __init__(self, sequences: List[Dict], stimulus_data: Dict):
+        self.sequences = sequences
+        self.stimulus_data = stimulus_data
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+    
+    def __len__(self):
+        return len(self.sequences)
+    
+    def __getitem__(self, idx):
+        seq = self.sequences[idx]
+        images = []
+        targets = []
+        
+        for trial in seq["trials"]:
+            img = Image.open(trial["stimulus_path"]).convert('RGB')
+            images.append(self.transform(img))
+            targets.append(trial["target"])
+        
+        return {
+            "images": torch.stack(images),
+            "targets": torch.tensor(targets, dtype=torch.long),
+            "task_vector": seq["task_vector"],
+            "n": seq["n"],
+        }
 
 
 def custom_collate(batch):
@@ -32,7 +68,7 @@ def prepare_dataloaders(
     batch_size: int = 16,
 ) -> DataLoader:
     """Convert sequences to DataLoader."""
-    dataset = NBackDataset(sequences=sequences, stimulus_data=stimulus_data)
+    dataset = SimpleNBackDataset(sequences=sequences, stimulus_data=stimulus_data)
     return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate)
 
 

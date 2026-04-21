@@ -442,7 +442,7 @@ $$O = E[\text{triu}(\tilde{W})] \quad \text{where} \quad \tilde{W}_{ij} = 1 - |\
 
 <div class="flex flex-col items-center gap-2">
 
-<img src="/results/wm_mtmf_20260105_182040/analysis3_orthogonalization.png" class="h-48 rounded shadow-lg" />
+<img src="/results/wm_mtmf_20260105_182040/analysis3_orthogonalization.png" class="h-80 rounded shadow-lg" />
 
 <div class="text-sm opacity-80">Location & Category below diagonal ✅</div>
 

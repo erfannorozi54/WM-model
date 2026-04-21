@@ -262,3 +262,4 @@ plots/
 *.hdf5
 slidev-presentation/node_modules/*
 slidev-presentation/package-lock.json
+experiments/*
