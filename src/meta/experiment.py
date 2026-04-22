@@ -1,6 +1,7 @@
 """Main experiment runner for meta-learning."""
 
 import json
+import yaml
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -13,10 +14,11 @@ import torchvision.transforms as transforms
 from PIL import Image
 
 from ..train import load_real_stimulus_data as load_stimulus_data
-from ..models import create_model
+from ..models.model_factory import create_model
 from .tasks import NOVEL_TASKS, generate_novel_sequences
 from .adaptation import ADAPTATION_METHODS
 from .training import train_epoch, evaluate
+from .visualization import save_meta_visualization
 
 
 class SimpleNBackDataset(Dataset):
@@ -73,7 +75,7 @@ def prepare_dataloaders(
 
 
 def run_meta_learning_experiment(
-    pretrained_model_path: str,
+    exp_dir: Optional[str],
     task_name: str,
     method: str,
     num_shots: int,
@@ -84,8 +86,25 @@ def run_meta_learning_experiment(
     device: str = "cuda",
     output_dir: Optional[str] = None,
     task_feature: str = "category",
+    num_visualizations: int = 5,
 ) -> Dict[str, Any]:
-    """Run a meta-learning experiment."""
+    """Run a meta-learning experiment.
+    
+    Args:
+        exp_dir: Path to experiment directory containing config.yaml and best_model.pt.
+                 If None, creates a new model from scratch.
+        task_name: Name of the novel task
+        method: Adaptation method
+        num_shots: Number of training examples
+        num_test: Number of test examples
+        epochs: Number of training epochs
+        batch_size: Batch size
+        lr: Learning rate
+        device: Device to use
+        output_dir: Directory to save results
+        task_feature: Feature to use for the task
+        num_visualizations: Number of visualizations to save per epoch
+    """
     device = torch.device(device if torch.cuda.is_available() else "cpu")
     stimulus_data = load_stimulus_data()
     
@@ -123,7 +142,7 @@ def run_meta_learning_experiment(
     test_loader = prepare_dataloaders(test_sequences, stimulus_data, batch_size)
     
     # Load or create model
-    if method == "scratch":
+    if method == "scratch" or exp_dir is None:
         print("Creating new model from scratch...")
         model = create_model(
             model_type="attention_gru",
@@ -134,19 +153,50 @@ def run_meta_learning_experiment(
             attention_mode="task_only",
         )
     else:
-        print(f"Loading pretrained model from {pretrained_model_path}...")
-        checkpoint = torch.load(pretrained_model_path, map_location=device)
-        state_dict = checkpoint.get("model_state_dict", checkpoint)
-        is_attention = any("attention" in k for k in state_dict.keys())
+        # Load config and model from experiment directory
+        exp_path = Path(exp_dir)
+        config_path = exp_path / "config.yaml"
+        model_path = exp_path / "best_model.pt"
         
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config not found: {config_path}")
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model not found: {model_path}")
+        
+        print(f"Loading config from {config_path}...")
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        
+        # Extract architecture parameters (same as train_with_generalization.py)
+        rnn_type = config.get("rnn_type", "gru")
+        model_arch = config.get("model_type", "baseline")
+        
+        # Construct model_type string (same logic as train_with_generalization.py)
+        if model_arch == "attention":
+            model_type_str = f"attention_{rnn_type}"
+        else:
+            model_type_str = rnn_type
+        
+        print(f"Creating model with architecture: {model_type_str}")
+        
+        # Create model with same architecture using the same create_model function
         model = create_model(
-            model_type="attention_gru" if is_attention else "gru",
-            hidden_size=256,
-            num_layers=1,
-            pretrained_backbone=True,
-            freeze_backbone=True,
-            attention_mode="task_only" if is_attention else None,
+            model_type=model_type_str,
+            hidden_size=config.get("hidden_size", 256),
+            num_layers=config.get("num_layers", 1),
+            dropout=config.get("dropout", 0.0),
+            pretrained_backbone=config.get("pretrained_backbone", True),
+            freeze_backbone=config.get("freeze_backbone", True),
+            attention_hidden_dim=config.get("attention_hidden_dim"),
+            attention_dropout=config.get("attention_dropout", 0.1),
+            attention_mode=config.get("attention_mode", "task_only"),
+            classifier_layers=config.get("classifier_layers"),
         )
+        
+        # Load pretrained weights
+        print(f"Loading pretrained weights from {model_path}...")
+        checkpoint = torch.load(model_path, map_location=device)
+        state_dict = checkpoint.get("model_state_dict", checkpoint)
         model.load_state_dict(state_dict, strict=False)
     
     model = model.to(device)
@@ -156,10 +206,20 @@ def run_meta_learning_experiment(
     adapt_info = apply_adaptation_method(model, method)
     print(f"\nAdaptation: {adapt_info['trainable_params']:,} trainable, {adapt_info['frozen_params']:,} frozen")
     
-    # Evaluate before
+    # Setup visualization directory
+    vis_dir = Path(output_dir) / "visualizations" if output_dir else None
+    if vis_dir:
+        vis_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Evaluate before training (epoch 0)
     print("\nEvaluating before adaptation...")
     before_metrics = evaluate(model, test_loader, device)
     print(f"Before: Loss={before_metrics['loss']:.4f}, Acc={before_metrics['accuracy']:.4f}")
+    
+    # Save visualization before training
+    if vis_dir:
+        save_meta_visualization(model, test_loader, device, vis_dir, task_name, method, epoch=0, num_samples=num_visualizations)
+        print(f"  Saved {num_visualizations} visualizations: epoch_000 (before training)")
     
     # Train
     print(f"\nTraining for {epochs} epochs...")
@@ -196,6 +256,10 @@ def run_meta_learning_experiment(
         print(f"Epoch {epoch}: Train Loss={train_metrics['loss']:.4f}, "
               f"Train Acc={train_metrics['accuracy']:.4f}, "
               f"Val Acc={val_metrics['accuracy']:.4f}")
+        
+        # Save visualization every epoch
+        if vis_dir:
+            save_meta_visualization(model, test_loader, device, vis_dir, task_name, method, epoch=epoch, num_samples=num_visualizations)
     
     # Final evaluation
     final_metrics = evaluate(model, test_loader, device)

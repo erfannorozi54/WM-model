@@ -62,7 +62,14 @@ def generate_three_in_a_row_sequences(
             current_value = {"location": location, "identity": identity, "category": category}[task_feature]
             prev_values.append(current_value)
             
-            target = 2 if len(prev_values) >= 3 and prev_values[-1] == prev_values[-2] == prev_values[-3] else (1 if len(prev_values) >= 3 else 0)
+            # Three-in-a-row: match if current value equals previous 2 values
+            # First 2 trials: no_action (0), later trials: match (2) or no_action (0)
+            if len(prev_values) < 3:
+                target = 0  # no_action for first 2 trials
+            elif prev_values[-1] == prev_values[-2] == prev_values[-3]:
+                target = 2  # match
+            else:
+                target = 0  # no_action (not three-in-a-row)
             
             trials.append({
                 "stimulus_path": stimulus_path,
