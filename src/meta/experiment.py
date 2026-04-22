@@ -24,6 +24,13 @@ from .visualization import save_meta_visualization
 class SimpleNBackDataset(Dataset):
     """Simple dataset for meta-learning sequences."""
     
+    # Map target_response strings to class indices
+    RESPONSE_MAP = {
+        "no_action": 0,
+        "non_match": 1,
+        "match": 2,
+    }
+    
     def __init__(self, sequences: List[Dict], stimulus_data: Dict):
         self.sequences = sequences
         self.stimulus_data = stimulus_data
@@ -42,9 +49,23 @@ class SimpleNBackDataset(Dataset):
         targets = []
         
         for trial in seq["trials"]:
-            img = Image.open(trial["stimulus_path"]).convert('RGB')
+            # Handle both dict and dataclass Trial objects
+            if hasattr(trial, 'stimulus_path'):
+                # Trial dataclass from NBackGenerator
+                img = Image.open(trial.stimulus_path).convert('RGB')
+                target_str = trial.target_response
+            else:
+                # Dict format (from three_in_a_row)
+                img = Image.open(trial["stimulus_path"]).convert('RGB')
+                target_str = trial.get("target_response", trial.get("target", "no_action"))
+                if isinstance(target_str, int):
+                    target = target_str
+                    images.append(self.transform(img))
+                    targets.append(target)
+                    continue
+            
             images.append(self.transform(img))
-            targets.append(trial["target"])
+            targets.append(self.RESPONSE_MAP.get(target_str, 0))
         
         return {
             "images": torch.stack(images),
@@ -149,7 +170,7 @@ def run_meta_learning_experiment(
             hidden_size=256,
             num_layers=1,
             pretrained_backbone=True,
-            freeze_backbone=True,
+            freeze_backbone=True,  # Always freeze CNN
             attention_mode="task_only",
         )
     else:
@@ -180,13 +201,14 @@ def run_meta_learning_experiment(
         print(f"Creating model with architecture: {model_type_str}")
         
         # Create model with same architecture using the same create_model function
+        # Always freeze backbone for meta-learning
         model = create_model(
             model_type=model_type_str,
             hidden_size=config.get("hidden_size", 256),
             num_layers=config.get("num_layers", 1),
             dropout=config.get("dropout", 0.0),
             pretrained_backbone=config.get("pretrained_backbone", True),
-            freeze_backbone=config.get("freeze_backbone", True),
+            freeze_backbone=True,  # Always freeze CNN
             attention_hidden_dim=config.get("attention_hidden_dim"),
             attention_dropout=config.get("attention_dropout", 0.1),
             attention_mode=config.get("attention_mode", "task_only"),

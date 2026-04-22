@@ -63,12 +63,14 @@ Test on novel tasks with minimal training data (K ∈ {10, 25, 50, 100, 500} exa
 
 #### Adaptation Strategies
 
+**Important**: The perceptual module (ResNet50 CNN) is always frozen during meta-learning. All strategies only update the cognitive (RNN), attention, and/or classifier components.
+
 **Strategy A: Train New Model from Scratch**
-- Random initialization, train on novel task
+- Random initialization, train on novel task (CNN still frozen)
 - **Purpose**: Baseline without transfer learning
 
 **Strategy B: Full Fine-Tuning**
-- Update all parameters on novel task
+- Update all parameters except CNN on novel task
 - **Purpose**: Standard transfer learning
 
 **Strategy C: Attention-Only Fine-Tuning** (Primary)
@@ -80,14 +82,13 @@ Test on novel tasks with minimal training data (K ∈ {10, 25, 50, 100, 500} exa
 - Freeze perceptual and cognitive, update attention + classifier
 - **Purpose**: Middle ground between flexibility and stability
 
-**Strategy E: Progressive Attention**
-- Add new parallel attention module for novel task
-- Keep original attention frozen
-- **Purpose**: Zero catastrophic forgetting, test compositionality
+**Strategy E: Cognitive-Only Fine-Tuning**
+- Freeze perceptual and attention, update cognitive (RNN) only
+- **Purpose**: Test if temporal processing needs adaptation
 
-**Strategy F: MAML-Style Meta-Learning**
-- Optimize initialization for fast adaptation during meta-training
-- **Purpose**: Best few-shot performance
+**Strategy F: Classifier-Only Fine-Tuning**
+- Freeze all except classifier head
+- **Purpose**: Minimal adaptation baseline
 
 ### Key Metrics
 
