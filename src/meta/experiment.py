@@ -228,8 +228,8 @@ def run_meta_learning_experiment(
     adapt_info = apply_adaptation_method(model, method)
     print(f"\nAdaptation: {adapt_info['trainable_params']:,} trainable, {adapt_info['frozen_params']:,} frozen")
     
-    # Setup visualization directory
-    vis_dir = Path(output_dir) / "visualizations" if output_dir else None
+    # Setup visualization directory (method-specific)
+    vis_dir = Path(output_dir) / "visualizations" / method if output_dir else None
     if vis_dir:
         vis_dir.mkdir(parents=True, exist_ok=True)
     
