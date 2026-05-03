@@ -113,6 +113,8 @@ Examples:
         help="Device to use (cuda/cpu). Default: cuda")
     parser.add_argument("--num-visualizations", type=int, default=5,
         help="Number of visualizations to save per epoch. Default: 5")
+    parser.add_argument("--val-seed", type=int, default=42,
+        help="Random seed for validation data generation (ensures same validation across runs). Default: 42")
     
     args = parser.parse_args()
     
@@ -162,6 +164,7 @@ Examples:
             output_dir=args.output_dir,
             task_feature=args.task_feature,
             num_visualizations=args.num_visualizations,
+            val_seed=args.val_seed,
         )
 
 

@@ -108,6 +108,7 @@ def run_meta_learning_experiment(
     output_dir: Optional[str] = None,
     task_feature: str = "category",
     num_visualizations: int = 5,
+    val_seed: int = 42,
 ) -> Dict[str, Any]:
     """Run a meta-learning experiment.
     
@@ -125,6 +126,7 @@ def run_meta_learning_experiment(
         output_dir: Directory to save results
         task_feature: Feature to use for the task
         num_visualizations: Number of visualizations to save per epoch
+        val_seed: Random seed for validation data generation (default=42, ensures same validation across all runs)
     """
     device = torch.device(device if torch.cuda.is_available() else "cpu")
     stimulus_data = load_stimulus_data()
@@ -145,19 +147,28 @@ def run_meta_learning_experiment(
     
     # Generate sequences
     print("Generating sequences...")
-    seq_length = 8 if task_config["task_type"] == "pattern" else 6
+    seq_length = 8 if task_config["task_type"] in ["pattern", "alternating"] else 6
+    
+    # Generate training sequences (random seed for variation across runs)
     train_sequences = generate_novel_sequences(
         task_name, stimulus_data, num_shots // seq_length + 1, task_feature, seq_length
     )
+    train_sequences = train_sequences[:num_shots // seq_length + 1]
+    
+    # Generate validation sequences with fixed seed (same across all runs and methods)
+    print(f"Generating validation data with fixed seed={val_seed}...")
+    torch_state = torch.get_rng_state()  # Save current state
+    torch.manual_seed(val_seed)
+    
     test_sequences = generate_novel_sequences(
         task_name, stimulus_data, num_test // seq_length + 1, task_feature, seq_length
     )
-    
-    train_sequences = train_sequences[:num_shots // seq_length + 1]
     test_sequences = test_sequences[:num_test // seq_length + 1]
     
+    torch.set_rng_state(torch_state)  # Restore state
+    
     print(f"Train sequences: {len(train_sequences)}")
-    print(f"Test sequences: {len(test_sequences)}")
+    print(f"Test sequences: {len(test_sequences)} (fixed seed={val_seed})")
     
     train_loader = prepare_dataloaders(train_sequences, stimulus_data, batch_size)
     test_loader = prepare_dataloaders(test_sequences, stimulus_data, batch_size)

@@ -90,6 +90,64 @@ def generate_three_in_a_row_sequences(
     return sequences
 
 
+def generate_alternating_sequences(
+    stimulus_data: Dict,
+    num_sequences: int,
+    sequence_length: int = 8,
+    n_value: int = 2,
+) -> List[Dict]:
+    """Generate sequences for alternating feature task (location/identity switch each timestep)."""
+    sequences = []
+    categories = list(stimulus_data.keys())
+    
+    for _ in range(num_sequences):
+        trials = []
+        location_history = []
+        identity_history = []
+        
+        for t in range(sequence_length):
+            cat = torch.randint(0, len(categories), (1,)).item()
+            category = categories[cat]
+            identities = list(stimulus_data[category].keys())
+            ident = torch.randint(0, len(identities), (1,)).item()
+            identity = identities[ident]
+            stimuli = stimulus_data[category][identity]
+            stim_idx = torch.randint(0, len(stimuli), (1,)).item()
+            location = torch.randint(0, 4, (1,)).item()
+            
+            stimulus_path = stimuli[stim_idx]
+            location_history.append(location)
+            identity_history.append(identity)
+            
+            # Alternate: even timesteps check location, odd timesteps check identity
+            if t < n_value:
+                target = 0  # no_action for first N trials
+            elif t % 2 == 0:
+                # Check location N-back
+                target = 2 if location == location_history[t - n_value] else 0
+            else:
+                # Check identity N-back
+                target = 2 if identity == identity_history[t - n_value] else 0
+            
+            trials.append({
+                "stimulus_path": stimulus_path,
+                "location": location,
+                "category": category,
+                "identity": identity,
+                "target": target,
+                "trial_index": t,
+            })
+        
+        sequences.append({
+            "trials": trials,
+            "task_vector": torch.tensor([1.0, 1.0, 0.0, 1.0, 1.0, 0.0]),
+            "n": n_value,
+            "task_feature": "alternating",
+        })
+    
+    return sequences
+
+
 def generate_standard_nback_sequences(
     stimulus_data: Dict,
     n_value: int,
@@ -151,6 +209,13 @@ def generate_novel_sequences(
             num_sequences=num_sequences,
             sequence_length=sequence_length,
             task_feature=task_feature,
+        )
+    elif task_config["task_type"] == "alternating":
+        return generate_alternating_sequences(
+            stimulus_data=stimulus_data,
+            num_sequences=num_sequences,
+            sequence_length=sequence_length,
+            n_value=task_config["n_value"],
         )
     else:
         raise ValueError(f"Unknown task type: {task_config['task_type']}")
