@@ -649,6 +649,199 @@ Explicit attention mechanism complements RNN memory dynamics — supports **"res
 </v-click>
 
 ---
+layout: section
+transition: fade
+---
+
+# Meta-Learning Experiments
+## Rapid Task Adaptation with Attention
+
+---
+layout: two-cols
+transition: slide-left
+---
+
+# Meta-Learning Setup
+
+<div class="text-sm">
+
+### Research Question
+Can task-guided attention enable **few-shot learning** of novel working memory tasks?
+
+### Hypothesis
+Attention separates:
+- **Task-agnostic**: General temporal processing (RNN)
+- **Task-specific**: Feature selection (attention gates)
+
+→ Only attention needs updating for new tasks
+
+</div>
+
+::right::
+
+<div class="pl-4 text-sm">
+
+### Novel Task: 4-Back
+- Extended N-back with N=4
+- Not seen during training (trained on N ∈ {1,2,3})
+- Tests generalization to longer temporal distances
+
+### Training Data
+- **50 examples** for adaptation
+- **20 epochs** of fine-tuning
+
+### Adaptation Strategies
+1. **Scratch**: Train from random init
+2. **Attention-Only**: Freeze RNN, update attention
+3. **Attention+Classifier**: Update both
+4. **Classifier-Only**: Freeze attention & RNN
+5. **Cognitive-Only**: Update RNN only
+6. **Full Fine-tune**: Update all
+
+</div>
+
+---
+layout: default
+transition: slide-left
+---
+
+# Meta-Learning Results
+
+<div class="grid grid-cols-2 gap-4">
+
+<div>
+
+### Performance Summary
+
+| Method | Before | After | Best | Δ |
+|--------|--------|-------|------|---|
+| **Scratch** | 0.54 | **0.68** | **0.68** | **+0.06** |
+| Attention+Classifier | 0.54 | 0.60 | **0.63** | +0.06 |
+| Attention-Only | 0.47 | 0.49 | 0.54 | +0.01 |
+| Classifier-Only | 0.62 | 0.60 | 0.60 | **-0.01** |
+| Cognitive-Only | 0.62 | 0.56 | 0.62 | -0.06 |
+| Full Fine-tune | 0.56 | 0.54 | 0.59 | -0.01 |
+
+<div class="mt-2 text-xs opacity-70">
+*50-shot adaptation on 4-back task (20 epochs)*
+</div>
+
+</div>
+
+<div>
+
+<img src="/summary_chart.png" class="rounded-lg shadow-lg" />
+
+<div class="mt-2 text-xs text-center opacity-70">
+Learning curves across adaptation strategies
+</div>
+
+</div>
+
+</div>
+
+---
+layout: default
+transition: slide-left
+---
+
+# Key Findings
+
+<div class="grid grid-cols-2 gap-4 text-sm">
+
+<div>
+
+### 🎯 Surprising Results
+
+<v-clicks>
+
+1. **Training from scratch wins** (67.6%)
+   - Fresh parameters better for N=4
+
+2. **Attention-only struggles** (54.4%)
+   - Frozen RNN limits temporal capacity
+
+3. **Attention+Classifier competitive** (63.2%)
+   - Middle ground approach
+
+</v-clicks>
+
+</div>
+
+<div>
+
+### 💡 Interpretations
+
+<v-clicks>
+
+- **Task complexity matters**: N=4 is qualitatively different
+  - Requires longer temporal integration
+  - RNN capacity may be limiting
+
+- **Attention role**: Feature selection, not temporal extension
+  - Cannot compensate for insufficient RNN capacity
+
+- **Practical**: For novel temporal scales, retrain cognitive; for novel features, adapt attention
+
+</v-clicks>
+
+</div>
+
+</div>
+
+---
+layout: default
+transition: slide-left
+---
+
+# Thesis Contribution Context
+
+<div class="text-xs">
+
+### From THESIS_CONTRIBUTIONS.md
+
+<div class="grid grid-cols-2 gap-3 mt-3">
+
+<div class="p-3 bg-blue-500/10 rounded-lg">
+
+#### Original Hypothesis
+- Attention enables rapid few-shot adaptation
+- Only attention gates need updating
+- RNN provides stable temporal processing
+- Expected: 75-85% with 50 examples
+
+</div>
+
+<div class="p-3 bg-orange-500/10 rounded-lg">
+
+#### Actual Results
+- Training from scratch performs best (67.6%)
+- Attention-only insufficient (54.4%)
+- Attention+Classifier viable (63.2%)
+- Reality: Task complexity determines strategy
+
+</div>
+
+</div>
+
+<div class="mt-3 p-3 bg-green-500/10 rounded-lg">
+
+### Refined Understanding
+
+<v-clicks>
+
+1. **Attention is not universal** — works for features, not temporal capacity
+2. **Task similarity matters** — N=4 is out-of-distribution from N ∈ {1,2,3}
+3. **Compositional learning requires matching** — attention for features, RNN for temporal scales
+4. **Practical guideline**: Analyze task demands before choosing strategy
+
+</v-clicks>
+
+</div>
+
+</div>
+
+---
 layout: center
 class: text-center
 transition: fade
