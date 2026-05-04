@@ -239,6 +239,14 @@ def run_meta_learning_experiment(
     adapt_info = apply_adaptation_method(model, method)
     print(f"\nAdaptation: {adapt_info['trainable_params']:,} trainable, {adapt_info['frozen_params']:,} frozen")
     
+    # Validate that method has trainable parameters
+    if adapt_info['trainable_params'] == 0:
+        raise ValueError(
+            f"Method '{method}' resulted in 0 trainable parameters for this model. "
+            f"This method is not applicable to the current model architecture. "
+            f"Try a different method or use a model with the required components."
+        )
+    
     # Setup visualization directory (method-specific)
     vis_dir = Path(output_dir) / "visualizations" / method if output_dir else None
     if vis_dir:

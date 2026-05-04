@@ -75,3 +75,37 @@ def apply_adaptation_method(model: nn.Module, method: str) -> Dict[str, Any]:
             info["frozen_params"] += param.numel()
     
     return info
+
+
+def get_applicable_methods(model: nn.Module) -> list:
+    """Determine which adaptation methods are applicable for a given model.
+    
+    Returns list of method names that will have trainable parameters.
+    """
+    applicable = []
+    
+    # Check if model has attention layers
+    has_attention = any("attention" in name for name, _ in model.named_parameters())
+    
+    # Check if model has cognitive layers
+    has_cognitive = any("cognitive" in name for name, _ in model.named_parameters())
+    
+    # Check if model has classifier
+    has_classifier = any("classifier" in name for name, _ in model.named_parameters())
+    
+    # Always applicable
+    applicable.extend(["scratch", "full_finetune"])
+    
+    # Conditional methods
+    if has_attention:
+        applicable.append("attention_only")
+        if has_classifier:
+            applicable.append("attention_classifier")
+    
+    if has_cognitive:
+        applicable.append("cognitive_only")
+    
+    if has_classifier:
+        applicable.append("classifier_only")
+    
+    return applicable

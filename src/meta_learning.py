@@ -22,6 +22,7 @@ from .meta import (
     NOVEL_TASKS,
     ADAPTATION_METHODS,
     run_meta_learning_experiment,
+    get_applicable_methods,
 )
 
 
@@ -142,6 +143,36 @@ Examples:
         else:
             print("Error: No pretrained models found. Use --method scratch or specify --exp-dir.")
             sys.exit(1)
+    
+    # Filter methods based on model architecture (if using pretrained model)
+    if exp_dir and not args.method:
+        # Load model to check applicable methods
+        config_path = Path(exp_dir) / "config.yaml"
+        model_path = Path(exp_dir) / "best_model.pt"
+        
+        if config_path.exists() and model_path.exists():
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            
+            rnn_type = config.get("rnn_type", "gru")
+            model_arch = config.get("model_type", "baseline")
+            model_type_str = f"attention_{rnn_type}" if model_arch == "attention" else rnn_type
+            
+            # Create temporary model to check architecture
+            temp_model = create_model(
+                model_type=model_type_str,
+                hidden_size=config.get("hidden_size", 256),
+                num_layers=config.get("num_layers", 1),
+            )
+            
+            applicable_methods = get_applicable_methods(temp_model)
+            methods_to_run = [m for m in methods_to_run if m in applicable_methods]
+            
+            if len(methods_to_run) < len(ADAPTATION_METHODS):
+                skipped = set(ADAPTATION_METHODS.keys()) - set(methods_to_run)
+                print(f"\nNote: Skipping methods not applicable to this model: {', '.join(skipped)}")
+            
+            del temp_model  # Clean up
     
     print(f"\n{'='*70}")
     print(f"Running {len(methods_to_run)} method(s): {', '.join(methods_to_run)}")
