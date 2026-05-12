@@ -30,8 +30,9 @@ for i, seq in enumerate(sequences):
         elif categories[t] == categories[t-1] == categories[t-2]:
             expected = 2
         else:
-            expected = 0
+            expected = 1
         
         actual = targets[t]
         status = "✓" if actual == expected else "✗"
-        print(f"  t={t}: {categories[t]} → target={actual} (expected={expected}) {status}")
+        label_name = ["No Action", "Non-Match", "Match"][actual]
+        print(f"  t={t}: {categories[t]} → target={actual} ({label_name}, expected={expected}) {status}")

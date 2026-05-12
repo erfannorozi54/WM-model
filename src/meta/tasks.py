@@ -111,7 +111,7 @@ def generate_three_in_a_row_sequences(
             elif feature_values[t] == feature_values[t-1] == feature_values[t-2]:
                 target = 2  # match (3+ in a row)
             else:
-                target = 0  # no_action (pattern broken)
+                target = 1  # non_match (pattern broken or not 3 consecutive)
             
             trials.append({
                 "stimulus_path": stimulus_path,
