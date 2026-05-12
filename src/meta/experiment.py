@@ -89,10 +89,11 @@ def prepare_dataloaders(
     sequences: List[Dict],
     stimulus_data: Dict,
     batch_size: int = 16,
+    shuffle: bool = True,
 ) -> DataLoader:
     """Convert sequences to DataLoader."""
     dataset = SimpleNBackDataset(sequences=sequences, stimulus_data=stimulus_data)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=custom_collate)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=custom_collate)
 
 
 def run_meta_learning_experiment(
@@ -170,8 +171,8 @@ def run_meta_learning_experiment(
     print(f"Train sequences: {len(train_sequences)}")
     print(f"Test sequences: {len(test_sequences)} (fixed seed={val_seed})")
     
-    train_loader = prepare_dataloaders(train_sequences, stimulus_data, batch_size)
-    test_loader = prepare_dataloaders(test_sequences, stimulus_data, batch_size)
+    train_loader = prepare_dataloaders(train_sequences, stimulus_data, batch_size, shuffle=True)
+    test_loader = prepare_dataloaders(test_sequences, stimulus_data, batch_size, shuffle=False)
     
     # Load or create model
     if method == "scratch" or exp_dir is None:
