@@ -69,6 +69,13 @@ def plot_learning_curves(experiments, output_dir):
             all_values_by_epoch = defaultdict(list)
             
             for run in runs:
+                # Add epoch 0 (before training) - use before metrics loss
+                before_loss = run.get("before", {}).get("loss")
+                if before_loss is not None:
+                    all_epochs.append(0)
+                    all_values_by_epoch[0].append(before_loss)
+                
+                # Add training history
                 history = run.get("training_history", [])
                 for entry in history:
                     epoch = entry.get("epoch", 0)
@@ -106,6 +113,13 @@ def plot_learning_curves(experiments, output_dir):
             all_values_by_epoch = defaultdict(list)
             
             for run in runs:
+                # Add epoch 0 (before training) - use before metrics accuracy
+                before_acc = run.get("before", {}).get("accuracy")
+                if before_acc is not None:
+                    all_epochs.append(0)
+                    all_values_by_epoch[0].append(before_acc)
+                
+                # Add training history
                 history = run.get("training_history", [])
                 for entry in history:
                     epoch = entry.get("epoch", 0)
@@ -159,9 +173,10 @@ def plot_few_shot_comparison(experiments, output_dir):
             
             shots = sorted(shots_to_accs.keys())
             mean_accs = [np.mean(shots_to_accs[s]) for s in shots]
-            std_accs = [np.std(shots_to_accs[s]) for s in shots]
+            # Use standard error instead of standard deviation
+            stderr_accs = [np.std(shots_to_accs[s]) / np.sqrt(len(shots_to_accs[s])) for s in shots]
             
-            plt.errorbar(shots, mean_accs, yerr=std_accs,
+            plt.errorbar(shots, mean_accs, yerr=stderr_accs,
                         color=style["color"],
                         linestyle=style["linestyle"],
                         marker=style["marker"],
