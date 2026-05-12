@@ -3,7 +3,7 @@
 ## Connect & Setup
 
 ```bash
-ssh hamrah-gpu
+ssh hamrah-gpu-internal
 cd ~/Projects/WM-model
 git pull
 conda deactivate
