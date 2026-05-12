@@ -65,29 +65,26 @@ def generate_three_in_a_row_sequences(
         # Step 2: Generate pattern that satisfies the labels
         pattern = []
         
-        # t=0: random
+        # Initialize first two positions randomly
+        pattern.append(torch.randint(0, num_values, (1,)).item())
         pattern.append(torch.randint(0, num_values, (1,)).item())
         
-        # t=1: random
-        pattern.append(torch.randint(0, num_values, (1,)).item())
-        
-        # t≥2: generate based on label
+        # Generate remaining positions based on labels
         for t in range(2, sequence_length):
             if labels[t] == 2:  # Match needed
-                # Must equal both t-1 and t-2
-                # Set all three to same value
-                value = torch.randint(0, num_values, (1,)).item()
-                pattern[t-2] = value
-                pattern[t-1] = value
-                pattern.append(value)
+                # Current must equal both t-1 and t-2
+                # So we need pattern[t-2] == pattern[t-1] == pattern[t]
+                # Set t-1 to equal t-2, then set t to equal t-1
+                pattern[t-1] = pattern[t-2]
+                pattern.append(pattern[t-2])
             else:  # Non-match needed (label == 1)
-                # Must differ from at least one of t-1, t-2
-                # Simple: just pick different from t-1
+                # Current must NOT form 3 consecutive
+                # Pick value different from t-1
                 available = [v for v in range(num_values) if v != pattern[t-1]]
                 if available:
                     pattern.append(available[torch.randint(0, len(available), (1,)).item()])
                 else:
-                    # Fallback if only 1 category (shouldn't happen)
+                    # Fallback (shouldn't happen with 4 categories)
                     pattern.append(pattern[t-1])
         
         # Step 3: Generate trials from pattern
