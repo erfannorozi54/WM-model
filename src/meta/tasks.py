@@ -49,52 +49,42 @@ def generate_three_in_a_row_sequences(
     categories = list(stimulus_data.keys())
     num_values = len(categories)
     
+    num_actionable = sequence_length - 2
+    target_matches = num_actionable // 2
+    target_non_matches = num_actionable - target_matches
+    
     for _ in range(num_sequences):
-        # Step 1: Pre-determine balanced labels
-        num_actionable = sequence_length - 2  # Trials after t=0,1
-        num_matches = num_actionable // 2
-        num_non_matches = num_actionable - num_matches
-        
-        # Create and shuffle actionable labels
-        actionable_labels = [2] * num_matches + [1] * num_non_matches
-        indices = torch.randperm(len(actionable_labels))
-        actionable_labels = [actionable_labels[i] for i in indices]
-        
-        labels = [0, 0] + actionable_labels
-        
-        # Step 2: Generate pattern that satisfies the labels
-        pattern = []
-        
-        # Initialize first two positions randomly
-        pattern.append(torch.randint(0, num_values, (1,)).item())
-        pattern.append(torch.randint(0, num_values, (1,)).item())
-        
-        # Generate remaining positions based on labels
-        for t in range(2, sequence_length):
-            if labels[t] == 2:  # Match needed
-                # Current must equal both t-1 and t-2
-                # So we need pattern[t-2] == pattern[t-1] == pattern[t]
-                # Set t-1 to equal t-2, then set t to equal t-1
-                pattern[t-1] = pattern[t-2]
-                pattern.append(pattern[t-2])
-            else:  # Non-match needed (label == 1)
-                # Current must NOT form 3 consecutive
-                # Pick value different from t-1
-                available = [v for v in range(num_values) if v != pattern[t-1]]
-                if available:
-                    pattern.append(available[torch.randint(0, len(available), (1,)).item()])
+        # Retry until we get exactly 50-50 balance
+        max_attempts = 100
+        for attempt in range(max_attempts):
+            # Generate random pattern
+            pattern = [torch.randint(0, num_values, (1,)).item() for _ in range(sequence_length)]
+            
+            # Calculate actual labels
+            labels = []
+            for t in range(sequence_length):
+                if t < 2:
+                    labels.append(0)
+                elif pattern[t] == pattern[t-1] == pattern[t-2]:
+                    labels.append(2)
                 else:
-                    # Fallback (shouldn't happen with 4 categories)
-                    pattern.append(pattern[t-1])
+                    labels.append(1)
+            
+            # Check if we have the right balance
+            matches = labels[2:].count(2)
+            non_matches = labels[2:].count(1)
+            
+            if matches == target_matches and non_matches == target_non_matches:
+                # Perfect! Use this pattern
+                break
         
-        # Step 3: Generate trials from pattern
+        # Generate trials from pattern
         trials = []
         for t in range(sequence_length):
             cat_idx = pattern[t]
             category = categories[cat_idx]
             identities = list(stimulus_data[category].keys())
             
-            # Control feature based on task_feature
             if task_feature == "location":
                 location = pattern[t] % 4
                 ident = torch.randint(0, len(identities), (1,)).item()
