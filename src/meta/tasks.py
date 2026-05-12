@@ -144,6 +144,7 @@ def generate_alternating_sequences(
     """
     sequences = []
     categories = list(stimulus_data.keys())
+    match_probability = 0.3
     
     for _ in range(num_sequences):
         trials = []
@@ -151,20 +152,39 @@ def generate_alternating_sequences(
         identity_history = []
         
         for t in range(sequence_length):
+            # Determine if this should be a match trial
+            should_match = t >= n_value and torch.rand(1).item() < match_probability
+            
+            # Select category
             cat = torch.randint(0, len(categories), (1,)).item()
             category = categories[cat]
             identities = list(stimulus_data[category].keys())
-            ident = torch.randint(0, len(identities), (1,)).item()
-            identity = identities[ident]
+            
+            # Determine location and identity based on whether it should match
+            if should_match:
+                if t % 2 == 0:
+                    # Even timestep: match location
+                    location = location_history[t - n_value]
+                    ident = torch.randint(0, len(identities), (1,)).item()
+                    identity = identities[ident]
+                else:
+                    # Odd timestep: match identity
+                    identity = identity_history[t - n_value]
+                    location = torch.randint(0, 4, (1,)).item()
+            else:
+                # Random selection
+                ident = torch.randint(0, len(identities), (1,)).item()
+                identity = identities[ident]
+                location = torch.randint(0, 4, (1,)).item()
+            
             stimuli = stimulus_data[category][identity]
             stim_idx = torch.randint(0, len(stimuli), (1,)).item()
-            location = torch.randint(0, 4, (1,)).item()
-            
             stimulus_path = stimuli[stim_idx]
+            
             location_history.append(location)
             identity_history.append(identity)
             
-            # Alternate: even timesteps check location, odd timesteps check identity
+            # Determine target based on actual values
             if t < n_value:
                 target = 0  # no_action for first N trials
             elif t % 2 == 0:
