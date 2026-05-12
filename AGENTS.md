@@ -46,6 +46,21 @@ This file defines the preferred workflow for agents working in this repository.
 - Metric plots (mean across repeated runs):
   - `python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots`
 
+## Meta-Learning Entry Points
+- Run meta-learning experiment:
+  - `python -m src.meta_learning --exp-dir experiments/<pretrained_model> --task <task_name> --shots 50 --epochs 20 --output-dir experiments/meta_learning_<task_name>`
+- Background run on GPU:
+  - `nohup python -m src.meta_learning --exp-dir experiments/<pretrained_model> --task <task_name> --shots 50 --epochs 20 --output-dir experiments/meta_learning_<task_name> > meta_learning_<model_type>_<task_name>.log 2>&1 &`
+- Plot meta-learning results:
+  - `python -m src.scripts.plot_meta_learning --exp_dir experiments/meta_learning_<task_name> --output_dir plots/meta_learning_<task_name>`
+
+### Meta-Learning Naming Conventions
+- **Log files**: `meta_learning_<model_type>_<task_name>.log` (e.g., `meta_learning_mtmf_three_in_a_row.log`)
+- **Results directory**: `experiments/meta_learning_<task_name>/` (e.g., `experiments/meta_learning_three_in_a_row/`)
+- **Result files**: Auto-generated as `meta_learning_<task>_<method>_<timestamp>.json`
+- **Available tasks**: `nback_4`, `nback_5`, `three_in_a_row`, `alternating`
+- **Model types**: `mtmf` (multi-task multi-feature), `stmf` (single-task multi-feature), `stsf` (single-task single-feature)
+
 ## Expected Outputs
 - Training artifacts are stored under `experiments/<exp_name>/`:
   - `config.yaml`, `training.log`, `training_log.json`, `best_model.pt`, `hidden_states/`.
