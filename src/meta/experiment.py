@@ -147,7 +147,7 @@ def run_meta_learning_experiment(
     
     # Generate sequences
     print("Generating sequences...")
-    seq_length = 8 if task_config["task_type"] in ["pattern", "alternating"] else 6
+    seq_length = 6  # All tasks use 6 trials per sequence
     
     # Generate training sequences (random seed for variation across runs)
     train_sequences = generate_novel_sequences(
