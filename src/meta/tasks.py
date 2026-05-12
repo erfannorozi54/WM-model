@@ -37,39 +37,81 @@ NOVEL_TASKS = {
 def generate_three_in_a_row_sequences(
     stimulus_data: Dict,
     num_sequences: int,
-    sequence_length: int = 8,
+    sequence_length: int = 6,
     task_feature: str = "category",
 ) -> List[Dict]:
-    """Generate sequences for 'three-in-a-row' pattern detection task."""
+    """Generate sequences for 'three-in-a-row' pattern detection task.
+    
+    The task is to detect when the same feature value appears 3+ consecutive times.
+    Matches start at the 3rd consecutive item and continue until the pattern breaks.
+    
+    Example: A, A, A (match), A (match), B, B, B (match)
+             t=0,1,   t=2,       t=3,      t=4,5,   t=6
+    """
     sequences = []
     categories = list(stimulus_data.keys())
     
     for _ in range(num_sequences):
         trials = []
-        prev_values = []
+        feature_values = []  # Track actual feature values
         
+        # Pre-generate a pattern with intentional three-in-a-row sequences
+        pattern = []
+        t = 0
+        while t < sequence_length:
+            # 50% chance to create a three-in-a-row pattern
+            if torch.rand(1).item() > 0.5 and t + 3 <= sequence_length:
+                # Create 3-4 consecutive same values
+                length = min(torch.randint(3, 5, (1,)).item(), sequence_length - t)
+                value = torch.randint(0, len(categories), (1,)).item()
+                pattern.extend([value] * length)
+                t += length
+            else:
+                # Random value
+                pattern.append(torch.randint(0, len(categories), (1,)).item())
+                t += 1
+        
+        pattern = pattern[:sequence_length]  # Trim to exact length
+        
+        # Generate trials based on the pattern
         for t in range(sequence_length):
-            cat = torch.randint(0, len(categories), (1,)).item()
-            category = categories[cat]
+            cat_idx = pattern[t]
+            category = categories[cat_idx]
             identities = list(stimulus_data[category].keys())
-            ident = torch.randint(0, len(identities), (1,)).item()
-            identity = identities[ident]
+            
+            # For location and identity, we need to control them based on task_feature
+            if task_feature == "location":
+                # Control location to match pattern
+                location = pattern[t] % 4  # Map to 4 locations
+                ident = torch.randint(0, len(identities), (1,)).item()
+                identity = identities[ident]
+                current_value = location
+            elif task_feature == "identity":
+                # Control identity to match pattern
+                ident = pattern[t] % len(identities)
+                identity = identities[ident]
+                location = torch.randint(0, 4, (1,)).item()
+                current_value = identity
+            else:  # category
+                # Category already controlled by pattern
+                ident = torch.randint(0, len(identities), (1,)).item()
+                identity = identities[ident]
+                location = torch.randint(0, 4, (1,)).item()
+                current_value = category
+            
+            feature_values.append(current_value)
+            
             stimuli = stimulus_data[category][identity]
             stim_idx = torch.randint(0, len(stimuli), (1,)).item()
-            location = torch.randint(0, 4, (1,)).item()
-            
             stimulus_path = stimuli[stim_idx]
-            current_value = {"location": location, "identity": identity, "category": category}[task_feature]
-            prev_values.append(current_value)
             
-            # Three-in-a-row: match if current value equals previous 2 values
-            # First 2 trials: no_action (0), later trials: match (2) or no_action (0)
-            if len(prev_values) < 3:
+            # Determine target based on actual feature values
+            if t < 2:
                 target = 0  # no_action for first 2 trials
-            elif prev_values[-1] == prev_values[-2] == prev_values[-3]:
-                target = 2  # match
+            elif feature_values[t] == feature_values[t-1] == feature_values[t-2]:
+                target = 2  # match (3+ in a row)
             else:
-                target = 0  # no_action (not three-in-a-row)
+                target = 0  # no_action (pattern broken)
             
             trials.append({
                 "stimulus_path": stimulus_path,
@@ -93,10 +135,13 @@ def generate_three_in_a_row_sequences(
 def generate_alternating_sequences(
     stimulus_data: Dict,
     num_sequences: int,
-    sequence_length: int = 8,
+    sequence_length: int = 6,
     n_value: int = 2,
 ) -> List[Dict]:
-    """Generate sequences for alternating feature task (location/identity switch each timestep)."""
+    """Generate sequences for alternating feature task (location/identity switch each timestep).
+    
+    Even timesteps check location N-back, odd timesteps check identity N-back.
+    """
     sequences = []
     categories = list(stimulus_data.keys())
     
@@ -124,10 +169,16 @@ def generate_alternating_sequences(
                 target = 0  # no_action for first N trials
             elif t % 2 == 0:
                 # Check location N-back
-                target = 2 if location == location_history[t - n_value] else 0
+                if location == location_history[t - n_value]:
+                    target = 2  # match
+                else:
+                    target = 1  # non_match
             else:
                 # Check identity N-back
-                target = 2 if identity == identity_history[t - n_value] else 0
+                if identity == identity_history[t - n_value]:
+                    target = 2  # match
+                else:
+                    target = 1  # non_match
             
             trials.append({
                 "stimulus_path": stimulus_path,
