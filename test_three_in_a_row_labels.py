@@ -2,8 +2,8 @@
 import sys
 sys.path.insert(0, 'src')
 
-from train import load_real_stimulus_data
-from meta.tasks import generate_three_in_a_row_sequences
+from src.train import load_real_stimulus_data
+from src.meta.tasks import generate_three_in_a_row_sequences
 
 stimulus_data = load_real_stimulus_data()
 
