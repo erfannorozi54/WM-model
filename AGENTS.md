@@ -55,11 +55,16 @@ This file defines the preferred workflow for agents working in this repository.
   - `python -m src.scripts.plot_meta_learning --exp_dir experiments/meta_learning_<task_name> --output_dir plots/meta_learning_<task_name>`
 
 ### Meta-Learning Naming Conventions
-- **Log files**: `meta_learning_<model_type>_<task_name>.log` (e.g., `meta_learning_mtmf_three_in_a_row.log`)
-- **Results directory**: `experiments/meta_learning_<task_name>/` (e.g., `experiments/meta_learning_three_in_a_row/`)
+- **Log files**: `meta_learning_<arch>_<config>_<task_name>.log`
+  - Example: `meta_learning_base_mtmf_three_in_a_row.log`
+  - Example: `meta_learning_attention_mtmf_three_in_a_row.log`
+- **Results directory**: `experiments/meta_learning_<arch>_<config>_<task_name>/`
+  - Example: `experiments/meta_learning_base_mtmf_three_in_a_row/`
+  - Example: `experiments/meta_learning_attention_stmf_nback_4/`
 - **Result files**: Auto-generated as `meta_learning_<task>_<method>_<timestamp>.json`
 - **Available tasks**: `nback_4`, `nback_5`, `three_in_a_row`, `alternating`
-- **Model types**: `mtmf` (multi-task multi-feature), `stmf` (single-task multi-feature), `stsf` (single-task single-feature)
+- **Architecture types**: `base` (baseline RNN), `attention` (task-guided attention), `dual_attention` (dual attention)
+- **Config types**: `mtmf` (multi-task multi-feature), `stmf` (single-task multi-feature), `stsf` (single-task single-feature)
 
 ## Expected Outputs
 - Training artifacts are stored under `experiments/<exp_name>/`:
