@@ -768,15 +768,17 @@ transition: slide-left
 
 - **Task type matters**: Three-in-a-row is simpler than N-back
   - Pattern matching vs temporal distance
-  - Less need for feature selection
+  - All models converge to similar performance
 
-- **Architecture impact**: Base model sufficient
-  - Attention adds complexity without benefit
-  - Simpler models generalize better
+- **Architecture impact**: Minimal difference
+  - Base: 69.1%, Attention: 68.6%, Dual: 68.1%
+  - All pretrained models learn effectively
+  - Attention provides flexibility without penalty
 
-- **Practical**: Match adaptation strategy to task complexity
-  - Simple patterns → classifier-only
-  - Complex features → attention updates
+- **Practical**: Pre-training is critical
+  - Scratch at chance (~50%) vs pretrained (~65-69%)
+  - Simple adaptation strategies sufficient
+  - Classifier/Cognitive updates most efficient
 
 </v-clicks>
 
@@ -799,7 +801,7 @@ transition: slide-left
 
 <div class="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
 
-**Key Insight**: All methods show 15-40% improvement over random baseline (33.3%), demonstrating successful transfer learning. Base model's simpler architecture enables more effective fine-tuning for this pattern recognition task.
+**Key Insight**: All pretrained methods show ~35-40% improvement over scratch baseline (50%), demonstrating successful transfer learning. All architectures converge to similar performance (65-69%), showing that pre-training matters more than architecture choice for this task.
 
 </div>
 
@@ -829,10 +831,10 @@ transition: slide-left
 <div class="p-3 bg-orange-500/10 rounded-lg">
 
 #### Actual Results
-- Base model performs best (71.1%)
-- Attention models plateau at 65-68%
-- Classifier-only strategy most effective
-- Reality: Simpler is better for simple tasks
+- All models perform similarly (65-69%)
+- Base: 69.1%, Attention: 68.6%, Dual: 68.1%
+- Classifier/Cognitive-only most efficient
+- Reality: Pre-training > Architecture choice
 
 </div>
 
@@ -844,10 +846,10 @@ transition: slide-left
 
 <v-clicks>
 
-1. **Task complexity determines architecture** — pattern recognition doesn't need attention
-2. **Simpler models generalize better** — less parameters = less overfitting risk
-3. **Focused updates work** — classifier-only sufficient for simple tasks
-4. **Pre-training helps** — all methods beat scratch by 10-15%
+1. **Task complexity determines architecture** — simple tasks don't require attention
+2. **Architecture choice matters less** — all pretrained models converge (65-69%)
+3. **Focused updates work** — classifier/cognitive-only most efficient
+4. **Pre-training is critical** — pretrained (~68%) vs scratch (~50%) = 18% gap
 
 </v-clicks>
 
