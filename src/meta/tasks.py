@@ -271,12 +271,12 @@ def generate_standard_nback_sequences(
     num_sequences: int,
     sequence_length: int = 6,
 ) -> List[Dict]:
-    """Generate standard N-back sequences for a specific N value."""
+    """Generate standard N-back sequences for a specific N value with balanced labels."""
     generator = NBackGenerator(
         stimulus_data=stimulus_data,
         n_locations=4,
         sequence_length=sequence_length,
-        match_probability=0.3,
+        match_probability=0.5,  # Changed from 0.3 to 0.5 for balanced labels
     )
     
     feature_enum = {
