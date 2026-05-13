@@ -43,30 +43,33 @@ def generate_three_in_a_row_sequences(
 ) -> List[Dict]:
     """Generate sequences for 'three-in-a-row' pattern detection task.
     
-    Strategy: Pre-allocate match counts for natural variation with overall balance.
-    - 20% sequences with 0 matches
-    - 20% sequences with 1 match
-    - 20% sequences with 2 matches
-    - 20% sequences with 3 matches
-    - 20% sequences with 4 matches
+    Strategy: Pre-allocate match counts with bell curve distribution.
+    - 1% sequences with 0 matches
+    - 22% sequences with 1 match
+    - 54% sequences with 2 matches (center)
+    - 22% sequences with 3 matches
+    - 1% sequences with 4 matches
     
-    This ensures natural variation while maintaining approximate 50% overall balance.
+    This creates a natural, symmetric bell curve centered at 2 matches,
+    while maintaining exact 50% overall balance.
     """
     sequences = []
     categories = list(stimulus_data.keys())
     num_values = len(categories)
     
-    # Pre-allocate match counts: 20% each for 0, 1, 2, 3, 4 matches
+    # Pre-allocate match counts with bell curve distribution (symmetric around 2)
+    # Distribution: 0:1%, 1:22%, 2:54%, 3:22%, 4:1%
     num_actionable = sequence_length - 2  # 4 actionable trials
+    distribution = [0.01, 0.22, 0.54, 0.22, 0.01]  # Steeper bell curve centered at 2
+    
     match_counts = []
     for target_matches in range(num_actionable + 1):  # 0, 1, 2, 3, 4
-        count = num_sequences // (num_actionable + 1)
+        count = int(num_sequences * distribution[target_matches])
         match_counts.extend([target_matches] * count)
     
-    # Handle remainder
+    # Handle remainder (add to center)
     remainder = num_sequences - len(match_counts)
-    for i in range(remainder):
-        match_counts.append(i % (num_actionable + 1))
+    match_counts.extend([2] * remainder)
     
     # Shuffle to randomize order
     random.shuffle(match_counts)
