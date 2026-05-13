@@ -94,7 +94,15 @@ def prepare_dataloaders(
 ) -> DataLoader:
     """Convert sequences to DataLoader."""
     dataset = SimpleNBackDataset(sequences=sequences, stimulus_data=stimulus_data)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=custom_collate)
+    return DataLoader(
+        dataset, 
+        batch_size=batch_size, 
+        shuffle=shuffle, 
+        collate_fn=custom_collate,
+        num_workers=2,  # Parallel data loading
+        pin_memory=True,  # Faster GPU transfer
+        persistent_workers=True  # Keep workers alive between epochs
+    )
 
 
 def run_meta_learning_experiment(
@@ -109,7 +117,7 @@ def run_meta_learning_experiment(
     device: str = "cuda",
     output_dir: Optional[str] = None,
     task_feature: str = "category",
-    num_visualizations: int = 5,
+    num_visualizations: int = 3,
     val_seed: int = 42,
 ) -> Dict[str, Any]:
     """Run a meta-learning experiment.
