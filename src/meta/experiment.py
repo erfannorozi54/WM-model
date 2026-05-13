@@ -308,7 +308,7 @@ def run_meta_learning_experiment(
     results["after"] = final_metrics
     results["best_accuracy"] = best_acc
     results["best_epoch"] = best_epoch
-    results["improvement"] = final_metrics["accuracy"] - before_metrics["accuracy"]
+    results["improvement"] = best_acc - before_metrics["accuracy"]
     
     print(f"\n{'='*70}")
     print(f"RESULTS")

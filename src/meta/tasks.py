@@ -1,6 +1,7 @@
 """Novel task definitions and sequence generators for meta-learning experiments."""
 
 from typing import Dict, List
+import random
 import torch
 
 from ..data.nback_generator import NBackGenerator, TaskFeature
@@ -42,41 +43,57 @@ def generate_three_in_a_row_sequences(
 ) -> List[Dict]:
     """Generate sequences for 'three-in-a-row' pattern detection task.
     
-    Generates balanced labels: exactly 50% match, 50% non-match for trials t≥2.
-    First 2 trials are always no_action.
+    Strategy: Pre-allocate match counts for natural variation with overall balance.
+    - 20% sequences with 0 matches
+    - 20% sequences with 1 match
+    - 20% sequences with 2 matches
+    - 20% sequences with 3 matches
+    - 20% sequences with 4 matches
+    
+    This ensures natural variation while maintaining approximate 50% overall balance.
     """
     sequences = []
     categories = list(stimulus_data.keys())
     num_values = len(categories)
     
-    num_actionable = sequence_length - 2
-    target_matches = num_actionable // 2
-    target_non_matches = num_actionable - target_matches
+    # Pre-allocate match counts: 20% each for 0, 1, 2, 3, 4 matches
+    num_actionable = sequence_length - 2  # 4 actionable trials
+    match_counts = []
+    for target_matches in range(num_actionable + 1):  # 0, 1, 2, 3, 4
+        count = num_sequences // (num_actionable + 1)
+        match_counts.extend([target_matches] * count)
     
-    for _ in range(num_sequences):
-        # Retry until we get exactly 50-50 balance
-        max_attempts = 100
+    # Handle remainder
+    remainder = num_sequences - len(match_counts)
+    for i in range(remainder):
+        match_counts.append(i % (num_actionable + 1))
+    
+    # Shuffle to randomize order
+    random.shuffle(match_counts)
+    
+    for target_matches in match_counts:
+        # Generate pattern until we get the target number of matches
+        max_attempts = 1000
         for attempt in range(max_attempts):
-            # Generate random pattern
             pattern = [torch.randint(0, num_values, (1,)).item() for _ in range(sequence_length)]
             
-            # Calculate actual labels
+            # Calculate labels
             labels = []
             for t in range(sequence_length):
                 if t < 2:
-                    labels.append(0)
+                    labels.append(0)  # no_action
                 elif pattern[t] == pattern[t-1] == pattern[t-2]:
-                    labels.append(2)
+                    labels.append(2)  # match
                 else:
-                    labels.append(1)
+                    labels.append(1)  # non_match
             
-            # Check if we have the right balance
+            # Check if this pattern has the target number of matches
             matches = labels[2:].count(2)
-            non_matches = labels[2:].count(1)
-            
-            if matches == target_matches and non_matches == target_non_matches:
-                # Perfect! Use this pattern
+            if matches == target_matches:
                 break
+        
+        if attempt == max_attempts - 1:
+            print(f"Warning: Could not generate sequence with {target_matches} matches after {max_attempts} attempts")
         
         # Generate trials from pattern
         trials = []
