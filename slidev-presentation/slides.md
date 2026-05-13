@@ -718,12 +718,12 @@ transition: slide-left
 
 | Method | Base | Attention | Dual Attention |
 |--------|------|-----------|----------------|
-| **Scratch** | 55.4% | 52.9% | 51.5% |
-| **Full Finetune** | 70.1% | 64.7% | **68.6%** |
-| **Cognitive Only** | 67.6% | **68.1%** | 66.2% |
-| **Attention Only** | 0.0%* | 65.2% | 66.7% |
-| **Classifier Only** | **71.1%** | 67.2% | 66.2% |
-| **Attention+Classifier** | 0.0%* | 65.2% | 66.7% |
+| **Scratch** | 50.0% | 52.5% | 49.0% |
+| **Full Finetune** | 68.6% | 65.2% | 65.2% |
+| **Cognitive Only** | **69.1%** | 66.7% | 65.7% |
+| **Attention Only** | 0.0%* | 67.2% | 66.2% |
+| **Classifier Only** | **69.1%** | **67.2%** | **68.1%** |
+| **Attention+Classifier** | 0.0%* | **68.6%** | 67.2% |
 
 <div class="text-xs opacity-70 mt-2">*Base model has no attention mechanism</div>
 
@@ -744,17 +744,17 @@ transition: slide-left
 
 <v-clicks>
 
-1. **Base Classifier-Only wins** (71.1%)
+1. **Base Cognitive/Classifier-Only wins** (69.1%)
    - Simple task benefits from focused updates
 
-2. **Attention models plateau** (~65-68%)
-   - Pattern recognition doesn't need attention
+2. **Attention models competitive** (~65-68%)
+   - Attention+Classifier best for attention (68.6%)
 
-3. **Cognitive-Only competitive** (67-68%)
+3. **Cognitive-Only strong** (66-69%)
    - RNN learns pattern matching well
 
-4. **Scratch underperforms** (51-55%)
-   - Pre-training provides useful initialization
+4. **Scratch at chance** (~50%)
+   - Pre-training essential for few-shot learning
 
 </v-clicks>
 
