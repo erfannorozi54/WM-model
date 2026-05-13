@@ -304,8 +304,8 @@ def run_meta_learning_experiment(
               f"Train Acc={train_metrics['accuracy']:.4f}, "
               f"Val Acc={val_metrics['accuracy']:.4f}")
         
-        # Save visualization every epoch
-        if vis_dir:
+        # Save visualization only at key epochs (1, 5, 10, 15, 20) to speed up training
+        if vis_dir and (epoch == 1 or epoch % 5 == 0 or epoch == epochs):
             save_meta_visualization(model, test_loader, device, vis_dir, task_name, method, epoch=epoch, num_samples=num_visualizations)
     
     # Final evaluation
