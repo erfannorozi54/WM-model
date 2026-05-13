@@ -1,6 +1,7 @@
 """Main experiment runner for meta-learning."""
 
 import json
+import random
 import yaml
 from pathlib import Path
 from datetime import datetime
@@ -158,15 +159,19 @@ def run_meta_learning_experiment(
     
     # Generate validation sequences with fixed seed (same across all runs and methods)
     print(f"Generating validation data with fixed seed={val_seed}...")
-    torch_state = torch.get_rng_state()  # Save current state
+    torch_state = torch.get_rng_state()  # Save current torch state
+    random_state = random.getstate()  # Save current random state
+    
     torch.manual_seed(val_seed)
+    random.seed(val_seed)  # Also set Python's random seed
     
     test_sequences = generate_novel_sequences(
         task_name, stimulus_data, num_test // seq_length + 1, task_feature, seq_length
     )
     test_sequences = test_sequences[:num_test // seq_length + 1]
     
-    torch.set_rng_state(torch_state)  # Restore state
+    torch.set_rng_state(torch_state)  # Restore torch state
+    random.setstate(random_state)  # Restore random state
     
     print(f"Train sequences: {len(train_sequences)}")
     print(f"Test sequences: {len(test_sequences)} (fixed seed={val_seed})")
