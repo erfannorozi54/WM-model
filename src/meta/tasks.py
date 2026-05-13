@@ -75,28 +75,64 @@ def generate_three_in_a_row_sequences(
     random.shuffle(match_counts)
     
     for target_matches in match_counts:
-        # Generate pattern until we get the target number of matches
-        max_attempts = 1000
-        for attempt in range(max_attempts):
+        # Deterministically construct pattern with exact number of matches
+        if target_matches == 0:
+            # No matches: ensure no 3 consecutive same values
             pattern = [torch.randint(0, num_values, (1,)).item() for _ in range(sequence_length)]
-            
-            # Calculate labels
-            labels = []
-            for t in range(sequence_length):
-                if t < 2:
-                    labels.append(0)  # no_action
-                elif pattern[t] == pattern[t-1] == pattern[t-2]:
-                    labels.append(2)  # match
-                else:
-                    labels.append(1)  # non_match
-            
-            # Check if this pattern has the target number of matches
-            matches = labels[2:].count(2)
-            if matches == target_matches:
-                break
+            for t in range(2, sequence_length):
+                while pattern[t] == pattern[t-1] == pattern[t-2]:
+                    pattern[t] = (pattern[t] + 1) % num_values
         
-        if attempt == max_attempts - 1:
-            print(f"Warning: Could not generate sequence with {target_matches} matches after {max_attempts} attempts")
+        elif target_matches == 4:
+            # All 4 actionable trials match: need pattern like [A, B, X, X, X, X]
+            val = torch.randint(0, num_values, (1,)).item()
+            pattern = [
+                torch.randint(0, num_values, (1,)).item(),
+                torch.randint(0, num_values, (1,)).item(),
+                val, val, val, val
+            ]
+        
+        else:
+            # For 1, 2, or 3 matches: use retry with early termination
+            max_attempts = 100
+            for attempt in range(max_attempts):
+                pattern = [torch.randint(0, num_values, (1,)).item() for _ in range(sequence_length)]
+                
+                # Count matches
+                matches = 0
+                for t in range(2, sequence_length):
+                    if pattern[t] == pattern[t-1] == pattern[t-2]:
+                        matches += 1
+                
+                if matches == target_matches:
+                    break
+            
+            # If failed, construct deterministically
+            if matches != target_matches:
+                pattern = [torch.randint(0, num_values, (1,)).item() for _ in range(2)]
+                remaining = sequence_length - 2
+                
+                # Add target_matches matching positions
+                for _ in range(target_matches):
+                    val = pattern[-1] if len(pattern) >= 2 else torch.randint(0, num_values, (1,)).item()
+                    pattern.append(val)
+                
+                # Fill rest with non-matching values
+                for _ in range(remaining - target_matches):
+                    val = torch.randint(0, num_values, (1,)).item()
+                    while len(pattern) >= 2 and val == pattern[-1] == pattern[-2]:
+                        val = (val + 1) % num_values
+                    pattern.append(val)
+        
+        # Calculate labels
+        labels = []
+        for t in range(sequence_length):
+            if t < 2:
+                labels.append(0)  # no_action
+            elif pattern[t] == pattern[t-1] == pattern[t-2]:
+                labels.append(2)  # match
+            else:
+                labels.append(1)  # non_match
         
         # Generate trials from pattern
         trials = []
