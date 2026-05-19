@@ -160,6 +160,8 @@ Note: Create a .env file with HUGGINGFACE_TOKEN=your_token (see .env.example)
         print("GENERATING PLACEHOLDER SHAPENET DATA")
         print("=" * 70)
         
+        # Set objects_per_category before generating
+        downloader.objects_per_category = args.objects_per_category
         results = downloader.generate_all_placeholders()
         
         success = sum(1 for v in results.values() if v)

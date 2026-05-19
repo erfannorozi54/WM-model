@@ -45,3 +45,4 @@ nvidia-smi
 # Results location
 ls experiments/
 ```
+Consider you can run the codes in my PC and the python  virtual env is in ~/.virtualenvs/WM-model dir.

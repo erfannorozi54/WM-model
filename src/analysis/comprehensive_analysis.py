@@ -43,12 +43,50 @@ class ComprehensiveAnalysis:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.payloads = None
+        self.available_tasks = []
+    
+    def _detect_available_tasks(self) -> List[str]:
+        """Detect which tasks are available from config and validate with data."""
+        # First try to read from config
+        config_path = self.hidden_root.parent / "config.yaml"
+        if config_path.exists():
+            import yaml
+            try:
+                with open(config_path, 'r') as f:
+                    config = yaml.safe_load(f)
+                task_features = config.get('task_features', [])
+                if task_features:
+                    print(f"  Tasks from config: {task_features}")
+                    return task_features
+            except Exception as e:
+                print(f"  Warning: Could not read config: {e}")
+        
+        # Fallback: detect from data
+        if not self.payloads:
+            return ["location", "identity", "category"]  # default all
+        
+        task_counts = {}
+        for payload in self.payloads:
+            task_indices = payload.get("task_index")
+            if task_indices is not None:
+                for task_idx in task_indices:
+                    task_name = TASK_INDEX_TO_NAME.get(int(task_idx))
+                    if task_name:
+                        task_counts[task_name] = task_counts.get(task_name, 0) + 1
+        
+        available = sorted([task for task, count in task_counts.items() if count > 10])
+        print(f"  Tasks detected from data: {available}")
+        return available if available else ["location", "identity", "category"]
         
     def load_data(self, epochs: Optional[List[int]] = None):
         """Load hidden states and metadata."""
         print(f"Loading data from {self.hidden_root}...")
         self.payloads = load_payloads(self.hidden_root, epochs=epochs)
         print(f"  Loaded {len(self.payloads)} payloads")
+        
+        # Detect available tasks
+        self.available_tasks = self._detect_available_tasks()
+        print(f"  Available tasks: {self.available_tasks}")
         
     # ========================================================================
     # ANALYSIS 1: Model Behavioral Performance
@@ -252,7 +290,7 @@ class ComprehensiveAnalysis:
         print("  Decoding all properties at all task contexts (80/20 split)...")
 
         properties = ["location", "identity", "category"]
-        tasks = ["location", "identity", "category"]
+        tasks = self.available_tasks if self.available_tasks else ["location", "identity", "category"]
 
         results = {}
 
@@ -319,17 +357,21 @@ class ComprehensiveAnalysis:
     
     def _plot_task_relevance(self, results: Dict):
         """Plot task-relevant vs task-irrelevant decoding (Figure 2b style)."""
-        fig, ax = plt.subplots(figsize=(10, 6))
-        
-        tasks = ["location", "identity", "category"]
+        tasks = self.available_tasks if self.available_tasks else list(results.keys())
         properties = ["location", "identity", "category"]
+        
+        if not tasks:
+            print("  ⚠ No tasks available for plotting")
+            return
+        
+        fig, ax = plt.subplots(figsize=(max(8, len(tasks)*2.5), max(5, len(tasks)*1.5)))
         
         # Create matrix
         acc_matrix = np.zeros((len(tasks), len(properties)))
         for i, task in enumerate(tasks):
             for j, prop in enumerate(properties):
                 if task in results and prop in results[task]:
-                    acc = results[task][prop].get('accuracy', 0)
+                    acc = results[task][prop].get('test_accuracy', 0)
                     acc_matrix[i, j] = acc if acc is not None else 0
         
         # Plot heatmap
@@ -360,7 +402,11 @@ class ComprehensiveAnalysis:
         print("  Computing cross-task generalization matrices (80/20 split)...")
 
         properties = ["location", "identity", "category"]
-        tasks = ["location", "identity", "category"]
+        tasks = self.available_tasks if self.available_tasks else ["location", "identity", "category"]
+        
+        if len(tasks) < 2:
+            print(f"  ⚠ Only {len(tasks)} task(s) available, skipping cross-task analysis")
+            return {"status": "insufficient_tasks", "available_tasks": tasks}
 
         results = {}
 
@@ -454,7 +500,11 @@ class ComprehensiveAnalysis:
     
     def _plot_cross_task_matrix(self, matrix: np.ndarray, property_name: str, tasks: List[str]):
         """Plot cross-task generalization matrix (Figure 2a style)."""
-        fig, ax = plt.subplots(figsize=(7, 6))
+        if len(tasks) < 2:
+            print(f"  ⚠ Skipping cross-task plot for {property_name} (only {len(tasks)} task)")
+            return
+        
+        fig, ax = plt.subplots(figsize=(max(6, len(tasks)*2), max(5, len(tasks)*1.5)))
         
         sns.heatmap(matrix, annot=True, fmt='.3f', cmap='RdYlGn', vmin=0, vmax=1,
                    xticklabels=tasks, yticklabels=tasks, ax=ax, cbar_kws={'label': 'Accuracy'})

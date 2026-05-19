@@ -258,11 +258,11 @@ transition: fade-out
 
 ::left::
 
-<img src="/results/wm_mtmf_20260105_182040/analysis1_training_curves.png" class="h-72 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis1_training_curves.png" class="h-72 rounded shadow-lg" /> -->
 
 ::right::
 
-<img src="/results/wm_mtmf_20260105_182040/analysis1_generalization_comparison.png" class="h-72 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis1_generalization_comparison.png" class="h-72 rounded shadow-lg" /> -->
 
 <div class="mt-3 p-3 bg-orange-500/10 rounded-lg text-xs">
 
@@ -281,11 +281,11 @@ transition: fade-out
 
 ::left::
 
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_training_curves.png" class="h-60 rounded shadow-lg" />
+<!-- <img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_training_curves.png" class="h-60 rounded shadow-lg" /> -->
 
 ::right::
 
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_generalization_comparison.png" class="h-60 rounded shadow-lg" />
+<!-- <img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis1_generalization_comparison.png" class="h-60 rounded shadow-lg" /> -->
 
 <div class="mt-4 p-3 bg-green-500/10 rounded-lg text-xs">
 
@@ -357,18 +357,9 @@ transition: fade-out
 
 # Analysis 2A: Task-Relevance Results
 
-<div class="flex gap-4 justify-center -mt6">
-
-<div class="text-center">
-<p class="text-sm font-bold mb-1">Baseline MTMF</p>
-<img src="/results/wm_mtmf_20260105_182040/analysis2a_task_relevance.png" class="h-72 rounded shadow-lg" />
-</div>
-
-<div class="text-center">
-<p class="text-sm font-bold mb-1">Dual Attention MTMF</p>
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis2a_task_relevance.png" class="h-72 rounded shadow-lg" />
-</div>
-
+<div class="p-4 bg-gray-500/10 rounded-lg text-center">
+<p class="text-sm opacity-70">Visualization: Task-Relevance Decoding Matrices</p>
+<p class="text-xs opacity-50 mt-2">(Images available in full analysis results)</p>
 </div>
 
 <div class="-mt-4 p-4 bg-blue-500/10 rounded-lg text-sm">
@@ -388,15 +379,15 @@ transition: fade-out
 <div class="flex gap-3 justify-center -mt-2">
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_location.png" class="h-60 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_location.png" class="h-60 rounded shadow-lg" /> -->
 </div>
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_identity.png" class="h-60 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_identity.png" class="h-60 rounded shadow-lg" /> -->
 </div>
 
 <div>
-<img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_category.png" class="h-60 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis2b_cross_task_category.png" class="h-60 rounded shadow-lg" /> -->
 </div>
 
 </div>
@@ -442,7 +433,7 @@ $$O = E[\text{triu}(\tilde{W})] \quad \text{where} \quad \tilde{W}_{ij} = 1 - |\
 
 <div class="flex flex-col items-center gap-2">
 
-<img src="/results/wm_mtmf_20260105_182040/analysis3_orthogonalization.png" class="h-80 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis3_orthogonalization.png" class="h-80 rounded shadow-lg" /> -->
 
 <div class="text-sm opacity-80">Location & Category below diagonal ✅</div>
 
@@ -466,12 +457,12 @@ transition: fade-out
 ::left::
 
 ### Baseline MTMF
-<img src="/results/wm_mtmf_20260105_182040/analysis4a_cross_time_decoding.png" class="h-48 rounded shadow-lg" />
+<!-- <img src="/results/wm_mtmf_20260105_182040/analysis4a_cross_time_decoding.png" class="h-48 rounded shadow-lg" /> -->
 
 ::right::
 
 ### Dual Attention MTMF
-<img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis4a_cross_time_decoding.png" class="h-48 rounded shadow-lg" />
+<!-- <img src="/results/wm_dual_attention_mtmf_20260107_095814/analysis4a_cross_time_decoding.png" class="h-48 rounded shadow-lg" /> -->
 
 <div class="mt-2 p-3 bg-red-500/10 rounded-lg">
 
@@ -710,7 +701,11 @@ transition: slide-left
 
 <div class="flex justify-center">
 
-<img src="/meta_learning_comparison.png" class="h-96 rounded-lg shadow-lg" />
+<div style="height: 384px;">
+
+![meta learning comparison](./meta_learning_comparison.png)
+
+</div>
 
 </div>
 
@@ -795,13 +790,17 @@ transition: slide-left
 
 <div class="flex justify-center">
 
-<img src="/meta_learning_improvement.png" class="h-80 rounded-lg shadow-lg" />
+<div style="height: 320px;">
+
+![meta learning improvement](./meta_learning_improvement.png)
+
+</div>
 
 </div>
 
 <div class="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
 
-**Key Insight**: All pretrained methods show ~35-40% improvement over scratch baseline (50%), demonstrating successful transfer learning. All architectures converge to similar performance (65-69%), showing that pre-training matters more than architecture choice for this task.
+**Key Insight**: All pretrained methods show ~13-19 percentage point improvement over scratch baseline (~50%), demonstrating successful transfer learning. All architectures converge to similar performance (65-69%), showing that pre-training matters more than architecture choice for this task.
 
 </div>
 
