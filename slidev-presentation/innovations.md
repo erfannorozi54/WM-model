@@ -138,6 +138,17 @@ layout: default
 
 </v-clicks>
 
+<!--
+**KEY POINTS:**
+- Emphasize that these are DISTINCT but overlapping systems
+- Attention = the filter/gateway (what gets in)
+- Concentration = the holding mechanism (how long it stays)
+- This distinction is crucial for understanding WM models
+
+**TRANSITION:**
+"While attention selects what enters our cognitive system, concentration determines how effectively we can maintain and manipulate that information over time. Let's look at the neural systems underlying each."
+-->
+
 ---
 layout: default
 ---
@@ -161,6 +172,18 @@ layout: default
   - Anterior cingulate cortex, prefrontal regions
 
 </v-clicks>
+
+<!--
+**KEY POINTS:**
+- Posner & Rothbart's model is the gold standard for attention networks
+- Three SEPARATE networks with distinct anatomical locations
+- Alerting = "wake up and be ready"
+- Orienting = "look over there"
+- Executive = "ignore that, focus on this"
+
+**ANALOGY:**
+"Think of attention as a three-part security system: alerting is the alarm that wakes you up, orienting is the camera that points to the threat, and executive is the decision-maker that filters false alarms."
+-->
 
 ---
 layout: default
@@ -188,6 +211,20 @@ layout: default
 
 </v-clicks>
 
+<!--
+**KEY POINTS:**
+- Concentration is EXPENSIVE metabolically
+- Theta and alpha rhythms are measurable signatures (EEG evidence)
+- Default mode network = mind-wandering; concentration actively suppresses it
+- "Block-level" means sustained over minutes, not milliseconds
+
+**EMPHASIS:**
+"This is why concentration is exhausting—it's not just maintaining attention, it's actively fighting against your brain's natural tendency to wander. The prefrontal cortex is working overtime."
+
+**TRANSITION:**
+"Now let's look at the empirical data that proves these are truly separate systems."
+-->
+
 ---
 layout: default
 ---
@@ -200,6 +237,21 @@ layout: default
 | **Temporal Nature** | Transient, event-related, millisecond shifts | Block-level; decays after 20–25 minutes |
 | **Control Direction** | Bottom-Up or Top-Down | Almost exclusively Top-Down |
 | **Cognitive Dependency** | Initial filter; prerequisite for cognition | Highly dependent on Working Memory |
+
+<!--
+**KEY POINTS:**
+- This table is CRITICAL—memorize the four dimensions
+- Neural correlates: Parietal (attention) vs. Prefrontal (concentration)
+- Temporal: Milliseconds vs. Minutes
+- Control: Can be automatic (attention) vs. Always effortful (concentration)
+- Dependency: Attention is the gate; concentration needs WM to hold info
+
+**PAUSE HERE:**
+Give audience time to read the table. Point to each row and emphasize the contrast.
+
+**EXAMPLE:**
+"When a loud noise makes you turn your head—that's bottom-up attention, milliseconds, parietal cortex. When you force yourself to read a dense paper for 20 minutes—that's top-down concentration, prefrontal cortex, working memory engaged."
+-->
 
 ---
 layout: default

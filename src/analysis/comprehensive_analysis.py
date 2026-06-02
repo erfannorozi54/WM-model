@@ -27,6 +27,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 from scipy.linalg import orthogonal_procrustes
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -285,8 +286,6 @@ class ComprehensiveAnalysis:
         Uses 80/20 stratified train/test split. Reports decoder train and test accuracy.
         Expected: relevant > 85%, irrelevant < 85% for STSF models.
         """
-        from sklearn.model_selection import train_test_split
-
         print("  Decoding all properties at all task contexts (80/20 split)...")
 
         properties = ["location", "identity", "category"]
@@ -328,7 +327,6 @@ class ComprehensiveAnalysis:
                     test_acc = float(accuracy_score(y_test, clf.predict(X_test)))
 
                     results[task][prop] = {
-                        "accuracy": test_acc,
                         "train_accuracy": train_acc,
                         "test_accuracy": test_acc,
                         "n_train": int(len(y_train)),
@@ -397,8 +395,6 @@ class ComprehensiveAnalysis:
         Train on task A, test on task B for each property.
         Uses 80/20 stratified split: train SVM on 80%, report train and test accuracy.
         """
-        from sklearn.model_selection import train_test_split
-
         print("  Computing cross-task generalization matrices (80/20 split)...")
 
         properties = ["location", "identity", "category"]
@@ -1032,6 +1028,13 @@ class ComprehensiveAnalysis:
         print(f"  Running causal perturbation test on {property_name}...")
         print(f"  Model: {model_path}")
         
+        best_epoch = self._find_best_epoch()
+        epochs = [best_epoch] if best_epoch is not None else None
+        if epochs:
+            print(f"  Using best epoch {best_epoch} (limits payload loading to 1/{len(epochs)} of total)")
+        else:
+            print("  No training log found, loading ALL epochs (may be slow)")
+        
         try:
             from .causal_perturbation import analyze_causal_perturbation
             
@@ -1042,7 +1045,8 @@ class ComprehensiveAnalysis:
                 output_dir=self.output_dir,
                 timestep=timestep,
                 perturbation_range=perturbation_range,
-                num_distances=num_distances
+                num_distances=num_distances,
+                epochs=epochs,
             )
             
             print(f"  ✓ Causal perturbation test complete!")

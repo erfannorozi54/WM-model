@@ -66,7 +66,7 @@ def load_trained_model(checkpoint_path: Path, device: torch.device) -> nn.Module
     # Construct model_type string (e.g., "gru" or "attention_gru")
     rnn_type = cfg.get("rnn_type", "gru")
     model_arch = cfg.get("model_type", "baseline")
-    if model_arch == "attention":
+    if model_arch in ("attention", "dual_attention"):
         model_type_str = f"attention_{rnn_type}"
     else:
         model_type_str = rnn_type
@@ -77,7 +77,10 @@ def load_trained_model(checkpoint_path: Path, device: torch.device) -> nn.Module
         num_layers=cfg["num_layers"],
         dropout=cfg.get("dropout", 0.0),
         pretrained_backbone=cfg.get("pretrained_backbone", True),
-        freeze_backbone=cfg.get("freeze_backbone", True)
+        freeze_backbone=cfg.get("freeze_backbone", True),
+        attention_hidden_dim=cfg.get("attention_hidden_dim", 256),
+        attention_dropout=cfg.get("attention_dropout", 0.1),
+        attention_mode=cfg.get("attention_mode", "task_only"),
     )
     
     # Load weights
