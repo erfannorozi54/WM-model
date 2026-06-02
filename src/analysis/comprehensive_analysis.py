@@ -310,9 +310,13 @@ class ComprehensiveAnalysis:
                     X_np, y_np = X.numpy(), y.numpy()
                     n_classes = len(label2idx)
 
-                    # 80/20 stratified split
+                    # 80/20 stratified split; fall back to non-stratified if
+                    # any class has fewer than 2 members
+                    _, class_counts = np.unique(y_np, return_counts=True)
+                    can_stratify = class_counts.min() >= 2
                     X_train, X_test, y_train, y_test = train_test_split(
-                        X_np, y_np, test_size=0.2, random_state=42, stratify=y_np
+                        X_np, y_np, test_size=0.2, random_state=42,
+                        stratify=y_np if can_stratify else None,
                     )
 
                     # Train decoder on 80%
@@ -425,12 +429,16 @@ class ComprehensiveAnalysis:
                     X_np, y_np = X_all.numpy(), y_all.numpy()
                     n_classes = len(label2idx)
 
-                    # 80/20 stratified split
+                    # 80/20 stratified split; fall back to non-stratified
+                    # if any class has fewer than 2 members
                     if n_classes < 2 or len(y_np) < n_classes * 2:
                         continue
 
+                    _, class_counts = np.unique(y_np, return_counts=True)
+                    can_stratify = class_counts.min() >= 2
                     X_train, X_test, y_train, y_test = train_test_split(
-                        X_np, y_np, test_size=0.2, random_state=42, stratify=y_np
+                        X_np, y_np, test_size=0.2, random_state=42,
+                        stratify=y_np if can_stratify else None,
                     )
 
                     # Train decoder on 80%
