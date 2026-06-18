@@ -8,22 +8,28 @@ BASE_DIR="${HOME}/Projects/WM-model"
 export PYTHONPATH="${BASE_DIR}/src:${PYTHONPATH:-}"
 export MPLCONFIGDIR="${BASE_DIR}/.matplotlib"
 
-EXPERIMENTS=(
-    "wm_h128_stsf_20260602_230425"
-    "wm_h128_stmf_20260603_010546"
-    "wm_h128_mtmf_20260603_031838"
-    "wm_h128_attention_stsf_20260603_053139"
-    "wm_h128_attention_stmf_20260603_073349"
-    "wm_h128_attention_mtmf_20260603_094851"
-    "wm_h128_dual_attention_stsf_20260603_120432"
-    "wm_h128_dual_attention_stmf_20260603_140709"
-    "wm_h128_dual_attention_mtmf_20260603_162319"
+PREFIXES=(
+    "wm_h128_stsf"
+    "wm_h128_stmf"
+    "wm_h128_mtmf"
+    "wm_h128_attention_stsf"
+    "wm_h128_attention_stmf"
+    "wm_h128_attention_mtmf"
+    "wm_h128_dual_attention_stsf"
+    "wm_h128_dual_attention_stmf"
+    "wm_h128_dual_attention_mtmf"
 )
 
 mkdir -p "${BASE_DIR}/.matplotlib" "${BASE_DIR}/logs"
 
-for EXP in "${EXPERIMENTS[@]}"; do
-    EXP_DIR="${BASE_DIR}/experiments/${EXP}"
+for PREFIX in "${PREFIXES[@]}"; do
+    EXP_DIR="$(find "${BASE_DIR}/experiments" -maxdepth 1 -type d \
+        -name "${PREFIX}_[0-9]*" -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)"
+    if [[ -z "${EXP_DIR}" || ! -f "${EXP_DIR}/best_model.pt" ]]; then
+        echo "Missing completed experiment for ${PREFIX}" >&2
+        exit 1
+    fi
+    EXP="$(basename "${EXP_DIR}")"
     DECODER_ROOT="${EXP_DIR}/decoder_hidden_states"
     OUTPUT_DIR="${BASE_DIR}/analysis_results/${EXP}"
 
