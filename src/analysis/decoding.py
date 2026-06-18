@@ -22,6 +22,7 @@ Notes:
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any
 import argparse
+import hashlib
 import numpy as np
 import torch
 from sklearn.svm import SVC
@@ -30,7 +31,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 
 # Local imports
-from .activations import load_payloads, build_matrix, build_matrix_with_values, TASK_INDEX_TO_NAME
+from .activations import (
+    load_payloads, build_matrix_with_metadata, TASK_INDEX_TO_NAME,
+)
 
 PROPERTY_CHOICES = ["location", "identity", "category"]
 TASK_CHOICES = ["location", "identity", "category", "any"]
@@ -47,7 +50,8 @@ def _task_name_to_index(name: Optional[str]) -> Optional[int]:
 
 def _labels_to_indices(y: torch.Tensor, mapping: Dict[int, int]) -> np.ndarray:
     out = []
-    for v in y.tolist():
+    values = y.tolist() if hasattr(y, "tolist") else y
+    for v in values:
         if v in mapping:
             out.append(mapping[v])
         else:
@@ -66,10 +70,19 @@ def _align_test_labels(y_test: torch.Tensor, train_label2idx: Dict[Any, int]) ->
 def train_decoder(X: torch.Tensor, y: torch.Tensor) -> Pipeline:
     clf = Pipeline([
         ("scaler", StandardScaler(with_mean=True, with_std=True)),
-        ("svc", SVC(kernel="linear", class_weight="balanced")),
+        ("svc", SVC(kernel="linear", class_weight="balanced", max_iter=10000)),
     ])
     clf.fit(X.numpy(), y.numpy())
     return clf
+
+
+def _sort_and_hash(X, y, raw_values, sample_ids):
+    order = np.argsort(np.asarray(sample_ids, dtype=str))
+    ids = np.asarray(sample_ids, dtype=str)[order]
+    digest = None
+    if not any(":legacy-" in sample_id for sample_id in ids):
+        digest = hashlib.sha256("\n".join(ids.tolist()).encode("utf-8")).hexdigest()
+    return X[order], y[order], [raw_values[i] for i in order], digest
 
 
 def evaluate(
@@ -87,10 +100,13 @@ def evaluate(
 
     # Build train matrix
     ti = _task_name_to_index(train_task)
-    X_tr, y_tr, label2idx = build_matrix(payloads, property_name, time=train_time, task_index=ti,
-                                         n_value=None if not train_n or len(train_n) != 1 else train_n[0])
+    X_tr, y_tr, label2idx, raw_tr, train_ids = build_matrix_with_metadata(
+        payloads, property_name, time=train_time, task_index=ti,
+        n_value=None if not train_n or len(train_n) != 1 else train_n[0]
+    )
     if X_tr.numel() == 0:
         raise RuntimeError("No training samples found for the specified context")
+    X_tr, y_tr, raw_tr, train_hash = _sort_and_hash(X_tr, y_tr, raw_tr, train_ids)
     clf = train_decoder(X_tr, y_tr)
 
     results: Dict[str, Any] = {
@@ -98,6 +114,8 @@ def evaluate(
         "train_time": train_time,
         "train_task": train_task,
         "train_n": train_n,
+        "n_train": int(len(y_tr)),
+        "train_sample_hash": train_hash,
         "test": {},
         "classes": {int(v): int(i) for v, i in label2idx.items()},
     }
@@ -105,13 +123,16 @@ def evaluate(
     # Evaluate across test times and contexts
     tti = _task_name_to_index(test_task)
     for tt in test_times:
-        X_te, _y_te, _label2idx_te, raw_vals_te = build_matrix_with_values(
+        X_te, y_te, _label2idx_te, raw_vals_te, test_ids = build_matrix_with_metadata(
             payloads, property_name, time=tt, task_index=tti,
             n_value=None if not test_n or len(test_n) != 1 else test_n[0]
         )
         if X_te.numel() == 0:
             results["test"][str(tt)] = {"acc": None, "n": 0}
             continue
+        X_te, y_te, raw_vals_te, test_hash = _sort_and_hash(
+            X_te, y_te, raw_vals_te, test_ids
+        )
         y_te_idx, keep = _align_test_labels(raw_vals_te, label2idx)
         if keep.sum() == 0:
             results["test"][str(tt)] = {"acc": None, "n": 0}
@@ -120,7 +141,10 @@ def evaluate(
         y_te_np = y_te_idx
         y_pred = clf.predict(X_te_np)
         acc = accuracy_score(y_te_np, y_pred)
-        results["test"][str(tt)] = {"acc": float(acc), "n": int(len(y_te_np))}
+        results["test"][str(tt)] = {
+            "acc": float(acc), "n": int(len(y_te_np)),
+            "sample_hash": test_hash,
+        }
 
     return results
 

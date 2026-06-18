@@ -58,7 +58,7 @@ def iterate_records(payloads: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, An
     """Yield flat records for each sample and timestep.
     Each record has keys: hidden(H,), time, task_index, n, location, category, identity.
     """
-    for payload in payloads:
+    for payload_number, payload in enumerate(payloads):
         hidden = payload["hidden"]  # (B, T, H)
         B, T, H = hidden.shape
         task_index = payload.get("task_index")  # (B,)
@@ -67,6 +67,10 @@ def iterate_records(payloads: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, An
         locations = payload.get("locations")     # (B, T) tensor or None
         categories = payload.get("categories")   # List[List[str]] or None
         identities = payload.get("identities")   # List[List[str]] or None
+        stimulus_paths = payload.get("stimulus_paths")
+        sample_indices = payload.get("sample_index")
+        sample_keys = payload.get("sample_keys")
+        split = payload.get("split", "unknown")
 
         # Normalize locations to list-of-lists
         if locations is not None and torch.is_tensor(locations):
@@ -89,6 +93,17 @@ def iterate_records(payloads: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, An
                     "location": int(locations_ll[b][t]) if locations_ll is not None else None,
                     "category": categories_ll[b][t],
                     "identity": identities_ll[b][t],
+                    "sample_id": (
+                        f"{split}:{sample_keys[b] if sample_keys is not None else int(sample_indices[b])}:{t}:"
+                        f"task{int(task_index[b]) if task_index is not None else 'none'}:"
+                        f"n{int(n_vals[b]) if n_vals is not None else 'none'}:"
+                        f"{stimulus_paths[b][t] if stimulus_paths is not None else 'no-path'}"
+                        if sample_indices is not None
+                        else f"{split}:legacy-{payload_number}-{b}:{t}"
+                    ),
+                    "stimulus_path": (
+                        stimulus_paths[b][t] if stimulus_paths is not None else None
+                    ),
                 }
                 yield rec
 
@@ -138,6 +153,32 @@ def build_matrix_with_values(payloads: List[Dict[str, Any]],
     X = torch.stack(xs, dim=0)
     y = torch.tensor(ys, dtype=torch.long)
     return X, y, label2idx, vals
+
+
+def build_matrix_with_metadata(payloads: List[Dict[str, Any]],
+                               property_name: str,
+                               time: int,
+                               task_index: Optional[int] = None,
+                               n_value: Optional[int] = None):
+    """Construct a decoder matrix while retaining stable sample identifiers."""
+    assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
+    recs = _filter_records(
+        iterate_records(payloads), time=time, task_index=task_index,
+        n_value=n_value, property_name=property_name
+    )
+    label2idx: Dict[Any, int] = {}
+    xs, ys, vals, sample_ids = [], [], [], []
+    for record in recs:
+        value = record[property_name]
+        if value not in label2idx:
+            label2idx[value] = len(label2idx)
+        xs.append(torch.from_numpy(record["hidden"]))
+        ys.append(label2idx[value])
+        vals.append(value)
+        sample_ids.append(record["sample_id"])
+    if not xs:
+        return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx, [], []
+    return torch.stack(xs), torch.tensor(ys, dtype=torch.long), label2idx, vals, sample_ids
 
 
 def build_matrix(payloads: List[Dict[str, Any]],

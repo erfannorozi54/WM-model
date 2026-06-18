@@ -19,6 +19,7 @@ Usage:
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 import argparse
+import hashlib
 import json
 import numpy as np
 import torch
@@ -31,7 +32,10 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from .activations import load_payloads, build_matrix, build_matrix_with_values, build_cnn_matrix, TASK_INDEX_TO_NAME
+from .activations import (
+    load_payloads, build_matrix, build_matrix_with_values,
+    build_matrix_with_metadata, build_cnn_matrix, TASK_INDEX_TO_NAME,
+)
 from .orthogonalization import one_vs_rest_weights, orthogonalization_index
 from .procrustes import compute_procrustes_alignment
 
@@ -45,6 +49,25 @@ class ComprehensiveAnalysis:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.payloads = None
         self.available_tasks = []
+
+    @staticmethod
+    def _decoder_split(X, y, sample_ids):
+        """Create one label-independent 80/20 partition shared by all decoders."""
+        order = np.argsort(np.asarray(sample_ids, dtype=str))
+        X_sorted, y_sorted = X[order], y[order]
+        ids_sorted = np.asarray(sample_ids, dtype=str)[order]
+        split = train_test_split(
+            X_sorted, y_sorted, ids_sorted, test_size=0.2, random_state=42,
+        )
+        X_train, X_test, y_train, y_test, train_ids, test_ids = split
+
+        def digest(ids):
+            if any(":legacy-" in sample_id for sample_id in ids):
+                return None
+            value = "\n".join(sorted(ids.tolist())).encode("utf-8")
+            return hashlib.sha256(value).hexdigest()
+
+        return X_train, X_test, y_train, y_test, digest(train_ids), digest(test_ids)
     
     def _detect_available_tasks(self) -> List[str]:
         """Detect which tasks are available from config and validate with data."""
@@ -61,7 +84,7 @@ class ComprehensiveAnalysis:
                     return task_features
             except Exception as e:
                 print(f"  Warning: Could not read config: {e}")
-        
+
         # Fallback: detect from data
         if not self.payloads:
             return ["location", "identity", "category"]  # default all
@@ -299,7 +322,7 @@ class ComprehensiveAnalysis:
 
             for prop in properties:
                 try:
-                    X, y, label2idx = build_matrix(
+                    X, y, label2idx, _, sample_ids = build_matrix_with_metadata(
                         self.payloads, prop, time=time, task_index=task_idx, n_value=None
                     )
 
@@ -310,19 +333,16 @@ class ComprehensiveAnalysis:
                     X_np, y_np = X.numpy(), y.numpy()
                     n_classes = len(label2idx)
 
-                    # 80/20 stratified split; fall back to non-stratified if
-                    # any class has fewer than 2 members
-                    _, class_counts = np.unique(y_np, return_counts=True)
-                    can_stratify = class_counts.min() >= 2
-                    X_train, X_test, y_train, y_test = train_test_split(
-                        X_np, y_np, test_size=0.2, random_state=42,
-                        stratify=y_np if can_stratify else None,
+                    # The split depends only on stable trial IDs, so every
+                    # property decoder and every comparable model uses it.
+                    X_train, X_test, y_train, y_test, train_hash, test_hash = self._decoder_split(
+                        X_np, y_np, sample_ids
                     )
 
                     # Train decoder on 80%
                     clf = Pipeline([
                         ("scaler", StandardScaler(with_mean=True, with_std=True)),
-                        ("svc", SVC(kernel="linear", class_weight="balanced")),
+                        ("svc", SVC(kernel="linear", class_weight="balanced", max_iter=10000)),
                     ])
                     clf.fit(X_train, y_train)
 
@@ -336,6 +356,8 @@ class ComprehensiveAnalysis:
                         "n_train": int(len(y_train)),
                         "n_test": int(len(y_test)),
                         "n_classes": int(n_classes),
+                        "train_sample_hash": train_hash,
+                        "test_sample_hash": test_hash,
                         "is_relevant": (prop == task)
                     }
 
@@ -344,6 +366,7 @@ class ComprehensiveAnalysis:
 
         # Print summary
         print("  Results (80/20 train/test split):")
+        min_samples_warning = False
         for task in tasks:
             for prop in properties:
                 if task in results and prop in results[task]:
@@ -351,6 +374,16 @@ class ComprehensiveAnalysis:
                     if "error" not in r and r.get("train_accuracy") is not None:
                         rel = "relevant" if r.get("is_relevant") else "irrelevant"
                         print(f"    {task} → {prop} ({rel}): train={r['train_accuracy']:.3f} (n={r['n_train']})  test={r['test_accuracy']:.3f} (n={r['n_test']})")
+                        n_test = r.get("n_test", 0) or 0
+                        n_classes = r.get("n_classes", 1) or 1
+                        if n_test < n_classes:
+                            print(f"      ⚠ WARNING: n_test ({n_test}) < n_classes ({n_classes}) — test accuracy is unreliable")
+                            min_samples_warning = True
+                        elif n_test < n_classes * 2:
+                            print(f"      ⚠ NOTE: n_test ({n_test}) < 2× n_classes ({n_classes}) — test accuracy may be noisy")
+                            min_samples_warning = True
+        if min_samples_warning:
+            print("  ⚠ Consider increasing num_val in config or using larger validation set for reliable decoding")
 
         # Plot results
         self._plot_task_relevance(results)
@@ -419,7 +452,7 @@ class ComprehensiveAnalysis:
                 train_task_idx = self._task_name_to_index(train_task)
 
                 try:
-                    X_all, y_all, label2idx = build_matrix(
+                    X_all, y_all, label2idx, _, sample_ids = build_matrix_with_metadata(
                         self.payloads, prop, time=time, task_index=train_task_idx, n_value=None
                     )
 
@@ -429,22 +462,18 @@ class ComprehensiveAnalysis:
                     X_np, y_np = X_all.numpy(), y_all.numpy()
                     n_classes = len(label2idx)
 
-                    # 80/20 stratified split; fall back to non-stratified
-                    # if any class has fewer than 2 members
+                    # Shared, label-independent decoder partition.
                     if n_classes < 2 or len(y_np) < n_classes * 2:
                         continue
 
-                    _, class_counts = np.unique(y_np, return_counts=True)
-                    can_stratify = class_counts.min() >= 2
-                    X_train, X_test, y_train, y_test = train_test_split(
-                        X_np, y_np, test_size=0.2, random_state=42,
-                        stratify=y_np if can_stratify else None,
+                    X_train, X_test, y_train, y_test, train_hash, test_hash = self._decoder_split(
+                        X_np, y_np, sample_ids
                     )
 
                     # Train decoder on 80%
                     clf = Pipeline([
                         ("scaler", StandardScaler(with_mean=True, with_std=True)),
-                        ("svc", SVC(kernel="linear", class_weight="balanced")),
+                        ("svc", SVC(kernel="linear", class_weight="balanced", max_iter=10000)),
                     ])
                     clf.fit(X_train, y_train)
 
@@ -486,6 +515,8 @@ class ComprehensiveAnalysis:
                                 detail[cell_key]["train_accuracy"] = float(accuracy_score(y_train, clf.predict(X_train)))
                                 detail[cell_key]["test_accuracy"] = acc
                                 detail[cell_key]["n_train"] = int(len(y_train))
+                                detail[cell_key]["train_sample_hash"] = train_hash
+                                detail[cell_key]["test_sample_hash"] = test_hash
 
                         except Exception as e:
                             print(f"      Warning: {train_task}→{test_task}: {e}")
@@ -568,7 +599,7 @@ class ComprehensiveAnalysis:
         """Train a standard linear SVC decoder with StandardScaler."""
         clf = Pipeline([
             ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            ("svc", SVC(kernel="linear", class_weight="balanced")),
+            ("svc", SVC(kernel="linear", class_weight="balanced", max_iter=10000)),
         ])
         clf.fit(X.numpy(), y.numpy())
         return clf
@@ -884,61 +915,102 @@ class ComprehensiveAnalysis:
     
     def _test_h2_cross_stimulus(self, property_name: str, max_time: int) -> Dict:
         """
-        Test H2 vs H3: Train on E(S=i, T=i), test on E(S=j, T=j) where j != i.
+        Test H2 vs H3: Train on E(S=i, T=i), test on E(S=j, T=j) where j ≠ i.
         Expected: Validation and generalization accuracies almost identical (supports H2).
+
+        Paper's method (Figure 4d):
+        - Train decoder on val_novel_angle split (known identities, new angle) at t=0
+        - Test decoder on val_novel_identity split (novel identities) at the same time t=0
+        - Both splits have aligned labels (location/category share the same class set)
+        - Validation ≈ Generalization → H2 (shared encoding space across stimuli)
+        - Validation >> Generalization → H3 (stimulus-specific subspaces)
         """
-        print("  Testing cross-stimulus generalization...")
-        
-        # For simplicity, train on t=0 and test on t=1,2,3...
-        # This simulates different stimuli at their encoding times
-        
-        X_train, y_train, label2idx = build_matrix(
-            self.payloads, property_name, time=0, task_index=None, n_value=None
-        )
-        
-        if X_train.numel() == 0:
-            return {"status": "no_data"}
-        
-        clf = self._train_decoder(X_train, y_train)
-        
-        # Train accuracy (validation)
-        y_train_pred = clf.predict(X_train.numpy())
-        train_acc = accuracy_score(y_train.numpy(), y_train_pred)
-        
-        # Test on other encoding spaces
-        test_accs = []
-        for t in range(1, min(max_time + 1, 4)):  # Test on a few other encoding times
-            X_test, y_test, _, raw_vals = build_matrix_with_values(
-                self.payloads, property_name, time=t, task_index=None, n_value=None
+        print("  Testing cross-stimulus generalization (known→novel identities, same time)...")
+
+        # Use only the encoding timestep (t=0). Cross-time decoding belongs to H1.
+        encoding_time = 0
+
+        # Pick a property with aligned integer labels (location has 4 fixed classes)
+        decode_property = "location" if "location" in self.available_tasks else "category"
+
+        # Separate payloads by their split — this is the paper's proper cross-stimulus
+        # test setup (known identities vs. novel identities, same time t=0).
+        payloads_known = [p for p in self.payloads if p.get("split") == "val_novel_angle"]
+        payloads_novel = [p for p in self.payloads if p.get("split") == "val_novel_identity"]
+
+        if not payloads_known or not payloads_novel:
+            # Fallback: split all payloads by identity hash (when val_novel split missing)
+            from .procrustes import _split_payloads_by_stimulus
+            payloads_known, payloads_novel = _split_payloads_by_stimulus(
+                self.payloads, "identity", time=encoding_time
             )
-            
-            if X_test.numel() == 0:
-                continue
-            
-            y_test_idx, keep = self._align_test_labels(raw_vals, label2idx)
-            if keep.sum() == 0:
-                continue
-            
-            X_test_np = X_test.numpy()[keep]
-            y_pred = clf.predict(X_test_np)
-            acc = accuracy_score(y_test_idx, y_pred)
-            test_accs.append(float(acc))
-        
-        generalization_acc = np.mean(test_accs) if test_accs else None
-        
-        print(f"    Validation (same stimulus): {train_acc:.4f}")
-        if generalization_acc:
-            print(f"    Generalization (other stimuli): {generalization_acc:.4f}")
-            
-            if abs(train_acc - generalization_acc) < 0.1:
-                print(f"  ✓ H2 SUPPORTED: Validation ≈ Generalization (shared encoding space)")
-            else:
-                print(f"  ⚠ H3 POSSIBLE: Validation ≠ Generalization (stimulus-specific)")
-        
+            split_source = "identity_hash"
+        else:
+            split_source = "val_novel_splits"
+
+        n_known = sum(p["hidden"].shape[0] for p in payloads_known)
+        n_novel = sum(p["hidden"].shape[0] for p in payloads_novel)
+        print(f"    Known identities (val_novel_angle): {n_known} trials")
+        print(f"    Novel identities (val_novel_identity): {n_novel} trials")
+
+        # Build training matrix from val_novel_angle (known identities)
+        X_train, y_train, label2idx = build_matrix(
+            payloads_known, decode_property, time=encoding_time, task_index=None, n_value=None
+        )
+
+        if X_train.numel() == 0 or len(label2idx) < 2:
+            return {"status": "no_data", "decode_property": decode_property,
+                    "n_known": n_known, "n_novel": n_novel}
+
+        # Validation accuracy: held-out 20% of val_novel_angle (same identities)
+        _, class_counts = np.unique(y_train.numpy(), return_counts=True)
+        can_stratify = class_counts.min() >= 2
+        X_a_train, X_a_held, y_a_train, y_a_held = train_test_split(
+            X_train.numpy(), y_train.numpy(), test_size=0.2, random_state=42,
+            stratify=y_train.numpy() if can_stratify else None,
+        )
+        clf_val = Pipeline([
+            ("scaler", StandardScaler(with_mean=True, with_std=True)),
+            ("svc", SVC(kernel="linear", class_weight="balanced", max_iter=10000)),
+        ])
+        clf_val.fit(X_a_train, y_a_train)
+        val_acc = float(accuracy_score(y_a_held, clf_val.predict(X_a_held)))
+
+        # Generalization accuracy on val_novel_identity (novel identities, same time t)
+        X_test, y_test, _, _ = build_matrix_with_values(
+            payloads_novel, decode_property, time=encoding_time, task_index=None, n_value=None
+        )
+
+        if X_test.numel() == 0:
+            return {"status": "no_data_gen", "decode_property": decode_property,
+                    "n_known": n_known, "n_novel": n_novel,
+                    "validation_acc": val_acc}
+
+        y_pred = clf_val.predict(X_test.numpy())
+        gen_acc = float(accuracy_score(y_test.numpy(), y_pred))
+
+        print(f"    Validation (known identities, held-out): {val_acc:.4f} (n={len(y_a_held)})")
+        print(f"    Generalization (novel identities):        {gen_acc:.4f} (n={len(y_test)})")
+
+        diff = abs(val_acc - gen_acc)
+        if diff < 0.1:
+            print(f"  ✓ H2 SUPPORTED: Validation ≈ Generalization (shared encoding space)")
+        else:
+            print(f"  ⚠ H3 POSSIBLE: Validation ≠ Generalization (stimulus-specific)")
+
         return {
-            "validation_acc": float(train_acc),
-            "generalization_acc": float(generalization_acc) if generalization_acc else None,
-            "test_accuracies": test_accs
+            "validation_acc": val_acc,
+            "generalization_acc": gen_acc,
+            "difference": diff,
+            "decode_property": decode_property,
+            "n_known": n_known,
+            "n_novel": n_novel,
+            "n_validation": int(len(y_a_held)),
+            "n_generalization": int(len(y_test)),
+            "encoding_time": encoding_time,
+            "split_source": split_source,
+            "note": "Same-time cross-stimulus test using val_novel_angle (known ids) "
+                    "and val_novel_identity (novel ids) splits, decoded on aligned-label property."
         }
     
     def _test_h2_procrustes_swap(self, property_name: str, max_time: int) -> Dict:
@@ -946,36 +1018,30 @@ class ComprehensiveAnalysis:
         Test H2 with Procrustes swap analysis (Figure 4g).
         Eq. 2 (time swap): Should have LOW accuracy
         Eq. 3 (stimulus swap): Should have HIGH accuracy
+
+        Uses stimulus-split groups for proper cross-stimulus testing.
         """
         print("  Running Procrustes swap analysis...")
-        print("  ⚠ This requires careful stimulus tracking - simplified version")
+        from .procrustes import swap_hypothesis_test
         
-        # Compute decoder weights at different times
+        # Compute consecutive Procrustes disparities
         weights_by_time = {}
         for t in range(min(max_time + 1, 4)):
             X, y, label2idx = build_matrix(
                 self.payloads, property_name, time=t, task_index=None, n_value=None
             )
-            
             if X.numel() == 0:
                 continue
-            
             W = one_vs_rest_weights(X, y)
             weights_by_time[t] = W
         
-        if len(weights_by_time) < 2:
-            return {"status": "insufficient_data"}
-        
-        # Compute Procrustes alignments between consecutive times
         procrustes_results = []
         times = sorted(weights_by_time.keys())
-        
         for i in range(len(times) - 1):
             t1, t2 = times[i], times[i + 1]
             try:
                 R, disparity = compute_procrustes_alignment(
-                    weights_by_time[t1],
-                    weights_by_time[t2]
+                    weights_by_time[t1], weights_by_time[t2]
                 )
                 procrustes_results.append({
                     "time_pair": [t1, t2],
@@ -985,7 +1051,31 @@ class ComprehensiveAnalysis:
             except Exception as e:
                 print(f"    Warning: Procrustes {t1}→{t2} failed: {e}")
         
-        return {"procrustes_alignments": procrustes_results}
+        # Run full swap hypothesis test with per-stimulus groups
+        print("  Running swap hypothesis test (stimulus-split groups)...")
+        try:
+            swap_result = swap_hypothesis_test(
+                hidden_root=self.hidden_root,
+                property_name=property_name,
+                encoding_time=0,
+                k_offset=1,
+                epochs=[self._find_best_epoch()] if self._find_best_epoch() else None,
+            )
+            print(f"    Correct (same-age R):     acc={swap_result['correct_accuracy']:.4f}")
+            print(f"    Swap 1 (wrong-time R):    acc={swap_result['swap1_accuracy']:.4f}")
+            print(f"    Swap 2 (diff-stimuli R):  acc={swap_result['swap2_accuracy']:.4f}")
+            print(f"    Baseline (direct decode): acc={swap_result['baseline_accuracy']:.4f}")
+            if swap_result['hypothesis_confirmed']:
+                print(f"    ✓ H2 supported: Same-age rotation generalizes across stimuli")
+            else:
+                print(f"    ⚠ H2 not supported: Stimulus-specific rotation dominant")
+            return {
+                "procrustes_alignments": procrustes_results,
+                "swap_hypothesis_test": swap_result,
+            }
+        except Exception as e:
+            print(f"    ⚠ Swap hypothesis test failed: {e}")
+            return {"procrustes_alignments": procrustes_results}
     
     # ========================================================================
     # ANALYSIS 5: Causal Perturbation Test

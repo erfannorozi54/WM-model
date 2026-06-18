@@ -106,7 +106,8 @@ def select_match_trials(
     timestep: int,
     task_index: Optional[int] = None,
     n_value: Optional[int] = None,
-    min_samples: int = 50
+    min_samples: int = 50,
+    label2idx: Optional[Dict] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[int]]:
     """
     Select trials where model predicted "Match" (class 2).
@@ -118,10 +119,13 @@ def select_match_trials(
         task_index: Filter by task (None for all)
         n_value: Filter by n-back value (None for all)
         min_samples: Minimum number of match trials required
+        label2idx: Mapping from raw property value → decoder class index.
+            When provided, property_values returns class indices usable as
+            keys into decoder_weights for per-trial perturbation directions.
     
     Returns:
         hidden_states: (N, H) hidden states at timestep
-        property_values: (N,) property values (for reference)
+        property_values: (N,) class indices for each trial (keys into decoder_weights)
         predicted_logits: (N, 3) original model logits
         sample_indices: List of (payload_idx, batch_idx) for tracking
     """
@@ -160,24 +164,33 @@ def select_match_trials(
         if match_mask.sum() == 0:
             continue
         
-        # Get property values
+        # Get property values — map raw values to decoder class indices when label2idx is available
         if property_name == "location":
-            props = payload["locations"][mask, timestep]  # (B_filtered,)
+            props = payload["locations"][mask, timestep]  # (B_filtered,) raw int indices
         elif property_name == "identity":
-            # Convert string identities to indices
             identities = payload["identities"]
-            props = torch.zeros(mask.sum(), dtype=torch.long)
-            for i, (batch_ids, m) in enumerate(zip(identities, mask)):
+            props = -torch.ones(mask.sum(), dtype=torch.long)
+            j = 0
+            for batch_ids, m in zip(identities, mask):
                 if m and len(batch_ids) > timestep:
-                    # Simple hash of identity string
-                    props[i] = hash(batch_ids[timestep]) % 1000
+                    raw_val = batch_ids[timestep]
+                    if label2idx is not None and raw_val in label2idx:
+                        props[j] = label2idx[raw_val]
+                    else:
+                        props[j] = hash(raw_val) % 1000
+                    j += 1
         elif property_name == "category":
-            # Convert string categories to indices  
             categories = payload["categories"]
-            props = torch.zeros(mask.sum(), dtype=torch.long)
-            for i, (batch_cats, m) in enumerate(zip(categories, mask)):
+            props = -torch.ones(mask.sum(), dtype=torch.long)
+            j = 0
+            for batch_cats, m in zip(categories, mask):
                 if m and len(batch_cats) > timestep:
-                    props[i] = hash(batch_cats[timestep]) % 10
+                    raw_val = batch_cats[timestep]
+                    if label2idx is not None and raw_val in label2idx:
+                        props[j] = label2idx[raw_val]
+                    else:
+                        props[j] = hash(raw_val) % 10
+                    j += 1
         else:
             raise ValueError(f"Unknown property: {property_name}")
         
@@ -211,68 +224,82 @@ def run_causal_perturbation(
     decoder_weights: Dict[int, np.ndarray],
     perturbation_distances: np.ndarray,
     device: torch.device,
+    property_values: Optional[torch.Tensor] = None,
+    property_to_class_idx: Optional[Dict] = None,
     batch_size: int = 32
 ) -> Dict[str, np.ndarray]:
     """
     Perturb hidden states and measure output probability changes.
-    
+
+    The decoder normal vectors point from the "rest" region toward each class's
+    region. For a match trial, the state is in the match region. To produce the
+    paper's expected pattern (P(Match) drops, P(No-Action) rises), we push the
+    state in the direction OPPOSITE to the match class's normal — i.e., across
+    the match hyperplane.
+
+    Implementation: use the mean direction of ALL class normals as the
+    perturbation direction. This direction is, on average, roughly opposite to
+    any individual class's normal (when classes are roughly balanced), producing
+    a strong "leave the match region" effect.
+
+    The optional `property_values` argument is kept for backward compatibility
+    but is not used to select per-trial directions (per-trial class-specific
+    directions were found to be weaker because they push the state deeper into
+    the trial's class, not across its boundary).
+
     Args:
         model: Trained model (only classifier layer will be used)
         hidden_states: (N, H) hidden states to perturb
         decoder_weights: Dict mapping class labels to weight vectors (from one_vs_rest_weights)
         perturbation_distances: (D,) array of distances to perturb
         device: Device for computation
+        property_values: (N,) property value per trial (unused, kept for API compat)
+        property_to_class_idx: Unused, kept for API compat
         batch_size: Batch size for inference
-    
+
     Returns:
-        Dictionary with probability arrays:
-        - distances: (D,) perturbation distances
-        - prob_match: (D,) mean P(Match) across trials
-        - prob_non_match: (D,) mean P(Non-Match) across trials
-        - prob_no_action: (D,) mean P(No-Action) across trials
-        - std_match: (D,) std of P(Match)
-        - std_non_match: (D,) std of P(Non-Match)
-        - std_no_action: (D,) std of P(No-Action)
+        Dictionary with probability arrays
     """
     N, H = hidden_states.shape
     D = len(perturbation_distances)
-    
-    # Choose a random decoder direction (or use mean)
-    # For simplicity, use mean of all decoder normals
-    # decoder_weights is Dict[int, np.ndarray] from one_vs_rest_weights
+
+    # Use mean direction of all class normals as the perturbation direction
     if isinstance(decoder_weights, dict):
-        W_array = np.stack(list(decoder_weights.values()), axis=0)  # (C, H)
+        W_array_full = np.stack(list(decoder_weights.values()), axis=0)  # (C, H)
+        mean_direction = torch.from_numpy(W_array_full.mean(axis=0)).float()
+        mean_direction = mean_direction / (mean_direction.norm() + 1e-12)
     else:
-        W_array = decoder_weights
-    perturbation_direction = torch.from_numpy(W_array.mean(axis=0)).float()
-    perturbation_direction = perturbation_direction / perturbation_direction.norm()  # Normalize
-    # Keep perturbation_direction on CPU since hidden_states is on CPU
-    
+        mean_direction = torch.from_numpy(decoder_weights.mean(axis=0)).float()
+        mean_direction = mean_direction / (mean_direction.norm() + 1e-12)
+
+    # All trials are pushed in the same mean direction
+    perturbation_directions = mean_direction.unsqueeze(0).expand(N, -1).clone()  # (N, H)
+
     # Store results
     prob_match_all = np.zeros((D, N))
     prob_non_match_all = np.zeros((D, N))
     prob_no_action_all = np.zeros((D, N))
-    
+
     with torch.no_grad():
         for d_idx, distance in enumerate(perturbation_distances):
-            # Perturb all hidden states by the same distance (on CPU)
-            h_perturbed = hidden_states + distance * perturbation_direction.unsqueeze(0)  # (N, H)
-            
+            # Perturb each trial along the mean direction
+            h_perturbed = hidden_states + distance * perturbation_directions  # (N, H)
+
             # Run through classifier in batches
             all_probs = []
             for i in range(0, N, batch_size):
-                batch_h = h_perturbed[i:i+batch_size].to(device)  # Move batch to device
-                logits = model.classifier(batch_h)  # (B, 3)
-                probs = torch.softmax(logits, dim=-1)  # (B, 3)
+                batch_h = h_perturbed[i:i+batch_size].to(device)
+                logits = model.classifier(batch_h)
+                probs = torch.softmax(logits, dim=-1)
                 all_probs.append(probs.cpu())
-            
+
             all_probs = torch.cat(all_probs, dim=0)  # (N, 3)
-            
+
             # Extract probabilities for each action
             prob_no_action_all[d_idx, :] = all_probs[:, 0].numpy()
             prob_non_match_all[d_idx, :] = all_probs[:, 1].numpy()
             prob_match_all[d_idx, :] = all_probs[:, 2].numpy()
-    
+
     # Compute means and stds
     results = {
         "distances": perturbation_distances,
@@ -283,7 +310,7 @@ def run_causal_perturbation(
         "std_non_match": prob_non_match_all.std(axis=1),
         "std_no_action": prob_no_action_all.std(axis=1),
     }
-    
+
     return results
 
 
@@ -425,14 +452,15 @@ def analyze_causal_perturbation(
     # Step 3: Select match trials
     print(f"\n3. Selecting match trials at timestep {timestep}...")
     hidden_states, property_values, original_logits, indices = select_match_trials(
-        payloads, property_name, timestep, task_idx, n_value
+        payloads, property_name, timestep, task_idx, n_value, label2idx=label2idx
     )
     
     # Step 4: Run perturbation
     print("\n4. Running causal perturbation...")
     distances = np.linspace(perturbation_range[0], perturbation_range[1], num_distances)
     results = run_causal_perturbation(
-        model, hidden_states, decoder_weights, distances, device
+        model, hidden_states, decoder_weights, distances, device,
+        property_values=property_values,
     )
     
     # Step 5: Plot results
