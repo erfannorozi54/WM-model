@@ -49,4 +49,5 @@ for PREFIX in "${PREFIXES[@]}"; do
         --output_dir "${OUTPUT_DIR}"
 done
 
+"${PYTHON}" -m src.scripts.verify_decoder_results --base_dir "${BASE_DIR}"
 echo "[$(date --iso-8601=seconds)] All h128 decoder analyses completed"
