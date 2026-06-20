@@ -9,7 +9,7 @@ task_features: ["location"]
 sequence_length: 6
 batch_size: 32
 num_train: 30000
-num_val: 400
+num_val: 2000
 num_test: 200
 num_workers: 4
 match_probability: 0.5

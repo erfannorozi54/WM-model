@@ -56,8 +56,14 @@ class ComprehensiveAnalysis:
         order = np.argsort(np.asarray(sample_ids, dtype=str))
         X_sorted, y_sorted = X[order], y[order]
         ids_sorted = np.asarray(sample_ids, dtype=str)[order]
+        
+        # Check if stratification is possible (need at least 2 samples per class)
+        unique_labels, class_counts = np.unique(y_sorted, return_counts=True)
+        can_stratify = class_counts.min() >= 2
+        
         split = train_test_split(
             X_sorted, y_sorted, ids_sorted, test_size=0.2, random_state=42,
+            stratify=y_sorted if can_stratify else None,
         )
         X_train, X_test, y_train, y_test, train_ids, test_ids = split
 
