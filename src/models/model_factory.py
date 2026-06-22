@@ -23,7 +23,8 @@ import torch.nn as nn
 from .perceptual import PerceptualModule
 from .cognitive import VanillaRNN, GRUCog, LSTMCog, CognitiveModule
 from .wm_model import WorkingMemoryModel
-from .attention import AttentionWorkingMemoryModel
+from .attention import AttentionWorkingMemoryModel, FeatureChannelAttention
+from .proxy_model import ProxyWorkingMemoryModel
 
 from ..utils.logger import get_logger
 logger = get_logger()
@@ -163,6 +164,70 @@ def create_model(
             classifier_layers=classifier_layers,
         )
     
+    return model
+
+
+def create_proxy_model(
+    model_type: str = 'gru',
+    hidden_size: int = 256,
+    num_layers: int = 1,
+    dropout: float = 0.0,
+    pretrained_backbone: bool = True,
+    freeze_backbone: bool = True,
+    capture_exact_layer42_relu: bool = True,
+    attention_hidden_dim: Optional[int] = None,
+    attention_dropout: float = 0.1,
+    attention_mode: str = 'task_only',
+    num_identities: int = 20,
+    num_locations: int = 4,
+    num_categories: int = 4,
+) -> ProxyWorkingMemoryModel:
+    model_type = model_type.lower()
+    is_attention = model_type.startswith('attention_')
+
+    if is_attention:
+        rnn_type = model_type.replace('attention_', '')
+    else:
+        rnn_type = model_type
+
+    if rnn_type not in COGNITIVE_MODULES:
+        raise ValueError(f"Unknown RNN type: {rnn_type}")
+
+    perceptual = PerceptualModule(
+        out_channels=hidden_size,
+        pretrained=pretrained_backbone,
+        freeze_backbone=freeze_backbone,
+        capture_exact_layer42_relu=capture_exact_layer42_relu,
+    )
+
+    cognitive = create_cognitive_module(
+        rnn_type=rnn_type,
+        input_size=hidden_size + 6,
+        hidden_size=hidden_size,
+        num_layers=num_layers,
+        dropout=dropout,
+    )
+
+    attention_module = None
+    if is_attention:
+        attention_module = FeatureChannelAttention(
+            feature_dim=hidden_size,
+            task_dim=6,
+            hidden_dim=attention_hidden_dim or hidden_size,
+            dropout=attention_dropout,
+            attention_mode=attention_mode,
+        )
+
+    model = ProxyWorkingMemoryModel(
+        perceptual=perceptual,
+        cognitive=cognitive,
+        hidden_size=hidden_size,
+        num_identities=num_identities,
+        attention=attention_module,
+        num_locations=num_locations,
+        num_categories=num_categories,
+    )
+
     return model
 
 

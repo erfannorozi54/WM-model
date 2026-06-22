@@ -50,7 +50,7 @@ def one_vs_rest_weights(X: torch.Tensor, y: torch.Tensor) -> Dict[int, np.ndarra
         y_bin = (y.numpy() == c).astype(np.int32)
         clf = Pipeline([
             ("scaler", StandardScaler(with_mean=True, with_std=True)),
-            ("svc", LinearSVC(class_weight="balanced")),
+            ("svc", LinearSVC(class_weight="balanced", max_iter=10000, random_state=42)),
         ])
         clf.fit(X.numpy(), y_bin)
         w = clf.named_steps["svc"].coef_[0]

@@ -233,6 +233,88 @@ def procrustes_analysis(
     }
 
 
+def _split_payloads_by_stimulus(
+    payloads: List[Dict], property_name: str, time: int
+) -> Tuple[List[Dict], List[Dict]]:
+    """Split payloads into two groups based on stimulus identity hash at a given time.
+    
+    Uses the stimulus identity (or property value) at the specified time to assign
+    each trial to group A or B via hash parity. This enables cross-stimulus
+    generalization tests for Procrustes swap analysis.
+    
+    Returns:
+        (payloads_group_a, payloads_group_b) — each with the same structure
+        but with only the assigned trials kept.
+    """
+    import copy
+    
+    def _trial_hash(trial_identities, b, t, prop):
+        if prop == "location" and trial_identities.get("locations") is not None:
+            locs = trial_identities["locations"]
+            if torch.is_tensor(locs) and locs.dim() == 2:
+                val = int(locs[b, t]) if t < locs.shape[1] else 0
+            else:
+                val = 0
+            return hash(str(val))
+        elif prop == "identity" and trial_identities.get("identities") is not None:
+            ids = trial_identities["identities"]
+            val = ids[b][t] if b < len(ids) and t < len(ids[b]) else ""
+            return hash(str(val))
+        elif prop == "category" and trial_identities.get("categories") is not None:
+            cats = trial_identities["categories"]
+            val = cats[b][t] if b < len(cats) and t < len(cats[b]) else ""
+            return hash(str(val))
+        return hash(b)
+    
+    result_a, result_b = [], []
+    for payload in payloads:
+        B = payload["hidden"].shape[0]
+        T = payload["hidden"].shape[1]
+        mask_a = torch.zeros(B, dtype=torch.bool)
+        mask_b = torch.zeros(B, dtype=torch.bool)
+        for b in range(B):
+            h = _trial_hash(payload, b, min(time, T - 1), property_name)
+            if h % 2 == 0:
+                mask_a[b] = True
+            else:
+                mask_b[b] = True
+        
+        if mask_a.any():
+            pa = copy.deepcopy(payload)
+            for key in ("hidden", "logits", "task_vector", "task_index", "n", "targets"):
+                if key in pa and torch.is_tensor(pa[key]):
+                    pa[key] = pa[key][mask_a]
+            for key in ("locations",):
+                if key in pa and pa[key] is not None and torch.is_tensor(pa[key]):
+                    pa[key] = pa[key][mask_a]
+            for key in ("identities", "categories"):
+                if key in pa and pa[key] is not None:
+                    pa[key] = [pa[key][i] for i in range(len(pa[key])) if mask_a[i]]
+            pa["split"] = "group_a"
+            result_a.append(pa)
+        
+        if mask_b.any():
+            pb = copy.deepcopy(payload)
+            for key in ("hidden", "logits", "task_vector", "task_index", "n", "targets"):
+                if key in pb and torch.is_tensor(pb[key]):
+                    pb[key] = pb[key][mask_b]
+            for key in ("locations",):
+                if key in pb and pb[key] is not None and torch.is_tensor(pb[key]):
+                    pb[key] = pb[key][mask_b]
+            for key in ("identities", "categories"):
+                if key in pb and pb[key] is not None:
+                    pb[key] = [pb[key][i] for i in range(len(pb[key])) if mask_b[i]]
+            pb["split"] = "group_b"
+            result_b.append(pb)
+    
+    if not result_a or not result_b:
+        print("  ⚠ Could not split payloads into two groups, using random split")
+        mid = len(payloads) // 2
+        return payloads[:mid], payloads[mid:]
+    
+    return result_a, result_b
+
+
 def swap_hypothesis_test(
     hidden_root: Path,
     property_name: str,
@@ -244,138 +326,140 @@ def swap_hypothesis_test(
 ) -> Dict[str, Any]:
     """
     Test chronological memory subspace hypothesis using rotation matrix swaps.
-    
-    IMPORTANT: This is a SIMPLIFIED VERSION that approximates the paper's analysis.
-    
+
     Paper's Full Test (Figure 4g, Equations 2-3):
     -----------------------------------------------
-    - Eq. 2 (Time Swap): R(S=i, T=j+1→j+2) applied to W(S=i, T=j)
-      Tests if same stimulus at different time generalizes
-    - Eq. 3 (Stimulus Swap): R(S=i+k, T=j+k→j+k+1) applied to W(S=i, T=j)
-      Tests if different stimulus at same relative age generalizes
-    
+    - Eq. 2 (Time Swap): R(T=j+1→j+2) applied to W(T=j)
+      Tests if rotation from a different time interval generalizes
+    - Eq. 3 (Stimulus Swap): R_A(T=j→j+1) applied to W_B(T=j)
+      Tests if rotation from different stimuli (group A) at same age generalizes
+      to held-out stimuli (group B)
+
     KEY FINDING: Eq. 3 > Eq. 2 (chronological organization dominates)
-    
-    Simplified Implementation:
-    --------------------------
-    Since we don't track individual stimulus IDs through sequences, we approximate:
-    - "Correct" rotation: R(T=j → T=j+1) on pooled data
-    - "Swap 1" (wrong time): R(T=j+k → T=j+k+1) applied to T=j weights
-    - "Swap 2" (same age): Same as Swap 1 in this formulation
-    
-    LIMITATION: Without per-stimulus tracking, Swap 1 and Swap 2 are identical.
-    This simplified version tests temporal stability but not the full stimulus-swap
-    hypothesis from the paper. Results should be interpreted as evidence for/against
-    temporal generalization, not the complete chronological organization test.
-    
-    For the full test, modify data saving to track stimulus IDs per timestep.
-    
+
+    Implementation:
+    ---------------
+    - For label alignment, decodes on `location` (4 fixed classes) — identity labels
+      differ per trial and would not align between stimulus groups
+    - Splits trials by identity hash (group A vs group B) for cross-stimulus effect
+    - "Correct" rotation: R(T=j → T=j+1) on pooled data → test on held-out B
+    - "Swap 1" (wrong time): R(T=j+k → T=j+k+1) applied to T=j weights → test on B
+    - "Swap 2" (same age, diff stimuli): R_A(T=j → T=j+1) applied to W_B(T=j) → test on B
+    - Baseline: direct decoding at T=j+1 on B
+
     Args:
         hidden_root: Path to saved hidden states
-        property_name: Property to decode (location, identity, category)
+        property_name: Original property requested (used for label alignment via location)
         encoding_time: Initial encoding time j (typically 0-2)
         k_offset: Temporal offset for swap comparison (default=1)
         task: Task context filter (location/identity/category or None for all)
         n_value: N-back value filter (1/2/3 or None for all)
         epochs: Specific epochs to analyze (None for all)
-    
+
     Returns:
-        Dictionary with reconstruction accuracies and disparities:
-        - correct_accuracy: Using R(T=j → T=j+1)
-        - swap1_accuracy: Using R(T=j+k → T=j+k+1) 
-        - swap2_accuracy: Currently same as swap1 (simplified)
-        - baseline_accuracy: Direct decoding at T=j+1
-        
-    Example:
-        >>> result = swap_hypothesis_test(
-        ...     hidden_root=Path("experiments/wm_mtmf/hidden_states"),
-        ...     property_name="identity",
-        ...     encoding_time=0,
-        ...     k_offset=1
-        ... )
-        >>> print(f"Correct: {result['correct_accuracy']:.3f}")
-        >>> print(f"Swap 1: {result['swap1_accuracy']:.3f}")
+        Dictionary with reconstruction accuracies and disparities
     """
     payloads = load_payloads(Path(hidden_root), epochs=epochs)
     ti = _task_name_to_index(task)
-    
+
+    # Use location (4 fixed classes) for label alignment between groups.
+    # Identity labels are unique per trial, so they cannot be aligned between
+    # disjoint stimulus groups (A and B have different identity sets).
+    swap_property = "location"
+
+    # Split payloads by identity (disjoint stimulus groups) — required for
+    # cross-stimulus test, even though we decode on location
+    print(f"  Splitting payloads by identity at time {encoding_time}...")
+    payloads_a, payloads_b = _split_payloads_by_stimulus(payloads, "identity", encoding_time)
+    n_a = sum(p["hidden"].shape[0] for p in payloads_a)
+    n_b = sum(p["hidden"].shape[0] for p in payloads_b)
+    print(f"    Group A: {n_a} trials, Group B: {n_b} trials")
+
     # Define time points
     j = encoding_time
     k = k_offset
-    
-    # Time points: j, j+1, j+k, j+k+1
     times = [j, j + 1, j + k, j + k + 1]
-    
-    # Build matrices for all time points
-    matrices = {}
-    weights = {}
+
+    # Build matrices for full data (used for correct and swap1)
+    weights_full = {}
     for t in times:
         X, y, label2idx = build_matrix(
-            payloads, property_name, time=t, task_index=ti, n_value=n_value
+            payloads, swap_property, time=t, task_index=ti, n_value=n_value
         )
         if X.numel() == 0:
             raise RuntimeError(f"No samples at time {t}")
-        matrices[t] = (X, y, label2idx)
-        weights[t] = one_vs_rest_weights(X, y)
-    
-    # ===== CORRECT ROTATION =====
-    # R_correct: S=i at T=j → T=j+1
+        weights_full[t] = one_vs_rest_weights(X, y)
+
+    # Build matrices for group A (used for swap2 rotation)
+    weights_a = {}
+    matrices_a = {}
+    for t in [j, j + 1]:
+        X, y, label2idx = build_matrix(
+            payloads_a, swap_property, time=t, task_index=ti, n_value=n_value
+        )
+        if X.numel() == 0:
+            raise RuntimeError(f"No samples in group A at time {t}")
+        matrices_a[t] = (X, y, label2idx)
+        weights_a[t] = one_vs_rest_weights(X, y)
+
+    # Build matrices for group B (used as held-out test set)
+    matrices_b = {}
+    weights_b = {}
+    for t in [j, j + 1]:
+        X, y, label2idx = build_matrix(
+            payloads_b, swap_property, time=t, task_index=ti, n_value=n_value
+        )
+        if X.numel() == 0:
+            raise RuntimeError(f"No samples in group B at time {t}")
+        matrices_b[t] = (X, y, label2idx)
+        weights_b[t] = one_vs_rest_weights(X, y)
+
+    # ===== CORRECT ROTATION (pooled data) =====
     R_correct, disp_correct = compute_procrustes_alignment(
-        weights[j], weights[j + 1]
+        weights_full[j], weights_full[j + 1]
     )
-    
-    # ===== SWAP 1: Same stimulus, different time =====
-    # R_swap1: S=i at T=j+1 → T=j+2 (but we'll use j+k → j+k+1 as proxy)
+
+    # ===== SWAP 1: Different time interval (wrong time) =====
     R_swap1, disp_swap1 = compute_procrustes_alignment(
-        weights[j + k], weights[j + k + 1]
+        weights_full[j + k], weights_full[j + k + 1]
     )
-    
-    # ===== SWAP 2: Different stimulus, same age =====
-    # R_swap2: S=i+k at T=j+k → T=j+k+1 (already computed as R_swap1)
-    # Actually, for different stimulus we need to use different source
-    # Let's use: T=j+k → T=j+k+1 (this represents a different position in sequence)
-    R_swap2 = R_swap1  # Same as swap1 in this formulation
-    disp_swap2 = disp_swap1
-    
-    # Actually, let me reconsider the paper's formulation:
-    # - Correct: R(S=i, T=j) transforms from j to j+1
-    # - Swap 1 (wrong time): R(S=i, T=j+1) transforms from j+1 to j+2
-    # - Swap 2 (same age): R(S=i+k, T=j+k) transforms from j+k to j+k+1
-    
-    # For swap 2, the key insight is it's at a DIFFERENT stimulus position
-    # but the SAME relative age (both are encoding→memory transitions)
-    
-    # Target: weights at j+1 (memory for stimulus at position i)
-    X_target, y_target, _ = matrices[j + 1]
-    W_target = weights[j + 1]
-    
-    # Reconstruct target using all three rotations
-    W_source = weights[j]
-    W_source_k = weights[j + k]
-    
-    # Correct reconstruction
-    W_recon_correct = reconstruct_weights(W_source, R_correct)
+
+    # ===== SWAP 2: Different stimuli, same age =====
+    # Compute R on group A data at the same time pair (j→j+1)
+    R_swap2, disp_swap2 = compute_procrustes_alignment(
+        weights_a[j], weights_a[j + 1]
+    )
+
+    # Test on group B held-out data
+    X_target, y_target, _ = matrices_b[j + 1]
+    W_target = weights_b[j + 1]
+    W_source_b = weights_b[j]
+
+    # Correct: apply pooled R to group B source weights → test on group B target
+    W_recon_correct = reconstruct_weights(W_source_b, R_correct)
     acc_correct = evaluate_reconstruction(X_target, y_target, W_recon_correct)
-    
-    # Swap 1: Use rotation from later time (wrong time)
-    W_recon_swap1 = reconstruct_weights(W_source, R_swap1)
+
+    # Swap 1: apply wrong-time R to group B source → test on group B target
+    W_recon_swap1 = reconstruct_weights(W_source_b, R_swap1)
     acc_swap1 = evaluate_reconstruction(X_target, y_target, W_recon_swap1)
-    
-    # Swap 2: Use rotation from different stimulus position (same age)
-    # Apply the same-age rotation to source weights
-    W_recon_swap2 = reconstruct_weights(W_source, R_swap2)
+
+    # Swap 2: apply group A's same-age R to group B source → test on group B target
+    W_recon_swap2 = reconstruct_weights(W_source_b, R_swap2)
     acc_swap2 = evaluate_reconstruction(X_target, y_target, W_recon_swap2)
-    
-    # Baseline: direct decoding
+
+    # Baseline: direct decoding at T=j+1 on group B
     acc_baseline = evaluate_reconstruction(X_target, y_target, W_target)
-    
+
     return {
-        "property": property_name,
+        "property": swap_property,
+        "original_property": property_name,
         "encoding_time": j,
         "k_offset": k,
         "task": task,
         "n": n_value,
-        "n_classes": len(W_source),
+        "n_classes": len(weights_full[j]),
+        "n_group_a": n_a,
+        "n_group_b": n_b,
         # Correct transformation
         "correct_disparity": disp_correct,
         "correct_accuracy": acc_correct,
@@ -392,6 +476,7 @@ def swap_hypothesis_test(
         "swap2_relative": acc_swap2 / acc_correct if acc_correct > 0 else 0.0,
         # Key result: swap2 should be closer to correct than swap1
         "hypothesis_confirmed": bool(abs(acc_swap2 - acc_correct) < abs(acc_swap1 - acc_correct)),
+        "note": "Decoded on location (aligned labels). Groups split by identity hash for cross-stimulus effect."
     }
 
 
