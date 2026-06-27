@@ -47,7 +47,9 @@ def _identity_key(category: str, identity: str) -> str:
 class ProxySequence:
     def __init__(self, trials, task_feature: str, n: int, sequence_length: int,
                  task_vector: torch.Tensor, proxy_targets: List[int],
-                 num_classes: int):
+                 num_classes: int,
+                 proxy_targets_1back: Optional[List[int]] = None,
+                 proxy_targets_3back: Optional[List[int]] = None):
         self.trials = trials
         self.task_feature = task_feature
         self.n = n
@@ -55,6 +57,8 @@ class ProxySequence:
         self.task_vector = task_vector
         self.proxy_targets = proxy_targets
         self.num_classes = num_classes
+        self.proxy_targets_1back = proxy_targets_1back
+        self.proxy_targets_3back = proxy_targets_3back
 
 
 class ProxyTaskGenerator:
@@ -199,16 +203,17 @@ class ProxyTaskGenerator:
         )
 
     def generate_novel_proxy_sequence(self, task_name: str,
-                                       sequence_length: Optional[int] = None) -> ProxySequence:
+                                       sequence_length: Optional[int] = None,
+                                       feature: str = "location") -> ProxySequence:
         if sequence_length is None:
             sequence_length = self.sequence_length
 
         if task_name == "nback_4":
-            return self._generate_standard_proxy(4, "location", sequence_length, novel=True)
+            return self._generate_standard_proxy(4, feature, sequence_length, novel=True)
         elif task_name == "nback_5":
-            return self._generate_standard_proxy(5, "location", sequence_length, novel=True)
+            return self._generate_standard_proxy(5, feature, sequence_length, novel=True)
         elif task_name == "three_in_a_row":
-            return self._generate_three_in_a_row_proxy(sequence_length)
+            return self._generate_three_in_a_row_proxy(sequence_length, feature=feature)
         elif task_name == "alternating":
             return self._generate_alternating_proxy(sequence_length)
         else:
@@ -229,9 +234,12 @@ class ProxyTaskGenerator:
             seq.task_vector = tv
         return seq
 
-    def _generate_three_in_a_row_proxy(self, sequence_length: int) -> ProxySequence:
+    def _generate_three_in_a_row_proxy(self, sequence_length: int,
+                                        feature: str = "location") -> ProxySequence:
         trials = []
-        proxy_targets = []
+        proxy_targets_0back = []
+        proxy_targets_1back = []
+        proxy_targets_3back = []
         history = []
 
         for t in range(sequence_length):
@@ -243,19 +251,21 @@ class ProxyTaskGenerator:
                 'identity': stimulus['identity'],
                 'trial_index': t,
             })
-            history.append(stimulus['location'])
+            fv = self._get_feature_value(stimulus, feature)
+            history.append(fv)
 
-            if t < 1:
-                proxy_targets.append(-1)
-            else:
-                target = 1 if history[t] == history[t - 1] else 0
-                proxy_targets.append(target)
+            proxy_targets_0back.append(fv)
+            proxy_targets_1back.append(history[t - 1] if t >= 1 else -1)
+            proxy_targets_3back.append(history[t - 3] if t >= 3 else -1)
 
         task_vector = torch.tensor([1.0, 0.0, 0.0, 1.0, 1.0, 1.0])
+        num_classes = self.num_classes[feature]
         return ProxySequence(
-            trials=trials, task_feature="location", n=0,
+            trials=trials, task_feature="three_in_a_row", n=0,
             sequence_length=sequence_length, task_vector=task_vector,
-            proxy_targets=proxy_targets, num_classes=2,
+            proxy_targets=proxy_targets_0back, num_classes=num_classes,
+            proxy_targets_1back=proxy_targets_1back,
+            proxy_targets_3back=proxy_targets_3back,
         )
 
     def _generate_alternating_proxy(self, sequence_length: int, n: int = 2) -> ProxySequence:

@@ -116,9 +116,18 @@ class ProxyNBackDataset(Dataset):
 
         proxy_targets = torch.tensor(seq.proxy_targets, dtype=torch.long)
 
+        if seq.proxy_targets_1back is not None:
+            targets_1back = torch.tensor(seq.proxy_targets_1back, dtype=torch.long)
+            targets_3back = torch.tensor(seq.proxy_targets_3back, dtype=torch.long)
+        else:
+            targets_1back = torch.full_like(proxy_targets, -1)
+            targets_3back = torch.full_like(proxy_targets, -1)
+
         return {
             'images': torch.stack(images),
             'proxy_targets': proxy_targets,
+            'proxy_targets_1back': targets_1back,
+            'proxy_targets_3back': targets_3back,
             'task_vector': seq.task_vector,
             'n': torch.tensor(seq.n, dtype=torch.long),
             'locations': torch.tensor(locations, dtype=torch.long),
@@ -145,6 +154,8 @@ def proxy_collate_fn(batch):
     return {
         'images': images,
         'proxy_targets': proxy_targets,
+        'proxy_targets_1back': torch.stack([item['proxy_targets_1back'] for item in batch]),
+        'proxy_targets_3back': torch.stack([item['proxy_targets_3back'] for item in batch]),
         'task_vector': task_vector,
         'n': n,
         'locations': locations,

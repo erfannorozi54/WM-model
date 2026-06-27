@@ -68,28 +68,24 @@ def evaluate_proxy_model(model, proxy_heads, dataloader, device,
 
             loss, metrics = compute_proxy_loss_batched(
                 proxy_heads, hidden_seq, task_vec, proxy_targets,
-                n_values, task_features, device
+                n_values, task_features, device,
+                proxy_targets_1back=batch["proxy_targets_1back"].to(device),
+                proxy_targets_3back=batch["proxy_targets_3back"].to(device),
             )
 
             total_loss += metrics["proxy_loss"]
-            total_correct += int(metrics["proxy_accuracy"] * sum(
-                batch["proxy_targets"][b].ge(0).sum().item()
-                for b in range(len(task_features))
-            ))
-            total_valid += sum(
-                batch["proxy_targets"][b].ge(0).sum().item()
-                for b in range(len(task_features))
-            )
+            total_correct += metrics.get("_correct", 0)
+            total_valid += metrics.get("_total", 0)
 
             for key, val in metrics.items():
-                if key.endswith("_acc") and key not in per_task_stats:
-                    per_task_stats[key] = {"correct": 0, "total": 0}
-                if key.endswith("_acc"):
-                    per_task_stats[key]["correct"] += int(val * metrics.get(key.replace("_acc", "_count"), 0))
-                if key.endswith("_count"):
-                    acc_key = key.replace("_count", "_acc")
-                    if acc_key in per_task_stats:
-                        per_task_stats[acc_key]["total"] += int(val)
+                if key.endswith("_correct") and not key.startswith("_"):
+                    acc_key = key.replace("_correct", "_acc")
+                    cnt_key = key.replace("_correct", "_count")
+                    if acc_key not in per_task_stats:
+                        per_task_stats[acc_key] = {"correct": 0, "total": 0}
+                    per_task_stats[acc_key]["correct"] += int(val)
+                    if cnt_key in metrics:
+                        per_task_stats[acc_key]["total"] += int(metrics[cnt_key])
 
             num_batches += 1
 
@@ -334,7 +330,9 @@ def main():
 
             loss, metrics = compute_proxy_loss_batched(
                 proxy_heads, hidden_seq, task_vec, proxy_targets,
-                n_values, task_features, device
+                n_values, task_features, device,
+                proxy_targets_1back=batch["proxy_targets_1back"].to(device),
+                proxy_targets_3back=batch["proxy_targets_3back"].to(device),
             )
 
             loss.backward()
@@ -343,16 +341,12 @@ def main():
             optimizer.step()
 
             train_loss += metrics["proxy_loss"]
-            batch_valid = sum(
-                batch["proxy_targets"][b].ge(0).sum().item()
-                for b in range(len(task_features))
-            )
-            train_correct += int(metrics["proxy_accuracy"] * batch_valid)
-            train_valid += batch_valid
+            train_correct += metrics.get("_correct", 0)
+            train_valid += metrics.get("_total", 0)
             num_train_batches += 1
 
             for key, val in metrics.items():
-                if key.endswith("_acc") or key.endswith("_count"):
+                if key.endswith("_acc") and not key.startswith("_"):
                     if key not in all_per_task:
                         all_per_task[key] = []
                     all_per_task[key].append(val)
