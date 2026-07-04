@@ -173,7 +173,7 @@ def save_proxy_training_sample(model, proxy_heads, batch, device, save_dir,
 
     visualize_proxy_sequence(
         batch=batch,
-        hidden_seq=hidden_seq.cpu(),
+        hidden_seq=hidden_seq,
         proxy_heads=proxy_heads,
         sample_idx=sample_idx,
         save_path=save_path,
