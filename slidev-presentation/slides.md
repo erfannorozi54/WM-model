@@ -659,6 +659,205 @@ transition: fade-out
 </v-click>
 
 ---
+layout: section
+transition: fade
+---
+
+# Neural Efficiency
+## A Second, Independent Finding
+
+---
+transition: fade-out
+---
+
+# Beyond Capacity: Why We Need a Second Finding
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### What the deck already shows (Capacity)
+
+Proxy pretraining raises accuracy on the real N-back task at matched or lower training volume:
+
+- Novel angle: 82.7% → 97.5%
+- Novel identity: 80.6% → 92.8%
+
+This is a **behavioral capacity** claim — familiar/structured features let the model do more.
+
+</div>
+
+<div>
+
+### What's missing (Efficiency)
+
+Human WM research treats capacity and efficiency as **separate, independently measured** phenomena:
+
+- **Capacity**: familiar stimuli → more can be held in mind (Chung, Brady & Störmer, 2024)
+- **Efficiency**: prior knowledge → same/better work with **suppressed** neural response (repetition suppression, Poppenk, Moscovitch & McIntosh, 2016)
+
+A reviewer could argue "better accuracy" alone isn't mechanistically brain-like. We need suppressed *activity*, not just better *behavior*.
+
+</div>
+
+</div>
+
+<v-click>
+
+<div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
+
+### The claim under test
+Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both suppress task-irrelevant processing — observable at **three independent levels** of the model.
+
+</div>
+
+</v-click>
+
+---
+transition: fade-out
+---
+
+# Three-Level Suppression Story
+
+<div class="flex justify-center text-sm">
+
+| Level | Quantity | Tool | Comparison |
+|---|---|---|---|
+| **1. Representational content** | Task-irrelevant-feature decodability, orthogonalization index | `compare_models.py` (existing Phase 3/5 infra) | Baseline vs. attention |
+| **2. Population activity** | Hidden-state magnitude, participation ratio, sparsity, Fano-factor analogue | `neural_efficiency.py` (new) | Baseline vs. proxy-pretrained |
+| **3. Explicit gating** | Gate-suppression index (irrelevant-channel gate − relevant-channel gate) | `gate_suppression.py` (new) | Attention-only vs. attention+proxy |
+
+</div>
+
+<v-click>
+
+<div class="mt-6 p-4 bg-purple-500/10 rounded-lg text-center">
+
+Reporting all three on the same underlying claim — familiarity/structure suppresses what's not needed — is stronger evidence of a genuine multi-level mechanism than any one signature alone. Level 3 is the strongest: a plain GRU/RNN baseline structurally cannot produce it at all.
+
+</div>
+
+</v-click>
+
+---
+transition: fade-out
+---
+
+# Level 2: Population Activity — Baseline vs. Proxy-Pretrained
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Setup
+- **Condition A**: `wm_mtmf_20260520_140601` (baseline, no proxy)
+- **Condition B**: `finetune_proxy_wm_mtmf_20260705_164908` (baseline, proxy-pretrained then fine-tuned)
+- Same config family (h=256, mtmf), matched-epoch selection by `val_novel_angle_acc`
+- Metrics: activation magnitude, participation ratio, population sparsity, Fano-factor analogue (all bootstrapped, 1000 resamples)
+
+### Accuracy gap to report honestly
+| | Novel identity | Novel angle |
+|---|---:|---:|
+| Baseline | 82.5% | 81.2% |
+| Proxy-finetuned | 93.5% | 97.1% |
+
+This is a **large** gap — any activity difference below must be interpreted alongside it, not instead of it (Constantinidis & Klingberg Box 2 caveat).
+
+</div>
+
+<div>
+
+### Result
+
+<div class="p-4 bg-yellow-500/10 rounded-lg text-center">
+
+**[PENDING — analysis running on `hamrah-gpu-internal`]**
+
+`analysis_results/neural_efficiency_baseline_vs_proxy_mtmf/`
+
+</div>
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Level 1: Representational Content — Baseline vs. Attention
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Setup
+- **Baseline**: `wm_mtmf_20260520_140601`
+- **Attention**: `wm_attention_mtmf_20260520_203605` (task_only gating)
+- Property: `identity` — does attention lower task-irrelevant decodability / raise the orthogonalization index relative to baseline?
+- Reuses existing Phase 3/5 infrastructure (`decoding.py`, `orthogonalization.py`, `compare_models.py`) — no new code needed
+
+</div>
+
+<div>
+
+### Result
+
+<div class="p-4 bg-yellow-500/10 rounded-lg text-center">
+
+**[PENDING — analysis running on `hamrah-gpu-internal`]**
+
+`analysis_results/compare_baseline_vs_attention_mtmf/`
+
+</div>
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Level 3: Explicit Gating — The Novel Contribution
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Why this is new
+No experiment anywhere had combined attention with proxy pretraining before this pass — `configs/proxy/proxy_attention_mtmf.yaml` existed but had never been run. This directly answers the original question: *can attention-containing models be used in proxy task training, and does it help?*
+
+### Setup
+- **Condition A**: attention-only, fresh run with gate-logging enabled (`configs/attention_mtmf.yaml`)
+- **Condition B**: `train_proxy.py` (proxy_attention_mtmf) → `finetune_from_proxy.py` (attention_mtmf)
+- Gate-suppression index computed independently per condition (own channel-relevance ranking each time — proxy pretraining shifts the trainable CNN→RNN projection, so channel identity isn't assumed stable across conditions)
+
+</div>
+
+<div>
+
+### Result
+
+<div class="p-4 bg-yellow-500/10 rounded-lg text-center">
+
+**[PENDING — training running on `hamrah-gpu-internal`, ~5h critical path: proxy pretrain → fine-tune → gate-suppression index]**
+
+`analysis_results/gate_suppression_mtmf/`
+
+</div>
+
+<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
+
+Synthetic-data verification (before real data): planted −0.4/−0.8 relevant-vs-irrelevant gate gaps recovered almost exactly, confirming the metric is logically correct ahead of the real run.
+
+</div>
+
+</div>
+
+</div>
+
+---
 transition: fade-out
 ---
 
@@ -693,6 +892,8 @@ transition: fade-out
 8. ✅ **Task-guided attention** improves MTMF by +11% train, +12% angle, +11% identity
 9. ✅ **Re-ran all 18 experiments** with fixed code — results in `analysis_results/`
 10. ✅ **Open-sourced** the audit findings (`docs/ANALYSIS_AUDIT_FINDINGS.md`)
+11. 🔬 **Neural efficiency** (new): three-level suppression story — representational content, population activity, explicit gating — see previous section
+12. 🔬 **Attention + proxy pretraining** (new): first combined run of attention-gated architecture with structured-feature pretraining — direct extension of both prior contributions
 
 </v-clicks>
 
