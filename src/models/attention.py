@@ -242,7 +242,9 @@ class AttentionWorkingMemoryModel(nn.Module):
         # Classification
         logits = self.classifier(outputs)
         
-        if return_cnn_activations:
+        if return_cnn_activations and return_attention:
+            return logits, hidden_seq, final_state, cnn_activations, gates
+        elif return_cnn_activations:
             return logits, hidden_seq, final_state, cnn_activations
         elif return_attention:
             return logits, hidden_seq, final_state, gates

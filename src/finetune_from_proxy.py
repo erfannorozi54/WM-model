@@ -21,7 +21,7 @@ from pathlib import Path
 import argparse
 import time
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 import torch
@@ -93,7 +93,8 @@ def confusion_matrix_from_logits(logits, targets_idx, num_classes=3):
 
 
 def save_states_and_activations(hidden_seq, cnn_activations, batch, logits,
-                                 save_dir, epoch, batch_idx, split_name):
+                                 save_dir, epoch, batch_idx, split_name,
+                                 gates: Optional[torch.Tensor] = None):
     split_dir = save_dir / f"epoch_{epoch:03d}" / split_name
     split_dir.mkdir(parents=True, exist_ok=True)
 
@@ -102,6 +103,7 @@ def save_states_and_activations(hidden_seq, cnn_activations, batch, logits,
     payload = {
         "hidden": hidden_seq.cpu(),
         "cnn_activations": cnn_activations.cpu() if cnn_activations is not None else None,
+        "gates": gates.cpu() if gates is not None else None,
         "logits": logits.cpu(),
         "task_vector": batch["task_vector"].cpu(),
         "task_index": task_index,
@@ -184,12 +186,19 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
             targets_oh = batch["responses"].to(device)
             targets_idx = targets_oh.argmax(dim=-1)
 
+            is_attention_model = hasattr(model, "attention")
             if save_dir is not None and save_activations:
-                forward_out = model(images, task_vec, return_cnn_activations=True)
-                logits, hidden_seq, _, cnn_activations = forward_out
+                if is_attention_model:
+                    forward_out = model(images, task_vec, return_cnn_activations=True, return_attention=True)
+                    logits, hidden_seq, _, cnn_activations, gates = forward_out
+                else:
+                    forward_out = model(images, task_vec, return_cnn_activations=True)
+                    logits, hidden_seq, _, cnn_activations = forward_out
+                    gates = None
             else:
                 logits, hidden_seq, _ = model(images, task_vec)
                 cnn_activations = None
+                gates = None
 
             loss = criterion(logits.reshape(-1, 3), targets_idx.reshape(-1))
             acc = accuracy_from_logits(logits, targets_idx)
@@ -213,7 +222,8 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
                 save_states_and_activations(
                     hidden_seq=hidden_seq, cnn_activations=cnn_activations,
                     batch=batch, logits=logits, save_dir=save_dir,
-                    epoch=epoch, batch_idx=batch_idx, split_name=split_name
+                    epoch=epoch, batch_idx=batch_idx, split_name=split_name,
+                    gates=gates,
                 )
 
     return {

@@ -267,7 +267,131 @@ def build_cnn_matrix(payloads: List[Dict[str, Any]],
     
     if not xs:
         return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx
-    
+
     X = torch.stack(xs, dim=0)
     y = torch.tensor(ys, dtype=torch.long)
     return X, y, label2idx
+
+
+def build_gate_matrix(payloads: List[Dict[str, Any]],
+                      property_name: str,
+                      time: int,
+                      task_index: Optional[int] = None,
+                      n_value: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor, Dict[Any, int]]:
+    """Build matrix from attention channel gates instead of RNN hidden states.
+
+    Same schema as build_cnn_matrix, but reads the 'gates' key (B, T, H) saved
+    for attention models (task_only/dual FeatureChannelAttention). Payloads
+    without a 'gates' key (baseline, non-attention models) are skipped.
+
+    Args:
+        payloads: List of payload dicts, optionally containing 'gates'
+        property_name: Property to decode (location, identity, category)
+        time: Timestep to extract
+        task_index: Optional task filter
+        n_value: Optional n-back value filter
+
+    Returns:
+        X: (N, H) gate matrix
+        y: (N,) label indices
+        label2idx: Mapping from label values to indices
+    """
+    assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
+
+    label2idx: Dict[Any, int] = {}
+    xs: List[torch.Tensor] = []
+    ys: List[int] = []
+
+    for payload in payloads:
+        gates = payload.get("gates")
+        if gates is None:
+            continue
+
+        B, T, H = gates.shape
+        task_indices = payload.get("task_index")
+        n_vals = payload.get("n")
+        locations = payload.get("locations")
+        categories = payload.get("categories")
+        identities = payload.get("identities")
+
+        if locations is not None and torch.is_tensor(locations):
+            locations_ll = locations.tolist()
+        else:
+            locations_ll = [[None] * T for _ in range(B)]
+
+        categories_ll = categories if categories is not None else [[None] * T for _ in range(B)]
+        identities_ll = identities if identities is not None else [[None] * T for _ in range(B)]
+
+        for b in range(B):
+            if task_index is not None and task_indices is not None:
+                if int(task_indices[b]) != task_index:
+                    continue
+            if n_value is not None and n_vals is not None:
+                if int(n_vals[b]) != n_value:
+                    continue
+
+            if property_name == "location":
+                val = locations_ll[b][time] if locations_ll else None
+            elif property_name == "category":
+                val = categories_ll[b][time] if categories_ll else None
+            elif property_name == "identity":
+                val = identities_ll[b][time] if identities_ll else None
+            else:
+                val = None
+
+            if val is None:
+                continue
+
+            if val not in label2idx:
+                label2idx[val] = len(label2idx)
+
+            xs.append(gates[b, time])
+            ys.append(label2idx[val])
+
+    if not xs:
+        return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx
+
+    X = torch.stack(xs, dim=0)
+    y = torch.tensor(ys, dtype=torch.long)
+    return X, y, label2idx
+
+
+def gate_channel_means(payloads: List[Dict[str, Any]],
+                       task_index: Optional[int] = None,
+                       n_value: Optional[int] = None,
+                       time: Optional[int] = None) -> Optional[torch.Tensor]:
+    """Mean attention gate value per channel, pooled over all matching trials/timesteps.
+
+    Basis for the gate-suppression index: compare mean gate value on
+    channels a task treats as relevant vs. irrelevant (relevance determined
+    externally, e.g. via decoding accuracy per channel or task convention).
+    Returns None if no payload contains a 'gates' key (baseline model).
+    """
+    sums: Optional[torch.Tensor] = None
+    count = 0
+
+    for payload in payloads:
+        gates = payload.get("gates")
+        if gates is None:
+            continue
+
+        B, T, H = gates.shape
+        task_indices = payload.get("task_index")
+        n_vals = payload.get("n")
+        time_range = range(T) if time is None else [time]
+
+        for b in range(B):
+            if task_index is not None and task_indices is not None:
+                if int(task_indices[b]) != task_index:
+                    continue
+            if n_value is not None and n_vals is not None:
+                if int(n_vals[b]) != n_value:
+                    continue
+            for t in time_range:
+                g = gates[b, t]
+                sums = g.clone() if sums is None else sums + g
+                count += 1
+
+    if sums is None or count == 0:
+        return None
+    return sums / count

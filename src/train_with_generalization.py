@@ -15,7 +15,7 @@ from pathlib import Path
 import argparse
 import time
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 import torch
@@ -100,11 +100,12 @@ def save_states_and_activations(
     save_dir: Path,
     epoch: int,
     batch_idx: int,
-    split_name: str
+    split_name: str,
+    gates: Optional[torch.Tensor] = None,
 ):
     """
     Save RNN hidden states and CNN activations for analysis.
-    
+
     Args:
         hidden_seq: RNN hidden states (B, T, H)
         cnn_activations: CNN penultimate layer activations (B, T, H)
@@ -114,18 +115,20 @@ def save_states_and_activations(
         epoch: Current epoch number
         batch_idx: Batch index
         split_name: Name of data split (e.g., "val_novel_angle")
+        gates: Feature-channel attention gates (B, T, H), attention models only
     """
     # Create split-specific subdirectory
     split_dir = save_dir / f"epoch_{epoch:03d}" / split_name
     split_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Derive task index
     task_index = batch["task_vector"].argmax(dim=-1).cpu()  # (B,)
-    
+
     # Prepare payload
     payload = {
         "hidden": hidden_seq.cpu(),                      # (B, T, H) - RNN encoding space
         "cnn_activations": cnn_activations.cpu() if cnn_activations is not None else None,  # (B, T, H) - CNN perceptual space
+        "gates": gates.cpu() if gates is not None else None,  # (B, T, H) - attention channel gates, attention models only
         "logits": logits.cpu(),                          # (B, T, 3)
         "task_vector": batch["task_vector"].cpu(),       # (B, 3)
         "task_index": task_index,                        # (B,)
@@ -137,7 +140,7 @@ def save_states_and_activations(
         "identities": batch.get("identities"),           # List[List[str]]
         "split": split_name,                             # Track which validation split
     }
-    
+
     # Save to file
     filename = split_dir / f"batch_{batch_idx:04d}.pt"
     torch.save(payload, filename)
@@ -177,13 +180,20 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
             targets_oh = batch["responses"].to(device)
             targets_idx = targets_oh.argmax(dim=-1)
             
-            # Forward pass with optional CNN activation capture
+            # Forward pass with optional CNN activation / attention-gate capture
+            is_attention_model = hasattr(model, "attention")
             if save_dir is not None and save_activations:
-                forward_out = model(images, task_vec, return_cnn_activations=True)
-                logits, hidden_seq, _, cnn_activations = forward_out
+                if is_attention_model:
+                    forward_out = model(images, task_vec, return_cnn_activations=True, return_attention=True)
+                    logits, hidden_seq, _, cnn_activations, gates = forward_out
+                else:
+                    forward_out = model(images, task_vec, return_cnn_activations=True)
+                    logits, hidden_seq, _, cnn_activations = forward_out
+                    gates = None
             else:
                 logits, hidden_seq, _ = model(images, task_vec)
                 cnn_activations = None
+                gates = None
             
             loss = criterion(logits.reshape(-1, 3), targets_idx.reshape(-1))
             acc = accuracy_from_logits(logits, targets_idx)
@@ -217,7 +227,8 @@ def evaluate_model(model, dataloader, criterion, device, save_dir=None, epoch=No
                     save_dir=save_dir,
                     epoch=epoch,
                     batch_idx=batch_idx,
-                    split_name=split_name
+                    split_name=split_name,
+                    gates=gates,
                 )
     
     return {

@@ -46,8 +46,11 @@ src/
 │   ├── decoding.py                # Standalone decoding
 │   ├── procrustes.py              # Procrustes + swap_hypothesis_test
 │   ├── orthogonalization.py       # Analysis 3 — LinearSVC one-vs-rest
-│   ├── activations.py             # load_payloads(), build_matrix(), build_matrix_with_values()
-│   └── visualize_attention.py     # Attention weight visualization
+│   ├── compare_models.py          # Baseline vs. attention: decoding/orthogonalization comparison
+│   ├── neural_efficiency.py       # Baseline vs. proxy-pretrained: hidden-state magnitude/PR/sparsity/Fano comparison
+│   ├── gate_suppression.py        # Attention-gate suppression index (ranks channel relevance in CNN-activation space)
+│   ├── activations.py             # load_payloads(), build_matrix(), build_matrix_with_values(), build_gate_matrix(), gate_channel_means()
+│   └── visualize_attention.py     # Attention weight visualization — stale against the current (B,T,C) channel-gate shape; do not trust without checking
 ├── data/                          # dataset, renderer, validation_splits, nback_generator
 │   ├── proxy_generator.py         # Proxy task sequence generator
 │   └── proxy_dataset.py           # Proxy task dataset and data module
@@ -166,6 +169,8 @@ python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 7. **Causal perturbation direction**: uses the **mean** of all class decoder normals as the perturbation direction. Per-class direction (pushing toward a specific class) was tested and is weaker — it pushes the state deeper into the class instead of across the boundary.
 
 8. **Determinism**: `LinearSVC` and `SVC` in analysis modules use `max_iter=10000` and `random_state=42` to avoid convergence warnings and ensure reproducibility. `train_test_split` also uses `random_state=42`.
+
+9. **`gates` payload key only exists on runs started after the gate-logging fix**: `AttentionWorkingMemoryModel.forward()` supports `return_cnn_activations=True` and `return_attention=True` simultaneously; `train_with_generalization.py`/`finetune_from_proxy.py` detect attention models via `hasattr(model, "attention")` and save gates accordingly. Older attention experiment directories will have `gates: None` even with `save_hidden: true`. Also, gates are applied to `cnn_activations` (the pre-RNN visual embedding), not RNN `hidden` states — any channel-relevance ranking against gate values must decode properties from `cnn_activations` (`build_cnn_matrix`), never from `hidden`, or it will compare the wrong channel space. See `src/analysis/gate_suppression.py`'s module docstring for the full rationale, including why relevance ranking is computed independently per experiment rather than assuming shared channel identity across differently-trained runs.
 
 See `docs/ANALYSIS_AUDIT_FINDINGS.md` for the full audit of the 5 analyses against the paper.
 

@@ -10,3 +10,17 @@ from .procrustes import (
     procrustes_analysis,
     swap_hypothesis_test,
 )
+from .neural_efficiency import (
+    activation_magnitude,
+    participation_ratio,
+    population_sparsity,
+    fano_factor_analogue,
+    compare_cell,
+    run_neural_efficiency_analysis,
+    select_matched_epoch,
+)
+from .gate_suppression import (
+    channel_relevance_scores,
+    gate_suppression_index,
+    compare_gate_suppression,
+)
