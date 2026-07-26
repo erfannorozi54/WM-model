@@ -6,82 +6,92 @@
 
 ---
 
-## 0. What already exists — corrected after directly checking disk contents
+## 0. What already exists — confirmed by direct audit of `hamrah-gpu-internal` on 2026-07-26
 
-**Correction to an earlier version of this guide:** I had assumed the local h128 experiment directories included saved hidden states, based on `save_hidden: true` in their configs. Direct inspection (`find experiments/<dir> -name "*.pt"`, checking for a `hidden_states/` subdirectory) shows this is wrong for **every** local experiment directory: none contain `best_model.pt` or a `hidden_states/` folder, only lightweight artifacts (`config.yaml`, `training_log.json`, `training.log`, small PNG visualizations). The training logs even reference `best_model.pt` as an output path that isn't actually present locally. The most likely explanation is that these runs happened on `hamrah-gpu-internal` and only the small files were synced down, leaving the large checkpoint + hidden-state tensors on the server. Practical consequence: **none of the analyses below are runnable on this machine right now without first pulling data from the GPU server, or rerunning training here.**
+**This section supersedes the earlier "check the GPU server" placeholder.** The server was reachable, the new commit (`b4d5ff7`, containing the gate-logging fix + `neural_efficiency.py`/`gate_suppression.py`) was pulled there via fast-forward, and every `experiments/` directory was enumerated directly (`best_model.pt` presence, `hidden_states/` file counts, `config.yaml` key fields). Full inventory:
 
-| Data | Location | Status |
+| Experiment dir | Config | Status |
 |---|---|---|
-| Baseline STMF, h128 (no attention) | `experiments/wm_h128_stmf_20260603_010546` | Config/logs only locally — **no `best_model.pt`, no `hidden_states/`** |
-| Attention STMF, h128 | `experiments/wm_h128_attention_stmf_20260603_073349` | Config/logs only locally — **no `best_model.pt`, no `hidden_states/`** |
-| Attention MTMF, h128 | `experiments/wm_h128_attention_mtmf_20260603_094851` | Config/logs only locally — **no `best_model.pt`, no `hidden_states/`** |
-| Baseline MTMF, h256 (no attention) | referenced as `experiments/wm_mtmf_20260520_140601` | Not present locally at all — check `hamrah-gpu-internal` |
-| Proxy-pretrained baseline MTMF, h256 | referenced as `experiments/finetune_proxy_wm_mtmf_20260705_164908` | Not present locally at all — check `hamrah-gpu-internal` |
-| `configs/proxy/proxy_attention_mtmf.yaml`, `proxy_dual_attention_mtmf.yaml` | `configs/proxy/` | Configs exist, never run (no matching experiment dir anywhere found yet) |
-| Attention model, no proxy, h256 control | `configs/attention_mtmf.yaml` | Config exists, never run |
-| Gate-value saving | `src/models/attention.py`, `train_with_generalization.py`, `finetune_from_proxy.py` | Implemented — only takes effect on runs started from now on |
-| `src/analysis/neural_efficiency.py` (magnitude/PR/sparsity/Fano metrics) | `src/analysis/neural_efficiency.py` | **Implemented and smoke-tested** on synthetic payloads matching the real schema (see verification note below) — never yet run against real experiment data, since none is currently reachable locally |
-| Gate-suppression index (`src/analysis/gate_suppression.py`) | `src/analysis/gate_suppression.py` | **Implemented and smoke-tested** with a planted effect (see below) — never yet run against real experiment data |
+| `wm_stsf_20260520_095056`, `wm_stmf_20260520_115231`, `wm_mtmf_20260520_140601` | baseline, h256 | best_model.pt + 1170 hidden_state files each |
+| `wm_attention_stsf_20260520_161910`, `wm_attention_stmf_20260520_182203`, `wm_attention_mtmf_20260520_203605` | attention (task_only), h256 | best_model.pt + 1170 hidden_state files each |
+| `wm_dual_attention_stsf_20260520_225000`, `wm_dual_attention_stmf_20260521_005245`, `wm_dual_attention_mtmf_20260521_030657` | attention (dual), h256 | best_model.pt + 1170 hidden_state files each |
+| `proxy_mtmf_20260704_155609` | proxy pretrain, baseline, h256, mtmf | best_model.pt + 1170 hidden_state files |
+| `finetune_proxy_wm_mtmf_20260705_164908` | finetuned from above, h256, mtmf | best_model.pt + 1170 hidden_state files |
+| `wm_h128_{stsf,stmf,mtmf}`, `wm_h128_attention_{...}`, `wm_h128_dual_attention_{...}` (9 dirs) | h128 variants, 2026-06-23 | best_model.pt + 5670 hidden_state files each |
 
-**Verification done on `neural_efficiency.py`:** since no real hidden-state data is reachable on this machine, I validated it against synthetic payloads built to match the exact saved-payload schema, with a known injected effect (two conditions differing only by a fixed activation-scale factor). Results matched the closed-form expectation exactly where one exists — e.g. the Fano-factor analogue scaled by the same factor as the injected scale change (0.442 → 0.265 for a 0.6× scale change, i.e. 0.442 × 0.6 ≈ 0.265), and participation ratio stayed invariant under pure rescaling, as it should mathematically. This confirms the code is logically correct; it has not yet been run on real model data.
+**Critical finding — none of the existing attention checkpoints have `gates` in their payloads.** Every attention/dual-attention run above was trained in May/June 2026, before today's gate-logging fix existed in the codebase. `gate_suppression.py` cannot run on any of them as-is. There is also **no attention+proxy experiment anywhere** — `configs/proxy/proxy_attention_mtmf.yaml` and `proxy_dual_attention_mtmf.yaml` exist but have never been run (confirmed: no matching experiment directory). This is exactly the gap your original question ("can I use attention models in proxy pretraining") identified — it genuinely requires new training, not just new analysis code.
 
-**Verification done on `gate_suppression.py`:** planted a known relevant/irrelevant gate gap in synthetic `cnn_activations` + `gates` (0.9 vs. 0.5 for one condition, 0.9 vs. 0.1 for a "sharper" second condition) and recovered suppression indices of −0.40 and −0.80 respectively — essentially exact recovery of the planted −0.4/−0.8 gaps — with `index_sharper_in_b=True` and an `index_gap` of ≈0.40 matching the designed difference. Also not yet run on real model data.
+**Large accuracy gap in the one existing baseline/proxy pair** (`wm_mtmf_20260520_140601` vs. `finetune_proxy_wm_mtmf_20260705_164908`, from `training_log.json` best epochs): novel-identity accuracy 82.5% → 93.5%, novel-angle accuracy 81.2% → 97.1%. This is a large improvement, not a small one — any population-activity difference `neural_efficiency.py` finds between these two must be reported alongside this gap, not instead of it. This is the Constantinidis & Klingberg Box 2 caveat in practice, not just in theory.
 
-**Action before anything else:** check `hamrah-gpu-internal` for the h128 checkpoints/hidden-states and the two h256 baseline/proxy runs. If they exist there, you don't need to retrain anything — rsync `hidden_states/` (and `best_model.pt` if you want matched-epoch selection) down, or run the analysis commands below directly over SSH on the server.
+**Server also had ~175MB of stale top-level `.log` files (deleted, never git-tracked) and a stale pre-refactor duplicate code tree at the repo root** (`analysis/`, `meta/`, `models/`, `scripts/`, `utils/`, `train.py`, etc., living alongside `src/` since before the `src/` migration, confirmed via `diff -rq` to be outdated copies missing `gate_suppression.py`/`proxy_model.py`/etc.) — left untouched pending confirmation, since it's outside `src/` and not used by any documented command.
+
+**Verification done on `neural_efficiency.py` and `gate_suppression.py`:** both were smoke-tested against synthetic payloads with known injected effects before ever touching real data (see git history) — the Fano-factor analogue recovered a planted 0.6× scale change almost exactly (0.442 → 0.265), and the gate-suppression index recovered planted gaps of −0.40/−0.80 almost exactly. Both are now also running on real data — see §6 below for live status.
+
+**Action items, in order (superseding the old "check hamrah-gpu-internal" instruction — already done):**
+1. ~~Check GPU server~~ Done — see table above.
+2. Run the two analyses that need zero new training (§1, revised below) — **in progress, see §6**.
+3. Train the missing attention+proxy pair (§2a/§2b) — **in progress, see §6**.
+4. Once §2a/§2b finish, run `gate_suppression.py` and `neural_efficiency.py` on the new pair (§3/§4).
 
 ---
 
-## 1. First, once hidden states are reachable: the STMF result to write up
+## 1. Running now, zero new training needed (real experiment data, h256 mtmf)
 
-**Update: this is not actually free right now** (see the correction in §0) — the accuracy numbers for this pair are already known from `training_log.json` (baseline 79.3–80.8% vs. attention 91.9% novel-identity accuracy, already cited in this conversation), but the *representational* comparison below needs the saved `hidden_states/`, which do not exist locally for either run. Once you've pulled them from `hamrah-gpu-internal` (or re-run both configs locally — same hidden size, same 45 epochs, ~15-20 min each on GPU per the Phase 5 benchmarks), this is the first analysis to run, since it needs no new training:
+Both use existing checkpoints already on `hamrah-gpu-internal` — no training required:
 
 ```bash
-# Behavioral comparison (Analysis 1) — already-trained checkpoints
-python -m src.analysis.comprehensive_analysis --analysis 1 \
-  --hidden_root experiments/wm_h128_stmf_20260603_010546/hidden_states \
-  --output_dir analysis_results/wm_h128_stmf_baseline
+# Population-activity layer: baseline vs. proxy-pretrained-then-finetuned baseline
+python -m src.analysis.neural_efficiency \
+  --root_a experiments/wm_mtmf_20260520_140601/hidden_states \
+  --root_b experiments/finetune_proxy_wm_mtmf_20260705_164908/hidden_states \
+  --label_a baseline --label_b baseline_proxy_finetuned \
+  --training_log_a experiments/wm_mtmf_20260520_140601/training_log.json \
+  --training_log_b experiments/finetune_proxy_wm_mtmf_20260705_164908/training_log.json \
+  --match_metric val_novel_angle_acc --split val_novel_identity \
+  --output_dir analysis_results/neural_efficiency_baseline_vs_proxy_mtmf
 
-python -m src.analysis.comprehensive_analysis --analysis 1 \
-  --hidden_root experiments/wm_h128_attention_stmf_20260603_073349/hidden_states \
-  --output_dir analysis_results/wm_h128_attention_stmf
-
-# Representational comparison — task-irrelevant decodability, orthogonalization (Phase 5 tool)
+# Representational-content layer: baseline vs. attention (task_only), same mtmf config family
 python -m src.analysis.compare_models \
-  --baseline experiments/wm_h128_stmf_20260603_010546/hidden_states \
-  --attention experiments/wm_h128_attention_stmf_20260603_073349/hidden_states \
+  --baseline experiments/wm_mtmf_20260520_140601/hidden_states \
+  --attention experiments/wm_attention_mtmf_20260520_203605/hidden_states \
   --property identity \
-  --output_dir analysis_results/compare_stmf_h128
+  --output_dir analysis_results/compare_baseline_vs_attention_mtmf
 ```
 
-**What to look for:** `compare_models.py` was built specifically to test whether attention lowers task-irrelevant-feature decodability and raises the orthogonalization index relative to baseline. This gives you a real number for the "representational content" row of the three-level table without needing any *new* training — just the existing checkpoints' data pulled or reproduced. Run this before the new §2 training — it validates the pipeline still runs correctly before you spend GPU hours.
+**Why mtmf, not stmf:** the only real baseline/proxy pair on the server is mtmf-only (the "full paper config," N=1,2,3, all task features), so anchoring every comparison to mtmf keeps all four conditions (baseline / attention / baseline+proxy / attention+proxy) on the same config for a clean 2×2 table. An stmf or stsf version of any of these can be added later only if new stsf/stmf attention+proxy runs are also done — not planned by default since GPU time is better spent completing the mtmf 2×2 first.
+
+**What to look for:** `compare_models.py` tests whether attention lowers task-irrelevant-feature decodability / raises the orthogonalization index relative to baseline — the "representational content" row. `neural_efficiency.py` tests whether proxy pretraining reduces hidden-state magnitude/participation-ratio/sparsity/Fano-factor relative to the no-proxy baseline — the "population activity" row, but see the accuracy-gap caveat in §0 before interpreting the result as pure "efficiency."
 
 ---
 
 ## 2. New training runs, in priority order
 
-All of these use infrastructure that already exists; none require new code.
+All of these use infrastructure that already exists; none require new code. The server has two idle RTX 3090s, so 2a and 2b run **in parallel** on separate GPUs (`CUDA_VISIBLE_DEVICES=0`/`1`) to cut wall-clock roughly in half. Historical timings from the existing mtmf runs on this same server: attention-only mtmf training ≈1h52m, proxy pretraining ≈3h10m, finetuning ≈2h9m — so the critical path is proxy-pretrain (3a) → finetune (3c) ≈ 5h20m, with 2b (attention-only retrain) finishing well before that and just waiting.
 
 ### 2a. Attention + proxy pretraining (highest priority — this is the new contribution)
 
 ```bash
-# Pretrain attention model on proxy task
-python -m src.train_proxy --config configs/proxy/proxy_attention_mtmf.yaml
+CUDA_VISIBLE_DEVICES=0 nohup python -m src.train_proxy --config configs/proxy/proxy_attention_mtmf.yaml \
+  > proxy_attention_mtmf.log 2>&1 &
 
-# Fine-tune onto the real N-back task (transfers perceptual + cognitive + attention weights)
-python -m src.finetune_from_proxy \
+# once it finishes, fine-tune onto the real N-back task
+# (transfers perceptual + cognitive + attention weights; classifier reinitialized)
+CUDA_VISIBLE_DEVICES=0 nohup python -m src.finetune_from_proxy \
   --proxy_exp_dir experiments/proxy_attention_mtmf_<timestamp> \
-  --config configs/attention_mtmf.yaml
+  --config configs/attention_mtmf.yaml \
+  > finetune_attention_mtmf.log 2>&1 &
 ```
 
-This is the run that didn't exist anywhere before this conversation. It now also saves gate values automatically (the fix applied to `finetune_from_proxy.py`).
+This is the run that didn't exist anywhere before this conversation. It now also saves gate values automatically (the fix applied to `finetune_from_proxy.py`) — this run is what makes `gate_suppression.py`'s "attention+proxy" side possible at all.
 
-### 2b. Attention, no proxy (the control 2a needs)
+### 2b. Attention, no proxy (the control 2a needs — also backfills gates for the attention-only side)
 
 ```bash
-python -m src.train_with_generalization --config configs/attention_mtmf.yaml
+CUDA_VISIBLE_DEVICES=1 nohup python -m src.train_with_generalization --config configs/attention_mtmf.yaml \
+  > attention_mtmf_regate.log 2>&1 &
 ```
 
-Without this, you cannot tell whether any effect in 2a comes from attention or from proxy pretraining — it isolates the "architecture" variable from the "familiarity" variable.
+Without this, you cannot tell whether any effect in 2a comes from attention or from proxy pretraining — it isolates the "architecture" variable from the "familiarity" variable. Note this is a **re-run** of a config that was already trained once (`wm_attention_mtmf_20260520_203605`) — that old run predates the gate-logging fix and has no `gates` in its payloads, so a fresh run is needed anyway to get an attention-only condition with real gate data comparable to 2a's output. This produces a new `wm_attention_mtmf_<new-timestamp>` directory; use it (not the old one) for gate_suppression comparisons.
 
 ### 2c. (If time allows) Dual-attention variant of both 2a/2b
 
@@ -152,15 +162,17 @@ Note this compares each condition against its *own* channel-relevance ranking (s
 
 ```bash
 python -m src.analysis.neural_efficiency \
-  --root_a experiments/<baseline_exp>/hidden_states \
-  --root_b experiments/<proxy_finetuned_exp>/hidden_states \
+  --root_a experiments/wm_mtmf_20260520_140601/hidden_states \
+  --root_b experiments/finetune_proxy_wm_mtmf_20260705_164908/hidden_states \
   --label_a baseline --label_b proxy \
-  --training_log_a experiments/<baseline_exp>/training_log.json \
-  --training_log_b experiments/<proxy_finetuned_exp>/training_log.json \
+  --training_log_a experiments/wm_mtmf_20260520_140601/training_log.json \
+  --training_log_b experiments/finetune_proxy_wm_mtmf_20260705_164908/training_log.json \
   --match_metric val_novel_angle_acc \
   --split val_novel_identity \
-  --output_dir analysis_results/neural_efficiency_mtmf
+  --output_dir analysis_results/neural_efficiency_baseline_vs_proxy_mtmf
 ```
+
+(This exact command is already running — see §6. The paths above are the real, confirmed directory names, not placeholders.)
 
 `--training_log_a`/`--training_log_b` auto-select the closest-accuracy epoch pair instead of requiring you to inspect `training_log.json` by hand and pass `--epoch_a`/`--epoch_b` yourself — it prints the resulting accuracy gap so you can judge whether the match is close enough to trust.
 
@@ -171,3 +183,19 @@ The scrambled-feature-label causal control (§5 of the future-work doc) is a str
 ## 5. Report-writing note
 
 Structure the new chapter around the three-level table (representational content / population activity / explicit gating), not around "attention" and "proxy" as separate sub-sections — the point of this plan is that they converge on one claim (familiarity and structure suppress irrelevant processing), observed three different ways. State plainly which of the three you completed and which remain proposed, the same verified-vs-not-verified discipline already used for citations in `docs/FUTURE_WORK_NEURAL_EFFICIENCY.md`.
+
+---
+
+## 6. Live status (updated as each step completes, 2026-07-26)
+
+| Step | Status | Output |
+|---|---|---|
+| §1 `neural_efficiency.py` baseline vs. proxy-finetuned, mtmf | Running (`hamrah-gpu-internal`, nohup) | `analysis_results/neural_efficiency_baseline_vs_proxy_mtmf/` |
+| §1 `compare_models.py` baseline vs. attention, mtmf | Running (`hamrah-gpu-internal`, nohup) | `analysis_results/compare_baseline_vs_attention_mtmf/` |
+| §2a `train_proxy.py` (proxy_attention_mtmf) | Queued next | `experiments/proxy_attention_mtmf_<timestamp>/` |
+| §2a `finetune_from_proxy.py` (from above) | Queued, depends on above | `experiments/finetune_proxy_wm_attention_mtmf_<timestamp>/` |
+| §2b `train_with_generalization.py` (attention_mtmf regate) | Queued next, parallel with 2a | `experiments/wm_attention_mtmf_<new-timestamp>/` |
+| §3 `gate_suppression.py` attention-only vs. attention+proxy | Blocked on 2a+2b | `analysis_results/gate_suppression_mtmf/` |
+| §4 `neural_efficiency.py` attention-only vs. attention+proxy | Blocked on 2a+2b | `analysis_results/neural_efficiency_attention_vs_attention_proxy_mtmf/` |
+
+Update this table in place rather than appending a new one each time a step finishes.
