@@ -108,7 +108,7 @@ def evaluate(
         "n_classes": int(len(W)),
         "orthogonalization": float(O),
         "cosine_matrix": C.tolist(),
-        "classes": {int(v): int(i) for v, i in label2idx.items()},
+        "classes": {str(v): int(i) for v, i in label2idx.items()},
     }
 
 

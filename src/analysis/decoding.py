@@ -117,7 +117,7 @@ def evaluate(
         "n_train": int(len(y_tr)),
         "train_sample_hash": train_hash,
         "test": {},
-        "classes": {int(v): int(i) for v, i in label2idx.items()},
+        "classes": {str(v): int(i) for v, i in label2idx.items()},
     }
 
     # Evaluate across test times and contexts
