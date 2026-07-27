@@ -186,16 +186,64 @@ Structure the new chapter around the three-level table (representational content
 
 ---
 
-## 6. Live status (updated as each step completes, 2026-07-26)
+## 6. Final status — all runs complete (2026-07-27)
 
 | Step | Status | Output |
 |---|---|---|
-| §1 `neural_efficiency.py` baseline vs. proxy-finetuned, mtmf | Running (`hamrah-gpu-internal`, nohup) | `analysis_results/neural_efficiency_baseline_vs_proxy_mtmf/` |
-| §1 `compare_models.py` baseline vs. attention, mtmf | Running (`hamrah-gpu-internal`, nohup) | `analysis_results/compare_baseline_vs_attention_mtmf/` |
-| §2a `train_proxy.py` (proxy_attention_mtmf) | Queued next | `experiments/proxy_attention_mtmf_<timestamp>/` |
-| §2a `finetune_from_proxy.py` (from above) | Queued, depends on above | `experiments/finetune_proxy_wm_attention_mtmf_<timestamp>/` |
-| §2b `train_with_generalization.py` (attention_mtmf regate) | Queued next, parallel with 2a | `experiments/wm_attention_mtmf_<new-timestamp>/` |
-| §3 `gate_suppression.py` attention-only vs. attention+proxy | Blocked on 2a+2b | `analysis_results/gate_suppression_mtmf/` |
-| §4 `neural_efficiency.py` attention-only vs. attention+proxy | Blocked on 2a+2b | `analysis_results/neural_efficiency_attention_vs_attention_proxy_mtmf/` |
+| §1 `neural_efficiency.py` baseline vs. proxy-finetuned, mtmf | **Done** | `analysis_results/neural_efficiency_baseline_vs_proxy_mtmf/` |
+| §1 `compare_models.py` baseline vs. attention, mtmf | **Done** (required a bug fix, see §7) | `analysis_results/compare_baseline_vs_attention_mtmf/` |
+| §2a `train_proxy.py` (proxy_attention_mtmf) | **Done** (proxy-task acc 95.5%) | `experiments/proxy_attention_mtmf_20260726_161735` |
+| §2a `finetune_from_proxy.py` (from above) | **Done** (val_novel_angle_acc 97.3%) | `experiments/finetune_proxy_wm_attention_mtmf_20260726_201707` |
+| §2b `train_with_generalization.py` (attention_mtmf regate) | **Done** (val_novel_angle_acc 93.4%) | `experiments/wm_attention_mtmf_20260726_161735` |
+| §3 `gate_suppression.py` attention-only vs. attention+proxy | **Done** | `analysis_results/gate_suppression_mtmf/` |
+| §4 `neural_efficiency.py` attention-only vs. attention+proxy | **Done** | `analysis_results/neural_efficiency_attention_vs_attention_proxy_mtmf/` |
 
-Update this table in place rather than appending a new one each time a step finishes.
+## 7. Results — the three-level table, with real numbers
+
+### Level 1 — Representational content (baseline vs. attention, `wm_mtmf_20260520_140601` vs. `wm_attention_mtmf_20260520_203605`)
+
+Mixed but leaning supportive — the weakest of the three levels, partly due to ceiling effects on this MTMF config (consistent with this project's existing "MTMF preserves/mixes features" finding).
+
+| Sub-metric | Baseline | Attention | Read |
+|---|---:|---:|---|
+| Identity decodability, t=3/4/5 (mostly task-irrelevant here) | 14.6% / 12.0% / 10.1% | 7.2% / 6.5% / 5.9% | Supports suppression — roughly halved at every later timestep |
+| Orthogonalization index | 0.936 | 0.933 | Flat, near ceiling |
+| Procrustes reconstruction accuracy | 32.3% | 31.7% | Flat |
+| Swap-test "correct" accuracy | 22.9% | 30.0% | Supports attention — +7pp |
+
+Caveat: the decoding SVC hit `ConvergenceWarning: max_iter=10000` — treat exact percentages as approximate; the qualitative direction (large drop at t≥3) is a big enough effect to likely survive.
+
+### Level 2 — Population activity (baseline vs. baseline+proxy, AND attention-only vs. attention+proxy)
+
+Strong and, critically, **replicated at two different accuracy-gap sizes** — first at a 10pp gap (baseline@ep12 82.7% vs. proxy@ep1 92.7%), then again at a near-zero 0.08pp gap (attention-only@ep43 93.43% vs. attention+proxy@ep1 93.51%). Same direction on every metric, every one of 9 task/n cells, both pairs:
+
+| Metric | Direction under proxy pretraining | Matches original hypothesis? |
+|---|---|---|
+| Activation magnitude (‖h‖₂) | Lower, every cell, p<0.0001 | ✅ Yes — direct RNN analogue of Poppenk et al.'s core signature |
+| Population sparsity | Higher, most cells | ✅ Yes, but small effect sizes (~1-3% of units) |
+| Participation ratio | Higher, every cell | ❌ Opposite of the "sharper/lower-dimensional" prediction |
+| Fano-factor analogue | Higher, every cell | ❌ Opposite of the "less variable" prediction |
+
+Because the magnitude/sparsity effect replicates at near-zero accuracy gap, it survives the Constantinidis & Klingberg Box 2 confound check — this is not just "the proxy model is more accurate." The participation-ratio/Fano-factor result is real but should be reported as its own finding ("lower-magnitude, sparser, but higher-dimensional and more variable code"), not forced into the original "sharpening" framing.
+
+### Level 3 — Explicit gating (attention-only vs. attention+proxy, near-matched accuracy: 93.43% vs. 93.51%)
+
+The strongest, cleanest result. `index_sharper_in_b=True` in **9/9 cells**:
+
+| | attention-only | attention+proxy |
+|---|---:|---:|
+| Suppression index (range across cells) | −0.17 to **+0.07** (wrong-signed in 2/9 cells) | **−0.33 to −0.52** (consistently strong) |
+| Gate-relevance correlation (range) | 0.09 to 0.24 (weak) | 0.45 to 0.72 (strong) |
+
+For the `category` task specifically, attention-only barely gates at all (suppression index ≈ 0, slightly positive in 2/3 n-values); attention+proxy fixes this completely (−0.34, −0.34, −0.33). This is the signature a plain RNN baseline structurally cannot produce, it's accuracy-matched, and the effect size is large, not marginal.
+
+**Bottom line for the report:** Level 3 is the headline result, Level 2's magnitude/sparsity finding is solid supporting evidence (replicated at matched accuracy), Level 1 is the weakest leg but not contradictory. Report all three, honestly graded — don't flatten them into a single uniform "everything supports efficiency" claim.
+
+## 8. Two bugs found and fixed during execution (not scientific findings — infrastructure issues)
+
+1. **BLAS thread contention** (`src/analysis/__init__.py`): `neural_efficiency.py`/`gate_suppression.py`/`compare_models.py` call numpy/sklearn linear algebra thousands of times inside 1000-iteration bootstrap loops on small matrices. Left at default settings, OpenBLAS spawned a full thread pool per call; running two such jobs concurrently drove load average to ~100 on a 64-core box and turned a ~1-2 minute analysis into 4+ hours with zero progress and zero output. Fixed by capping `OMP_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/`MKL_NUM_THREADS`/`NUMEXPR_NUM_THREADS` to 1 in the package `__init__.py`.
+2. **String-label crash in decoding/orthogonalization JSON output** (`src/analysis/decoding.py`, `src/analysis/orthogonalization.py`): both built `{int(v): int(i) for v, i in label2idx.items()}` for the "classes" metadata field, which crashes for identity/category properties (string labels like `'table_001'`) though it happened to work for location (numeric). Fixed to `str(v)` — functionally identical output for location, no longer crashes for identity/category.
+
+Neither bug affected any already-reported thesis numbers — both were in code paths never exercised on real data until this session.
+
+**Known but not fixed:** `decoding.py`'s `train_decoder()` uses `SVC(kernel="linear", ...)` (libsvm backend, scales ~O(n²–n³) with sample count) rather than `LinearSVC` (liblinear, ~O(n)) — on ~20,000-trial swap-test splits this is likely why `compare_models.py`'s Procrustes/swap-test stages took several hours even single-threaded. Left alone since it's pre-existing code that other already-reported results in this thesis depend on; changing the solver could shift previously-reported numbers. Worth a deliberate, separate decision if compare_models.py needs to be re-run again at this scale.

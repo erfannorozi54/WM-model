@@ -750,30 +750,26 @@ transition: fade-out
 <div>
 
 ### Setup
-- **Condition A**: `wm_mtmf_20260520_140601` (baseline, no proxy)
-- **Condition B**: `finetune_proxy_wm_mtmf_20260705_164908` (baseline, proxy-pretrained then fine-tuned)
-- Same config family (h=256, mtmf), matched-epoch selection by `val_novel_angle_acc`
-- Metrics: activation magnitude, participation ratio, population sparsity, Fano-factor analogue (all bootstrapped, 1000 resamples)
-
-### Accuracy gap to report honestly
-| | Novel identity | Novel angle |
-|---|---:|---:|
-| Baseline | 82.5% | 81.2% |
-| Proxy-finetuned | 93.5% | 97.1% |
-
-This is a **large** gap — any activity difference below must be interpreted alongside it, not instead of it (Constantinidis & Klingberg Box 2 caveat).
+- **Pair 1**: `wm_mtmf_20260520_140601` (baseline) vs. `finetune_proxy_wm_mtmf_20260705_164908` (proxy-finetuned) — 10pp accuracy gap (82.7%→92.7%)
+- **Pair 2**: `wm_attention_mtmf_20260726_161735` (attention-only) vs. `finetune_proxy_wm_attention_mtmf_20260726_201707` (attention+proxy) — **0.08pp accuracy gap** (93.43%→93.51%), a clean matched-accuracy replication
+- Metrics: activation magnitude, participation ratio, population sparsity, Fano-factor analogue (bootstrapped, 1000 resamples, all 9 task×n cells)
 
 </div>
 
 <div>
 
-### Result
+### Result — same direction in both pairs, every cell
 
-<div class="p-4 bg-yellow-500/10 rounded-lg text-center">
+| Metric | Under proxy pretraining | vs. hypothesis |
+|---|---|---|
+| Activation magnitude | **Lower**, p<0.0001 | ✅ matches Poppenk et al. |
+| Population sparsity | **Higher**, most cells | ✅ matches, small effect size |
+| Participation ratio | **Higher**, every cell | ❌ opposite of "sharpening" |
+| Fano-factor analogue | **Higher**, every cell | ❌ opposite of "less variable" |
 
-**[PENDING — analysis running on `hamrah-gpu-internal`]**
+<div class="mt-3 p-3 bg-green-500/10 rounded-lg text-center text-sm">
 
-`analysis_results/neural_efficiency_baseline_vs_proxy_mtmf/`
+Magnitude/sparsity effect **replicates at near-zero accuracy gap** (Pair 2) — survives the Constantinidis & Klingberg Box 2 confound check, not just "the proxy model is more accurate."
 
 </div>
 
@@ -794,20 +790,24 @@ transition: fade-out
 ### Setup
 - **Baseline**: `wm_mtmf_20260520_140601`
 - **Attention**: `wm_attention_mtmf_20260520_203605` (task_only gating)
-- Property: `identity` — does attention lower task-irrelevant decodability / raise the orthogonalization index relative to baseline?
-- Reuses existing Phase 3/5 infrastructure (`decoding.py`, `orthogonalization.py`, `compare_models.py`) — no new code needed
+- Property: `identity` — does attention lower task-irrelevant decodability / raise the orthogonalization index?
 
 </div>
 
 <div>
 
-### Result
+### Result — mixed, leaning supportive (weakest of the three levels)
 
-<div class="p-4 bg-yellow-500/10 rounded-lg text-center">
+| Sub-metric | Baseline | Attention | Read |
+|---|---:|---:|---|
+| Identity decodability, t=3/4/5 | 14.6/12.0/10.1% | 7.2/6.5/5.9% | ✅ roughly halved |
+| Orthogonalization index | 0.936 | 0.933 | Flat, ceiling |
+| Procrustes reconstruction | 32.3% | 31.7% | Flat |
+| Swap-test "correct" acc | 22.9% | 30.0% | ✅ +7pp |
 
-**[PENDING — analysis running on `hamrah-gpu-internal`]**
+<div class="mt-3 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
 
-`analysis_results/compare_baseline_vs_attention_mtmf/`
+2 of 4 sub-metrics clearly support suppression, 2 are flat (ceiling-limited, not contradictory) — report honestly rather than as a clean win.
 
 </div>
 
@@ -829,27 +829,24 @@ transition: fade-out
 No experiment anywhere had combined attention with proxy pretraining before this pass — `configs/proxy/proxy_attention_mtmf.yaml` existed but had never been run. This directly answers the original question: *can attention-containing models be used in proxy task training, and does it help?*
 
 ### Setup
-- **Condition A**: attention-only, fresh run with gate-logging enabled (`configs/attention_mtmf.yaml`)
-- **Condition B**: `train_proxy.py` (proxy_attention_mtmf) → `finetune_from_proxy.py` (attention_mtmf)
-- Gate-suppression index computed independently per condition (own channel-relevance ranking each time — proxy pretraining shifts the trainable CNN→RNN projection, so channel identity isn't assumed stable across conditions)
+- **Condition A**: `wm_attention_mtmf_20260726_161735` (attention-only, fresh run with gate-logging)
+- **Condition B**: `finetune_proxy_wm_attention_mtmf_20260726_201707` (proxy-pretrained then fine-tuned)
+- Near-matched accuracy: **93.43% vs. 93.51%**
 
 </div>
 
 <div>
 
-### Result
+### Result — the headline finding, 9/9 cells sharper in B
 
-<div class="p-4 bg-yellow-500/10 rounded-lg text-center">
+| | Attention-only | Attention+proxy |
+|---|---:|---:|
+| Suppression index | −0.17 to **+0.07** (wrong-signed 2/9) | **−0.33 to −0.52** |
+| Gate-relevance correlation | 0.09–0.24 (weak) | 0.45–0.72 (strong) |
 
-**[PENDING — training running on `hamrah-gpu-internal`, ~5h critical path: proxy pretrain → fine-tune → gate-suppression index]**
+<div class="mt-3 p-3 bg-green-500/10 rounded-lg text-center text-sm">
 
-`analysis_results/gate_suppression_mtmf/`
-
-</div>
-
-<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
-
-Synthetic-data verification (before real data): planted −0.4/−0.8 relevant-vs-irrelevant gate gaps recovered almost exactly, confirming the metric is logically correct ahead of the real run.
+For the **category** task, attention-only barely gates at all (index ≈0, sometimes wrong-signed); attention+proxy fixes this completely (−0.33 to −0.34). Accuracy-matched, large effect size, and a signature a plain RNN baseline cannot produce at all.
 
 </div>
 
