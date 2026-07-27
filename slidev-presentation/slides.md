@@ -670,7 +670,7 @@ transition: fade
 transition: fade-out
 ---
 
-# Beyond Capacity: Why We Need a Second Finding
+# The Claim We're Testing
 
 <div class="grid grid-cols-2 gap-8">
 
@@ -678,25 +678,21 @@ transition: fade-out
 
 ### What the deck already shows (Capacity)
 
-Proxy pretraining raises accuracy on the real N-back task at matched or lower training volume:
-
+Proxy pretraining raises accuracy on the real N-back task:
 - Novel angle: 82.7% → 97.5%
 - Novel identity: 80.6% → 92.8%
 
-This is a **behavioral capacity** claim — familiar/structured features let the model do more.
+This is a **behavioral capacity** claim — familiar/structured features let the model do more. Our professor's ask: show a **second, independent** phenomenon, not just better accuracy.
 
 </div>
 
 <div>
 
-### What's missing (Efficiency)
+### Our goal: an efficiency finding
 
-Human WM research treats capacity and efficiency as **separate, independently measured** phenomena:
-
-- **Capacity**: familiar stimuli → more can be held in mind (Chung, Brady & Störmer, 2024)
-- **Efficiency**: prior knowledge → same/better work with **suppressed** neural response (repetition suppression, Poppenk, Moscovitch & McIntosh, 2016)
-
-A reviewer could argue "better accuracy" alone isn't mechanistically brain-like. We need suppressed *activity*, not just better *behavior*.
+Human WM research treats capacity and efficiency as **separate** phenomena:
+- **Capacity**: familiar stimuli → more can be held in mind
+- **Efficiency**: prior knowledge → same/better work with **suppressed** neural response
 
 </div>
 
@@ -707,7 +703,7 @@ A reviewer could argue "better accuracy" alone isn't mechanistically brain-like.
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
 ### The claim under test
-Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both suppress task-irrelevant processing — observable at **three independent levels** of the model.
+Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both **suppress task-irrelevant processing** — testable at three independent levels of the model, using real prior findings from human WM research as the standard to test against.
 
 </div>
 
@@ -717,61 +713,56 @@ Familiarity/structure (from proxy pretraining) and explicit gating (from attenti
 transition: fade-out
 ---
 
-# Three-Level Suppression Story
+# Our Method
 
 <div class="flex justify-center text-sm">
 
-| Level | Quantity | Tool | Comparison |
+| Level | Quantity measured | Tool | Comparison |
 |---|---|---|---|
-| **1. Representational content** | Task-irrelevant-feature decodability, orthogonalization index | `compare_models.py` (existing Phase 3/5 infra) | Baseline vs. attention |
-| **2. Population activity** | Hidden-state magnitude, participation ratio, sparsity, Fano-factor analogue | `neural_efficiency.py` (new) | Baseline vs. proxy-pretrained |
-| **3. Explicit gating** | Gate-suppression index (irrelevant-channel gate − relevant-channel gate) | `gate_suppression.py` (new) | Attention-only vs. attention+proxy |
+| **1. Representational content** | Task-irrelevant-feature decodability, orthogonalization index | `compare_models.py` | Baseline vs. attention |
+| **2. Population activity** | Hidden-state magnitude, participation ratio, sparsity, Fano-factor analogue | `neural_efficiency.py` | Baseline vs. proxy-pretrained (×2 pairs) |
+| **3. Explicit gating** | Gate-suppression index (irrelevant-channel gate − relevant-channel gate) | `gate_suppression.py` | Attention-only vs. attention+proxy |
 
 </div>
 
-<v-click>
+<div class="mt-6 grid grid-cols-2 gap-6 text-sm">
+<div class="p-3 bg-purple-500/10 rounded-lg">
 
-<div class="mt-6 p-4 bg-purple-500/10 rounded-lg text-center">
-
-Reporting all three on the same underlying claim — familiarity/structure suppresses what's not needed — is stronger evidence of a genuine multi-level mechanism than any one signature alone. Level 3 is the strongest: a plain GRU/RNN baseline structurally cannot produce it at all.
+**Why three levels, not one:** reporting all three on the same underlying claim is stronger evidence of a genuine mechanism than any single metric alone — each level is a different, independently-falsifiable test of the same idea.
 
 </div>
+<div class="p-3 bg-purple-500/10 rounded-lg">
 
-</v-click>
+**Matched-accuracy design:** every comparison also reports the accuracy gap between conditions, so an activity/decodability difference can't be waved away as "just being more accurate" — see references, next.
+
+</div>
+</div>
 
 ---
 transition: fade-out
 ---
 
-# Level 2: Population Activity — Baseline vs. Proxy-Pretrained
+# Reference 1: Poppenk, Moscovitch & McIntosh (2016)
 
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### Setup
-- **Pair 1**: `wm_mtmf_20260520_140601` (baseline) vs. `finetune_proxy_wm_mtmf_20260705_164908` (proxy-finetuned) — 10pp accuracy gap (82.7%→92.7%)
-- **Pair 2**: `wm_attention_mtmf_20260726_161735` (attention-only) vs. `finetune_proxy_wm_attention_mtmf_20260726_201707` (attention+proxy) — **0.08pp accuracy gap** (93.43%→93.51%), a clean matched-accuracy replication
-- Metrics: activation magnitude, participation ratio, population sparsity, Fano-factor analogue (bootstrapped, 1000 resamples, all 9 task×n cells)
+### What it is
+*fMRI evidence of equivalent neural suppression by repetition and prior knowledge.* Neuropsychologia, 90, 159–169. Read in full (not an abstract skim).
+
+### What they did
+Participants read (a) novel Asian proverbs, (b) proverbs repeated ~30 min earlier in the same session, and (c) English proverbs known from a lifetime of prior exposure — **prior knowledge, no recent repetition at all**.
 
 </div>
 
 <div>
 
-### Result — same direction in both pairs, every cell
+### What they found and concluded
+Recently-repeated items and previously-known items produced **statistically indistinguishable neural suppression** relative to novel items, across a broad visual-linguistic network — confirmed by a multivariate conjunction analysis (r=0.65, p<0.001). Their conclusion: suppression is a general signature of *any* retrieved information facilitating processing, not a narrow repetition-specific effect.
 
-| Metric | Under proxy pretraining | vs. hypothesis |
-|---|---|---|
-| Activation magnitude | **Lower**, p<0.0001 | ✅ matches Poppenk et al. |
-| Population sparsity | **Higher**, most cells | ✅ matches, small effect size |
-| Participation ratio | **Higher**, every cell | ❌ opposite of "sharpening" |
-| Fano-factor analogue | **Higher**, every cell | ❌ opposite of "less variable" |
-
-<div class="mt-3 p-3 bg-green-500/10 rounded-lg text-center text-sm">
-
-Magnitude/sparsity effect **replicates at near-zero accuracy gap** (Pair 2) — survives the Constantinidis & Klingberg Box 2 confound check, not just "the proxy model is more accurate."
-
-</div>
+### Why it matters to us
+This is the **direct precedent** for our Level 2 claim: if prior knowledge suppresses neural response in humans regardless of how that knowledge was acquired, our proxy-pretrained model (knowledge from a different task) should show the same signature on its hidden-state activity — exactly what we test.
 
 </div>
 
@@ -781,22 +772,80 @@ Magnitude/sparsity effect **replicates at near-zero accuracy gap** (Pair 2) — 
 transition: fade-out
 ---
 
-# Level 1: Representational Content — Baseline vs. Attention
+# Reference 2: Constantinidis & Klingberg (2016)
 
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### Setup
-- **Baseline**: `wm_mtmf_20260520_140601`
-- **Attention**: `wm_attention_mtmf_20260520_203605` (task_only gating)
-- Property: `identity` — does attention lower task-irrelevant decodability / raise the orthogonalization index?
+### What it is
+*The neuroscience of working memory capacity and training.* Nature Reviews Neuroscience, 17(7), 438–449. Full text and both boxes read directly.
+
+### What they found and concluded
+After WM training, PFC neurons show **decreased mean selectivity** (broader tuning) even as more neurons get recruited — efficiency is a **shift in how activity is organized**, not just "less activity." Training is also linked to **decreased trial-to-trial firing-rate variability** (lower Fano factor) and lower noise correlation — a sharper, less noisy population code.
 
 </div>
 
 <div>
 
-### Result — mixed, leaning supportive (weakest of the three levels)
+### The methodological warning we adopted (Box 2)
+BOLD-signal changes are ambiguous between "efficiency" and simple changes in task engagement — **a naive "activity went down = more efficient" reading is not licensed** without controlling for accuracy. This is exactly why every comparison in our method reports the accuracy gap, and why we specifically re-ran Level 2 at a near-zero accuracy gap (Pair 2, next section) instead of trusting the first, confounded pair alone.
+
+### Why it matters to us
+It predicts our participation-ratio/Fano-factor metrics should go **down** (sharper, less variable) under familiarity — this is the specific prediction our Level 2 results below actually contradict, and we report that honestly rather than hide it.
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# References for Level 3 (Explicit Gating)
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Desimone & Duncan (1995)
+*Neural mechanisms of selective visual attention.* Annual Review of Neuroscience, 18, 193–222. The biased-competition model: attention resolves competition between stimulus representations by suppressing task-irrelevant ones.
+
+</div>
+
+<div>
+
+### Treue & Martínez-Trujillo (1999)
+*Feature-based attention influences motion processing gain in macaque visual cortex.* Nature, 399, 575–579. The feature-similarity gain model: attending to one feature suppresses neural responses to other, task-irrelevant features.
+
+</div>
+
+</div>
+
+<div class="mt-6 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
+
+Named as the standard citations for "attention suppresses irrelevant feature responses" — **not independently read in full** the way references 1–2 were, so cited with lower confidence. Our Level 3 metric (gate-suppression index) is a direct, literal operationalization of this idea: it is not an analogy, since our model's gates ARE an explicit suppression signal by construction.
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Results — Level 1: Representational Content
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Comparing
+`wm_mtmf_20260520_140601` (baseline) vs. `wm_attention_mtmf_20260520_203605` (attention) — property `identity`
+
+</div>
+
+<div>
+
+### Mixed, leaning supportive (weakest of the three levels)
 
 | Sub-metric | Baseline | Attention | Read |
 |---|---:|---:|---|
@@ -805,13 +854,13 @@ transition: fade-out
 | Procrustes reconstruction | 32.3% | 31.7% | Flat |
 | Swap-test "correct" acc | 22.9% | 30.0% | ✅ +7pp |
 
-<div class="mt-3 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
-
-2 of 4 sub-metrics clearly support suppression, 2 are flat (ceiling-limited, not contradictory) — report honestly rather than as a clean win.
-
 </div>
 
 </div>
+
+<div class="mt-4 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
+
+2 of 4 sub-metrics clearly support suppression, 2 are flat (ceiling-limited by this MTMF config, not contradictory).
 
 </div>
 
@@ -819,38 +868,108 @@ transition: fade-out
 transition: fade-out
 ---
 
-# Level 3: Explicit Gating — The Novel Contribution
+# Results — Level 2: Population Activity
 
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### Why this is new
-No experiment anywhere had combined attention with proxy pretraining before this pass — `configs/proxy/proxy_attention_mtmf.yaml` existed but had never been run. This directly answers the original question: *can attention-containing models be used in proxy task training, and does it help?*
-
-### Setup
-- **Condition A**: `wm_attention_mtmf_20260726_161735` (attention-only, fresh run with gate-logging)
-- **Condition B**: `finetune_proxy_wm_attention_mtmf_20260726_201707` (proxy-pretrained then fine-tuned)
-- Near-matched accuracy: **93.43% vs. 93.51%**
+### Comparing (two independent pairs)
+- **Pair 1**: baseline vs. proxy-finetuned — 10pp accuracy gap (82.7%→92.7%)
+- **Pair 2**: attention-only vs. attention+proxy — **0.08pp accuracy gap** (93.43%→93.51%), a clean replication
 
 </div>
 
 <div>
 
-### Result — the headline finding, 9/9 cells sharper in B
+### Same direction in both pairs, every cell
+
+| Metric | Under proxy pretraining | vs. Reference 2 |
+|---|---|---|
+| Activation magnitude | **Lower**, p<0.0001 | ✅ matches Poppenk et al. |
+| Population sparsity | **Higher**, most cells | ✅ matches, small effect |
+| Participation ratio | **Higher**, every cell | ❌ opposite of prediction |
+| Fano-factor analogue | **Higher**, every cell | ❌ opposite of prediction |
+
+</div>
+
+</div>
+
+<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
+
+Magnitude/sparsity effect **replicates at near-zero accuracy gap** — survives the Box 2 confound check, not just "the proxy model is more accurate."
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Results — Level 3: Explicit Gating (Headline)
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Comparing
+`wm_attention_mtmf_20260726_161735` (attention-only) vs. `finetune_proxy_wm_attention_mtmf_20260726_201707` (attention+proxy) — near-matched accuracy: **93.43% vs. 93.51%**
+
+Never run anywhere before this pass — directly answers "can attention-containing models be used in proxy pretraining, and does it help?"
+
+</div>
+
+<div>
+
+### 9/9 cells sharper under proxy pretraining
 
 | | Attention-only | Attention+proxy |
 |---|---:|---:|
 | Suppression index | −0.17 to **+0.07** (wrong-signed 2/9) | **−0.33 to −0.52** |
 | Gate-relevance correlation | 0.09–0.24 (weak) | 0.45–0.72 (strong) |
 
-<div class="mt-3 p-3 bg-green-500/10 rounded-lg text-center text-sm">
+</div>
 
-For the **category** task, attention-only barely gates at all (index ≈0, sometimes wrong-signed); attention+proxy fixes this completely (−0.33 to −0.34). Accuracy-matched, large effect size, and a signature a plain RNN baseline cannot produce at all.
+</div>
+
+<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
+
+For **category**, attention-only barely gates at all (index ≈0, sometimes wrong-signed); attention+proxy fixes this completely. Accuracy-matched, large effect, and a signature a plain RNN baseline structurally cannot produce.
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Neural-Efficiency Chapter: Conclusion
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Graded against the two references
+
+| Level | vs. reference prediction |
+|---|---|
+| 3. Explicit gating | **Strongest support** — accuracy-matched, 9/9 cells, large effect |
+| 2. Population activity | **Partial support** — magnitude/sparsity match Ref. 1 and replicate at matched accuracy; participation-ratio/Fano contradict Ref. 2's "sharpening" prediction |
+| 1. Representational content | **Weakest, not contradictory** — 2/4 sub-metrics support, 2/4 flat at ceiling |
+
+</div>
+
+<div>
+
+### The claim we can defend
+
+Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional and more variable** population code, and dramatically **sharpens explicit gating** — both at matched accuracy, so neither is just "the model got better." This is a genuine second, independent finding, distinct from the capacity result, directly answering the ask for a new observable phenomenon.
 
 </div>
 
 </div>
+
+<div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
+
+We report this honestly graded, not as a uniform win — Level 3 is the strongest and most novel result; Level 2 partially confirms the literature and partially contradicts it; Level 1 is supporting, not central, evidence.
 
 </div>
 
