@@ -24,6 +24,8 @@ export PYTHONPATH="${PWD}/src:${PYTHONPATH}"
 
 `.env` holds a real `HUGGINGFACE_TOKEN` — never commit, print, or expose it; it's gitignored.
 
+GPU server access: `ssh hamrah-gpu-internal` (a configured SSH alias resolving to an internal IP — reachable only when the VPN is up), then `cd ~/Projects/WM-model && git pull`. Long-running training/analysis must be launched with `nohup ... > out.log 2>&1 & disown` so it survives the SSH session ending; check two idle RTX 3090s with `nvidia-smi` before launching anything, and check `uptime`'s load average if a job seems to be taking far longer than expected (see the BLAS-threading gotcha in `AGENTS.md`).
+
 ## Common commands
 
 ```bash
@@ -141,5 +143,5 @@ Stimuli already exist at `data/stimuli/` (320 images: 4 categories × 5 identiti
 - Keep config-driven behavior in `configs/*.yaml` / `configs_128/*.yaml`; no hardcoded experiment settings.
 - Keep Python entry points under `src/` (including `src/scripts/`).
 - Don't change path assumptions (`~/Projects/WM-model`, the `PYTHONPATH` pattern) unless explicitly asked.
-- For the full list of analysis-pipeline gotchas (causal perturbation epoch filtering, dual-attention model loading, Procrustes swap-test label alignment, decoding fallback behavior for small classes, etc.), see the "Known gotchas" section of `AGENTS.md`.
-- An active thesis chapter (attention-gate suppression + proxy-pretraining as a "neural efficiency" finding, distinct from the capacity result in `slidev-presentation/`) is planned in `docs/FUTURE_WORK_NEURAL_EFFICIENCY.md`, with a run-order checklist in `docs/EXECUTION_PLAN_NEURAL_EFFICIENCY.md`. Check these before re-deriving similar analysis/metric designs from scratch.
+- For the full list of analysis-pipeline gotchas (causal perturbation epoch filtering, dual-attention model loading, Procrustes swap-test label alignment, decoding fallback behavior for small classes, BLAS thread contention, etc.), see the "Known gotchas" section of `AGENTS.md`.
+- A thesis chapter (attention-gate suppression + proxy-pretraining as a "neural efficiency" finding, distinct from the accuracy/performance result already shown in `slidev-presentation/` — the proxy-pretraining accuracy gain is *not* a capacity claim, since it was never tested at higher N-back or larger simultaneous item counts) is written up in `docs/FUTURE_WORK_NEURAL_EFFICIENCY.md`, with real GPU results (not just a plan) in `docs/EXECUTION_PLAN_NEURAL_EFFICIENCY.md` §6–7. Check these before re-deriving similar analysis/metric designs from scratch.
