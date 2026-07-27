@@ -1,13 +1,13 @@
 # Future Research Direction: Neural-Efficiency Signatures of Feature Familiarity
 
-**Status:** the RNN-hidden-state metrics (§4.3) and the gate-suppression index (§4.8.1) are implemented in code and verified against synthetic data with known injected effects (see `docs/EXECUTION_PLAN_NEURAL_EFFICIENCY.md` for what was checked). Neither has been run on real experiment data yet — no new training runs have been executed, and the local `experiments/` directories are missing the checkpoints/hidden-states needed (see the execution plan's §0 for why). Everything else in this document remains a proposal.
-**Complements:** `slidev-presentation/proxy_training_comparison.md`, which already documents the *capacity-increase* side of familiarity (via Chung, Brady & Störmer, 2024, and Mercer, 2025). This document targets the **other** effect your professor named — familiarity **reducing neural activity** — so the thesis can claim two independent, human-validated signatures rather than one.
+**Status:** the RNN-hidden-state metrics (§4.3) and the gate-suppression index (§4.8.1) are implemented and have now been run on real GPU experiment data (see `docs/EXECUTION_PLAN_NEURAL_EFFICIENCY.md` §7 for the real results).
+**Correction:** an earlier version of this document, and `slidev-presentation/proxy_training_comparison.md`, described the existing proxy-pretraining accuracy gain as a **capacity** effect (citing Chung, Brady & Störmer, 2024). That's an over-claim: capacity specifically means holding *more items* (succeeding at higher N, or a higher K in span tasks); our result is accuracy improvement *at the same N-back levels*, i.e. a **performance/accuracy** effect, not a demonstrated capacity increase. `proxy_training_comparison.md` still needs a matching correction (flagged, not yet done). This document's own target — familiarity **reducing neural activity**, plus the gate-suppression signature — is not affected by that correction; if anything it becomes more important, since it's now the *only* genuinely new, literature-grounded WM phenomenon this thesis demonstrates, rather than one of two.
 
 ---
 
-## 1. Why this is a distinct finding (not a restatement of the capacity result)
+## 1. Why this is a distinct finding (not a restatement of the accuracy/performance result)
 
-The existing deck shows the proxy-pretrained model reaches higher accuracy with familiar/structured features (novel-angle: 82.7% → 97.5%; novel-identity: 80.6% → 92.8%). That is a **behavioral capacity** claim. It says nothing about *how much internal activity* the model spends to get there. Human WM research treats those as separate, independently measured phenomena:
+The existing deck shows the proxy-pretrained model reaches higher accuracy with familiar/structured features (novel-angle: 82.7% → 97.5%; novel-identity: 80.6% → 92.8%), at the same N-back levels — a **performance/accuracy** claim, not a capacity claim (we never tested whether the model can now handle more items or higher N). It says nothing about *how much internal activity* the model spends to get there. Human WM research treats capacity and efficiency as separate, independently measured phenomena, and our accuracy result maps onto neither directly — it's a third, more generic "did better" result that this document's efficiency work is meant to give actual mechanistic content:
 
 - **Capacity effect**: meaningful/familiar stimuli let people hold more items in mind (Chung et al., 2024).
 - **Efficiency effect**: prior knowledge lets the brain do the same or better perceptual/mnemonic work with **suppressed** neural response, the same signature classically seen for stimulus repetition (repetition suppression, RS).
@@ -136,7 +136,7 @@ Rather than treating "add attention" as a competing idea to the neural-efficienc
 | Population activity | RNN hidden-state magnitude / participation ratio / sparsity / Fano factor (§4.3 above) | Already scoped in this document — baseline vs. proxy-pretrained |
 | Explicit gating | Gate-suppression index (§4.8.1) | New — needs the gate-logging fix (done) + a fresh attention+proxy training/fine-tuning run |
 
-Reporting these three together — ideally on the *same* trained checkpoints where possible (e.g., the attention model fine-tuned from the proxy encoder) — is a substantially stronger case for "the model exhibits a genuine, multi-level suppression mechanism" than any one of them in isolation, and it directly answers your professor's ask for a finding beyond the capacity result already in the slide deck.
+Reporting these three together — ideally on the *same* trained checkpoints where possible (e.g., the attention model fine-tuned from the proxy encoder) — is a substantially stronger case for "the model exhibits a genuine, multi-level suppression mechanism" than any one of them in isolation, and it directly answers your professor's ask for a finding beyond the accuracy/performance result already in the slide deck.
 
 ### 4.8.3 Practical next steps to produce data
 

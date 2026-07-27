@@ -676,13 +676,13 @@ transition: fade-out
 
 <div>
 
-### What the deck already shows (Capacity)
+### What the deck already shows (Performance)
 
-Proxy pretraining raises accuracy on the real N-back task:
+Proxy pretraining raises accuracy on the real N-back task, at the **same** N-back levels — task difficulty is unchanged, only accuracy improves:
 - Novel angle: 82.7% → 97.5%
 - Novel identity: 80.6% → 92.8%
 
-This is a **behavioral capacity** claim — familiar/structured features let the model do more. Our professor's ask: show a **second, independent** phenomenon, not just better accuracy.
+This is a **performance/accuracy** improvement, not a demonstrated capacity increase — we never tested whether the model can now hold more items or succeed at higher N. Our professor's ask: show an observable WM *phenomenon*, not just better accuracy.
 
 </div>
 
@@ -690,9 +690,9 @@ This is a **behavioral capacity** claim — familiar/structured features let the
 
 ### Our goal: an efficiency finding
 
-Human WM research treats capacity and efficiency as **separate** phenomena:
-- **Capacity**: familiar stimuli → more can be held in mind
-- **Efficiency**: prior knowledge → same/better work with **suppressed** neural response
+Human WM research documents several distinct, independently-measured phenomena beyond raw accuracy:
+- **Capacity**: familiar stimuli → more items held in mind (not what we test — would require testing higher N or more simultaneous features)
+- **Efficiency**: prior knowledge → same/better work with **suppressed** neural response (what we test below)
 
 </div>
 
@@ -703,7 +703,7 @@ Human WM research treats capacity and efficiency as **separate** phenomena:
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
 ### The claim under test
-Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both **suppress task-irrelevant processing** — testable at three independent levels of the model, using real prior findings from human WM research as the standard to test against.
+Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both **suppress task-irrelevant processing** — testable at three independent levels of the model, using real prior findings from human WM research as the standard to test against. This, not the accuracy gain above, is the observable phenomenon that answers the professor's ask.
 
 </div>
 
@@ -961,7 +961,7 @@ transition: fade-out
 
 ### The claim we can defend
 
-Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional and more variable** population code, and dramatically **sharpens explicit gating** — both at matched accuracy, so neither is just "the model got better." This is a genuine second, independent finding, distinct from the capacity result, directly answering the ask for a new observable phenomenon.
+Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional and more variable** population code, and dramatically **sharpens explicit gating** — both at matched accuracy, so neither is just "the model got better." This is a genuine, observable WM phenomenon in its own right, distinct from (and not reducible to) the accuracy/performance gain already in the deck — directly answering the ask for a new finding.
 
 </div>
 
