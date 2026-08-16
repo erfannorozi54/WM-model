@@ -1152,7 +1152,12 @@ class ComprehensiveAnalysis:
             print(f"    Swap 1 (wrong-time R):    acc={swap_result['swap1_accuracy']:.4f}")
             print(f"    Swap 2 (diff-stimuli R):  acc={swap_result['swap2_accuracy']:.4f}")
             print(f"    Baseline (direct decode): acc={swap_result['baseline_accuracy']:.4f}")
-            if swap_result['hypothesis_confirmed']:
+            verdict = swap_result.get('verdict')
+            if verdict == "uninformative":
+                print(f"    ℹ Test uninformative: every rotation scores the same "
+                      f"(baseline={swap_result['baseline_accuracy']:.4f}) — cannot "
+                      f"discriminate H2 here")
+            elif swap_result['hypothesis_confirmed']:
                 print(f"    ✓ H2 supported: Same-age rotation generalizes across stimuli")
             else:
                 print(f"    ⚠ H2 not supported: Stimulus-specific rotation dominant")
@@ -1173,8 +1178,8 @@ class ComprehensiveAnalysis:
         model_path: Optional[Path],
         property_name: str = "location",
         timestep: int = 3,
-        perturbation_range: Tuple[float, float] = (-2.0, 2.0),
-        num_distances: int = 21
+        perturbation_range: Tuple[float, float] = (-50.0, 50.0),
+        num_distances: int = 101
     ) -> Dict[str, Any]:
         """
         Analysis 5: Causal Perturbation Test (Figure A7)

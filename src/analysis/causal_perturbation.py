@@ -395,8 +395,8 @@ def analyze_causal_perturbation(
     property_name: str,
     output_dir: Path,
     timestep: int = 3,
-    perturbation_range: Tuple[float, float] = (-2.0, 2.0),
-    num_distances: int = 21,
+    perturbation_range: Tuple[float, float] = (-50.0, 50.0),
+    num_distances: int = 101,
     task: Optional[str] = None,
     n_value: Optional[int] = None,
     epochs: Optional[List[int]] = None,
@@ -498,34 +498,58 @@ def analyze_causal_perturbation(
         "prob_non_match": results["prob_non_match"].tolist(),
         "prob_no_action": results["prob_no_action"].tolist(),
     }
-    
+
+    # The sweep is symmetric, so the unperturbed state sits in the middle, not at
+    # index 0. Measure the effect from there outwards, and record how far the
+    # state has to travel before the network actually changes its answer — a
+    # sweep that never reaches a boundary is inconclusive, not a null result.
+    dists = np.asarray(results["distances"], dtype=float)
+    p_match = np.asarray(results["prob_match"], dtype=float)
+    p_no_action = np.asarray(results["prob_no_action"], dtype=float)
+    centre = int(np.argmin(np.abs(dists)))
+
+    crossed = np.where(p_match < 0.5)[0]
+    crossing_distance = float(np.min(np.abs(dists[crossed]))) if crossed.size else None
+    results_json.update({
+        "prob_match_unperturbed": float(p_match[centre]),
+        "prob_match_min": float(p_match.min()),
+        "distance_at_min_match": float(dists[int(p_match.argmin())]),
+        "prob_no_action_unperturbed": float(p_no_action[centre]),
+        "prob_no_action_max": float(p_no_action.max()),
+        "crossing_distance_sd": crossing_distance,
+        "boundary_reached": bool(crossed.size),
+    })
+
     json_path = output_dir / f"causal_perturbation_{property_name}.json"
     with open(json_path, 'w') as f:
         json.dump(results_json, f, indent=2)
-    
+
     print(f"✓ Saved results: {json_path}")
-    
+
     # Step 7: Verify expected pattern
     print("\n6. Verifying expected pattern...")
-    prob_match_start = results["prob_match"][0]
-    prob_match_end = results["prob_match"][-1]
-    prob_no_action_start = results["prob_no_action"][0]
-    prob_no_action_end = results["prob_no_action"][-1]
-    
-    match_drops = prob_match_end < prob_match_start * 0.7
-    no_action_rises = prob_no_action_end > prob_no_action_start * 1.3
-    
-    if match_drops and no_action_rises:
-        print("✓ EXPECTED PATTERN CONFIRMED:")
-        print(f"  - P(Match): {prob_match_start:.3f} → {prob_match_end:.3f} (dropped)")
-        print(f"  - P(No Action): {prob_no_action_start:.3f} → {prob_no_action_end:.3f} (rose)")
-        print("  → Decoder subspaces are causally related to network behavior!")
+    print(f"  Sweep: {perturbation_range[0]:+g} to {perturbation_range[1]:+g} SD "
+          f"(1 SD = {results['projection_sd']:.4f} in hidden-state units)")
+    print(f"  - P(Match):     {p_match[centre]:.3f} unperturbed → {p_match.min():.3f} "
+          f"minimum (at {dists[int(p_match.argmin())]:+.1f} SD)")
+    print(f"  - P(No Action): {p_no_action[centre]:.3f} unperturbed → {p_no_action.max():.3f} maximum")
+
+    if crossing_distance is not None:
+        print(f"✓ BOUNDARY CROSSED at ±{crossing_distance:.1f} SD: P(Match) falls below 0.5")
+        if p_no_action.max() > p_no_action[centre] * 1.3:
+            print("  - P(No Action) rises → matches the paper's Figure A7 pattern")
+            print("  → Decoder subspaces are causally related to network behavior!")
+        else:
+            print("  - P(No Action) does not rise → probability moves to Non-Match instead")
     else:
-        print("⚠ UNEXPECTED PATTERN:")
-        print(f"  - P(Match): {prob_match_start:.3f} → {prob_match_end:.3f}")
-        print(f"  - P(No Action): {prob_no_action_start:.3f} → {prob_no_action_end:.3f}")
-        print("  → Check if decoder or perturbation parameters need adjustment")
-    
+        print(f"⚠ INCONCLUSIVE: P(Match) never falls below 0.5 anywhere in ±"
+              f"{max(abs(perturbation_range[0]), abs(perturbation_range[1])):g} SD.")
+        print("  The perturbation never reaches a decision boundary, so this is NOT")
+        print("  evidence that the subspace is causally irrelevant. Widen --max_dist,")
+        print("  or check whether the perturbation direction is degenerate (a mean of")
+        print("  many one-vs-rest normals largely cancels out).")
+
+
     print("\n" + "="*70)
     print("CAUSAL PERTURBATION TEST COMPLETE")
     print("="*70)
@@ -546,11 +570,12 @@ def main():
                        help="Output directory for results")
     parser.add_argument("--timestep", type=int, default=3,
                        help="Timestep to analyze (executive phase, typically 3-5)")
-    parser.add_argument("--min_dist", type=float, default=-2.0,
-                       help="Minimum perturbation distance")
-    parser.add_argument("--max_dist", type=float, default=2.0,
-                       help="Maximum perturbation distance")
-    parser.add_argument("--num_distances", type=int, default=21,
+    parser.add_argument("--min_dist", type=float, default=-50.0,
+                       help="Minimum perturbation distance, in SDs of the hidden "
+                            "states' projection onto the perturbation direction")
+    parser.add_argument("--max_dist", type=float, default=50.0,
+                       help="Maximum perturbation distance (same units as --min_dist)")
+    parser.add_argument("--num_distances", type=int, default=101,
                        help="Number of perturbation distances to test")
     parser.add_argument("--task", type=str, default=None,
                        choices=["location", "identity", "category"],

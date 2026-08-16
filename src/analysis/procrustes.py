@@ -527,6 +527,16 @@ def swap_hypothesis_test(
         "swap2_relative": acc_swap2 / acc_correct if acc_correct > 0 else 0.0,
         # Key result: swap2 should be closer to correct than swap1
         "hypothesis_confirmed": bool(abs(acc_swap2 - acc_correct) < abs(acc_swap1 - acc_correct)),
+        # A tie is not a rejection. When every rotation scores the same (typically
+        # because the property is decodable at ceiling, so any rotation works),
+        # the test simply cannot discriminate H2 from the alternatives.
+        "verdict": (
+            "uninformative"
+            if abs(abs(acc_swap2 - acc_correct) - abs(acc_swap1 - acc_correct)) < 1e-9
+            else ("h2_supported"
+                  if abs(acc_swap2 - acc_correct) < abs(acc_swap1 - acc_correct)
+                  else "h2_not_supported")
+        ),
         "note": "Decoded on location (aligned labels). Groups split by identity hash for cross-stimulus effect."
     }
 
