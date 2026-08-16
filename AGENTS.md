@@ -83,9 +83,11 @@ nohup python -m src.train_with_generalization --config configs/mtmf.yaml > train
 
 ### Configs
 
-Two parallel sets exist (differ in `hidden_size`):
-- `configs/*.yaml` — `hidden_size: 256`, experiments prefixed `wm_*`
-- `configs_128/*.yaml` — `hidden_size: 128`, experiments prefixed `wm_h128_*`
+Two parallel sets exist (differ in `hidden_size` — **and in `num_val`**):
+- `configs/*.yaml` — `hidden_size: 256`, `num_val: 400`, experiments prefixed `wm_*`
+- `configs_128/*.yaml` — `hidden_size: 128`, `num_val: 2000`, experiments prefixed `wm_h128_*`
+
+The `num_val` difference means the two sets are **not** a clean hidden-size comparison: every decoding analysis trains on the validation payloads, so the h128 runs get 5× the decoder samples. With 72 identity classes that is the difference between ~50 and ~270 test samples, and it moves identity decoding from ~0.40 to ~0.83. Match `num_val` before reporting any h256-vs-h128 table.
 
 Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_, dual_attention_}` = 9 configs each.
 
@@ -154,7 +156,9 @@ python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 
 ### Known gotchas
 
-1. **Causal perturbation loads all epochs by default**: `load_payloads()` without `epochs=` loads every batch from every epoch. `comprehensive_analysis.py` passes `epochs=[best_epoch]` for analysis 5. If calling `causal_perturbation.py` directly, filter epochs yourself.
+0. **Class indices must come from `make_label2idx` (value-sorted), never from order of appearance.** `build_matrix*` numbers classes by sorted raw value precisely so that a decoder/rotation built from one matrix can be scored against another matrix's labels (other split, other timestep, other stimulus group). Any new cross-matrix comparison must either pass `label2idx=` to share one class space explicitly, or map raw values through `_align_test_labels`. This was the root cause of the 2026-08-16 audit: the H2 cross-stimulus test and the Procrustes swap test were reporting label permutations as "our models are stimulus-specific (H3), unlike the paper". Tell-tale sign: an accuracy *below* chance (a failed 4-class decoder floors at 0.25, it does not reach 0.000). See the second-audit section of `docs/ANALYSIS_AUDIT_FINDINGS.md`.
+
+1. **Causal perturbation loads all epochs by default**: `load_payloads()` without `epochs=` loads every batch from every epoch. `comprehensive_analysis.py` passes `epochs=[best_epoch]` for analysis 5. If calling `causal_perturbation.py` directly, filter epochs yourself. Inside `ComprehensiveAnalysis`, always go through `_ensure_data_loaded()` rather than `load_data()` — analyses must see the same best-epoch data whether run individually or under `--analysis all`, and pooling epochs also puts the same trial in both sides of the decoder split (trials are only identified by position in the loaded payload list, since training does not save `sample_index`).
 
 2. **Dual-attention model loading**: In `causal_perturbation.py`, `model_type="dual_attention"` maps to `attention_{rnn_type}` with `attention_mode="dual"`. This must match how the model was trained (via `dual_attention_*.yaml` configs).
 
@@ -164,9 +168,13 @@ python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 
 5. **H2 cross-stimulus uses val_novel splits** (not cross-time): the test trains on `val_novel_angle` (known identities) and tests on `val_novel_identity` (novel identities) at the same t=0. Both earlier (H1 cross-time) and H2 cross-stimulus results live in `analysis4_wm_dynamics.json`.
 
+5b. **H1 tracks the item, not the screen**: in `analysis4_wm_dynamics.json`, `accuracies` decodes the property of the stimulus shown at t=0 out of later hidden states (the memory-age test H1 actually needs). `accuracies_current_stimulus` decodes whatever is on screen at t — a stationarity measure, not H1. Both are scored on the same held-out 20% of trials, including at t=0; compare them against the reported `chance_level` (0.014 for 72-class identity), not against zero.
+
 6. **Procrustes swap test label alignment**: `swap_hypothesis_test` in `procrustes.py` splits trials by `identity` hash (for cross-stimulus effect) but decodes on `location` (4 fixed classes) — identity labels are unique per trial and would not align between disjoint identity groups. Results: `correct_accuracy`, `swap1_accuracy` (wrong time), `swap2_accuracy` (different stimuli, same age), `baseline_accuracy`, `hypothesis_confirmed` (true when swap2 is closer to correct than swap1).
 
-7. **Causal perturbation direction**: uses the **mean** of all class decoder normals as the perturbation direction. Per-class direction (pushing toward a specific class) was tested and is weaker — it pushes the state deeper into the class instead of across the boundary.
+7. **Causal perturbation direction**: uses the **mean** of all class decoder normals as the perturbation direction. Per-class direction (pushing toward a specific class) was tested and is weaker — it pushes the state deeper into the class instead of across the boundary. The normals are taken with `one_vs_rest_weights(..., input_space=True)` because the perturbation is added to *raw* hidden states while the SVC is fitted on standardized ones; and `--perturbation_range` is interpreted in SDs of the hidden states' projection onto that direction (`projection_sd` in the output JSON), since raw units are not comparable across models.
+
+7b. **Stimulus-group splits must use `_stable_hash`**, not the builtin `hash()`: string hashing is salted per interpreter run, so group A/B membership in the Procrustes swap test changed between otherwise identical runs.
 
 8. **Determinism**: `LinearSVC` and `SVC` in analysis modules use `max_iter=10000` and `random_state=42` to avoid convergence warnings and ensure reproducibility. `train_test_split` also uses `random_state=42`.
 

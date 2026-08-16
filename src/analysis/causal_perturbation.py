@@ -272,6 +272,16 @@ def run_causal_perturbation(
         mean_direction = torch.from_numpy(decoder_weights.mean(axis=0)).float()
         mean_direction = mean_direction / (mean_direction.norm() + 1e-12)
 
+    # Express the distances in standard deviations of the hidden states'
+    # projection onto that direction. A raw distance of 1.0 means different
+    # things in a h=128 and a h=256 model (and in models whose activations have
+    # different scale), so unscaled distances are not comparable across models
+    # and a range of +-2 can be far too small to reach any decision boundary.
+    projection_sd = float(torch.matmul(hidden_states, mean_direction).std().item())
+    if projection_sd <= 0:
+        projection_sd = 1.0
+    scaled_distances = np.asarray(perturbation_distances, dtype=float) * projection_sd
+
     # All trials are pushed in the same mean direction
     perturbation_directions = mean_direction.unsqueeze(0).expand(N, -1).clone()  # (N, H)
 
@@ -281,7 +291,7 @@ def run_causal_perturbation(
     prob_no_action_all = np.zeros((D, N))
 
     with torch.no_grad():
-        for d_idx, distance in enumerate(perturbation_distances):
+        for d_idx, distance in enumerate(scaled_distances):
             # Perturb each trial along the mean direction
             h_perturbed = hidden_states + distance * perturbation_directions  # (N, H)
 
@@ -302,7 +312,9 @@ def run_causal_perturbation(
 
     # Compute means and stds
     results = {
-        "distances": perturbation_distances,
+        "distances": perturbation_distances,          # in SDs along the direction
+        "distances_raw": scaled_distances,            # in hidden-state units
+        "projection_sd": projection_sd,
         "prob_match": prob_match_all.mean(axis=1),
         "prob_non_match": prob_non_match_all.mean(axis=1),
         "prob_no_action": prob_no_action_all.mean(axis=1),
@@ -355,7 +367,7 @@ def plot_perturbation_results(
     
     # Styling
     ax.axvline(x=0, color='gray', linestyle='--', alpha=0.5, linewidth=1)
-    ax.set_xlabel('Perturbation Distance (along decoder normal)', fontsize=12)
+    ax.set_xlabel('Perturbation Distance (SDs along decoder normal)', fontsize=12)
     ax.set_ylabel('Output Probability', fontsize=12)
     ax.set_title(f'Causal Perturbation Test: {property_name.capitalize()}\n(Figure A7)',
                 fontsize=14, fontweight='bold')
@@ -446,7 +458,10 @@ def analyze_causal_perturbation(
     if X.numel() == 0:
         raise RuntimeError("No data found for decoder training")
     
-    decoder_weights = one_vs_rest_weights(X, y)  # Dict[int, np.ndarray] with C classes
+    # input_space=True: the perturbation below is added to raw hidden states, so
+    # the normals have to live in that space too, not in the decoder's
+    # standardized space.
+    decoder_weights = one_vs_rest_weights(X, y, input_space=True)  # Dict[int, np.ndarray]
     print(f"✓ Trained decoder with {len(decoder_weights)} classes")
     
     # Step 3: Select match trials
@@ -477,6 +492,8 @@ def analyze_causal_perturbation(
         "num_distances": num_distances,
         "perturbation_range": perturbation_range,
         "distances": results["distances"].tolist(),
+        "distances_raw": np.asarray(results["distances_raw"]).tolist(),
+        "projection_sd": results["projection_sd"],
         "prob_match": results["prob_match"].tolist(),
         "prob_non_match": results["prob_non_match"].tolist(),
         "prob_no_action": results["prob_no_action"].tolist(),

@@ -176,3 +176,76 @@ export PYTHONPATH=src:$PYTHONPATH
 4. **Original experiments re-run in background**: Original 9 experiments
    (wm_stsf through wm_dual_attention_mtmf) are re-running with the new code
    for direct comparison with the h128 experiments.
+
+---
+
+# Second Audit (2026-08-16): Class-Index Misalignment
+
+**Trigger**: the deck's "results incompatible with the paper" section — chiefly
+the H2 cross-stimulus ❌ ("our models are stimulus-specific, the paper's are
+not") — was traced to the analysis code, not to the models.
+
+## Root cause
+
+`build_matrix*` in `src/analysis/activations.py` assigned class indices **in
+order of first appearance within that call**. Every analysis that trains on one
+matrix and scores against another matrix's labels therefore compared indices
+that meant different classes in the two matrices. Sorting by raw value fixes the
+index space; the affected call sites now also pass an explicit shared
+`label2idx`.
+
+### Evidence it was an artifact, not a finding
+
+| Result | Value | Why it cannot be real |
+|--------|-------|-----------------------|
+| `wm_h128_stsf` H2 | val=1.000, **gen=0.000** on n=2000 | A decoder that is perfect on held-out data cannot score *exactly* zero on a 4-class problem; a failed decoder floors at chance (0.25). Exactly 0.0 is a derangement of the class labels. |
+| `wm_h128_stsf` swap1 | **0.000** | Same signature. |
+| `wm_stsf` swap1 | 0.041 | Sub-chance. |
+| `wm_mtmf` swap | correct=0.222 vs **baseline=0.861** | `baseline` is the one quantity computed from weights and labels built in a *single* call; everything built across calls collapsed to chance. |
+
+Reproduced on synthetic data where both splits are geometrically identical
+(i.e. perfect H2 by construction): the pipeline reported `val=1.000,
+gen=0.000 → H3 POSSIBLE`. After the fix: `val=1.000, gen=1.000 → H2 SUPPORTED`.
+Likewise a Procrustes `swap2` whose true value is 1.0 was reported as 0.0.
+
+## Fixes
+
+| File | Change |
+|------|--------|
+| `activations.py` | `make_label2idx()` — value-sorted class indices; all `build_*` use it; optional `label2idx=` to force a shared space; new `build_matrix_tracked()` |
+| `comprehensive_analysis.py` | H2 test builds the novel-identity matrix in the training decoder's class space; H1 rewritten (below); consecutive-Procrustes weights share one class space; `_ensure_data_loaded()` so analyses 3/4 use the best epoch like analysis 2 |
+| `procrustes.py` | `swap_hypothesis_test` + `procrustes_analysis` build every matrix in one shared class space, and warn if group class sets differ; `_stable_hash` replaces builtin `hash()` (PYTHONHASHSEED made group A/B assignment differ per run); `cnn_activations`/`gates` now masked with the rest of the payload |
+| `orthogonalization.py` | `one_vs_rest_weights(..., input_space=True)` maps the normal out of StandardScaler space |
+| `causal_perturbation.py` | uses `input_space=True` (the perturbation is added to *raw* hidden states); distances are now in SDs of the hidden states' projection onto the direction, so they are comparable across models |
+
+## H1 cross-time was measuring the wrong thing
+
+`_test_h1_cross_time` documented "train on E(S=1,T=1), test on M(S=1,T=2..6)"
+but labelled each test state with the stimulus **on screen at that timestep**,
+not the tracked item from t=0. It also reported the t=0 point as the decoder's
+own training accuracy, so the headline "98% → 5%, 96pp drop" compared an
+in-sample number against out-of-sample ones.
+
+Now: an 80/20 trial split scores every timestep including t=0, `accuracies` is
+the tracked item (the actual H1 test), and the previous quantity is kept as
+`accuracies_current_stimulus`. `chance_level` is reported — with 72 identity
+classes chance is 0.014, so the old "collapses to 1-6%" was partly *at* chance.
+
+## Not bugs, but they invalidate comparisons in the deck
+
+1. **`num_val` differs 5× between the two config sets**: `configs/*.yaml` uses
+   `num_val: 400`, `configs_128/*.yaml` uses `num_val: 2000`. Decoder sample
+   size, not hidden size, dominates the difference between the `wm_*` and
+   `wm_h128_*` rows (identity decoding 0.34-0.48 vs 0.80-0.84). Any h256-vs-h128
+   table is confounded until they are re-run with matched `num_val`.
+2. **Deck numbers are stitched from superseded analysis runs**: e.g. the
+   Analysis 2A matrix and the h128 rows of Analysis 2B do not match any JSON
+   currently in `analysis_results/`. Every table needs regenerating from one
+   analysis pass.
+3. **Location is weakly decodable by construction**: `PerceptualModule` global-
+   average-pools the reduced feature map, discarding spatial layout before the
+   RNN ever sees it. Location decoding ~0.50 (chance 0.25) while category ~0.96
+   follows from the architecture, so "off-diagonal is not all >85%" is a
+   statement about the encoder, not about task-relevance gating.
+4. **Analysis 5 only runs `model.classifier`**, not the recurrent step — already
+   noted in the deck, still true.

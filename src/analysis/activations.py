@@ -127,27 +127,55 @@ def _filter_records(records: Iterable[Dict[str, Any]],
     return out
 
 
+def make_label2idx(values: Iterable[Any]) -> Dict[Any, int]:
+    """Build a class-index mapping that depends only on the label *values*.
+
+    Class indices are assigned in sorted order of the raw property value, never
+    in order of first appearance. This is what makes indices comparable between
+    two separate build_* calls (different splits, times, or stimulus groups).
+    Any analysis that trains a decoder on one matrix and evaluates it against
+    labels from another matrix depends on this — see the note in
+    `build_matrix_with_values`.
+    """
+    return {v: i for i, v in enumerate(sorted(set(values), key=lambda x: (str(type(x)), x)))}
+
+
+def _apply_label2idx(vals: List[Any],
+                     label2idx: Optional[Dict[Any, int]]) -> Tuple[Dict[Any, int], List[int], List[bool]]:
+    """Resolve values to class indices, optionally against a caller-supplied space.
+
+    Returns (label2idx, indices, keep_mask). When a mapping is supplied, values
+    missing from it are dropped rather than silently given a fresh index.
+    """
+    if label2idx is None:
+        label2idx = make_label2idx(vals)
+        return label2idx, [label2idx[v] for v in vals], [True] * len(vals)
+    keep = [v in label2idx for v in vals]
+    idx = [label2idx[v] for v, k in zip(vals, keep) if k]
+    return label2idx, idx, keep
+
+
 def build_matrix_with_values(payloads: List[Dict[str, Any]],
                              property_name: str,
                              time: int,
                              task_index: Optional[int] = None,
-                             n_value: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor, Dict[Any, int], List[Any]]:
+                             n_value: Optional[int] = None,
+                             label2idx: Optional[Dict[Any, int]] = None) -> Tuple[torch.Tensor, torch.Tensor, Dict[Any, int], List[Any]]:
     """Construct X (N,H), y (N,), label2idx, and raw property values list for decoding.
+
+    Class indices come from `make_label2idx` (sorted by raw value), so two calls
+    that see the same set of property values produce the same indices. Pass an
+    explicit `label2idx` to force a shared class space across calls whose value
+    sets may differ (e.g. known vs. novel identities); records whose value is
+    absent from the supplied mapping are dropped.
     """
     assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
     recs = _filter_records(iterate_records(payloads), time=time, task_index=task_index, n_value=n_value, property_name=property_name)
 
-    label2idx: Dict[Any, int] = {}
-    xs: List[torch.Tensor] = []
-    ys: List[int] = []
-    vals: List[Any] = []
-    for r in recs:
-        val = r[property_name]
-        if val not in label2idx:
-            label2idx[val] = len(label2idx)
-        xs.append(torch.from_numpy(r["hidden"]))
-        ys.append(label2idx[val])
-        vals.append(val)
+    raw_vals = [r[property_name] for r in recs]
+    label2idx, ys, keep = _apply_label2idx(raw_vals, label2idx)
+    xs = [torch.from_numpy(r["hidden"]) for r, k in zip(recs, keep) if k]
+    vals = [v for v, k in zip(raw_vals, keep) if k]
     if not xs:
         return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx, []
     X = torch.stack(xs, dim=0)
@@ -159,23 +187,22 @@ def build_matrix_with_metadata(payloads: List[Dict[str, Any]],
                                property_name: str,
                                time: int,
                                task_index: Optional[int] = None,
-                               n_value: Optional[int] = None):
-    """Construct a decoder matrix while retaining stable sample identifiers."""
+                               n_value: Optional[int] = None,
+                               label2idx: Optional[Dict[Any, int]] = None):
+    """Construct a decoder matrix while retaining stable sample identifiers.
+
+    Uses the same value-sorted class indices as `build_matrix_with_values`.
+    """
     assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
     recs = _filter_records(
         iterate_records(payloads), time=time, task_index=task_index,
         n_value=n_value, property_name=property_name
     )
-    label2idx: Dict[Any, int] = {}
-    xs, ys, vals, sample_ids = [], [], [], []
-    for record in recs:
-        value = record[property_name]
-        if value not in label2idx:
-            label2idx[value] = len(label2idx)
-        xs.append(torch.from_numpy(record["hidden"]))
-        ys.append(label2idx[value])
-        vals.append(value)
-        sample_ids.append(record["sample_id"])
+    raw_vals = [r[property_name] for r in recs]
+    label2idx, ys, keep = _apply_label2idx(raw_vals, label2idx)
+    xs = [torch.from_numpy(r["hidden"]) for r, k in zip(recs, keep) if k]
+    vals = [v for v, k in zip(raw_vals, keep) if k]
+    sample_ids = [r["sample_id"] for r, k in zip(recs, keep) if k]
     if not xs:
         return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx, [], []
     return torch.stack(xs), torch.tensor(ys, dtype=torch.long), label2idx, vals, sample_ids
@@ -185,10 +212,74 @@ def build_matrix(payloads: List[Dict[str, Any]],
                  property_name: str,
                  time: int,
                  task_index: Optional[int] = None,
-                 n_value: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor, Dict[Any, int]]:
+                 n_value: Optional[int] = None,
+                 label2idx: Optional[Dict[Any, int]] = None) -> Tuple[torch.Tensor, torch.Tensor, Dict[Any, int]]:
     """Backward-compatible wrapper that discards raw values."""
-    X, y, label2idx, _vals = build_matrix_with_values(payloads, property_name, time, task_index, n_value)
+    X, y, label2idx, _vals = build_matrix_with_values(
+        payloads, property_name, time, task_index, n_value, label2idx=label2idx
+    )
     return X, y, label2idx
+
+
+def build_matrix_tracked(payloads: List[Dict[str, Any]],
+                         property_name: str,
+                         feature_time: int,
+                         label_time: int,
+                         task_index: Optional[int] = None,
+                         n_value: Optional[int] = None,
+                         label2idx: Optional[Dict[Any, int]] = None) -> Tuple[torch.Tensor, torch.Tensor, Dict[Any, int], List[Any]]:
+    """Hidden states at `feature_time`, labelled by the item shown at `label_time`.
+
+    This is the memory-age test the paper's H1 (slot-based memory) needs: a
+    decoder trained on the encoding of item S is asked to read *that same item*
+    out of later hidden states. `build_matrix_with_values(time=t)` instead
+    labels each state with whatever stimulus is on screen at t, which measures
+    something different (whether the current-stimulus code is stationary).
+    """
+    assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
+
+    xs: List[torch.Tensor] = []
+    raw_vals: List[Any] = []
+
+    for payload in payloads:
+        hidden = payload["hidden"]
+        B, T, _ = hidden.shape
+        if feature_time >= T or label_time >= T:
+            continue
+
+        task_indices = payload.get("task_index")
+        n_vals = payload.get("n")
+        locations = payload.get("locations")
+        categories = payload.get("categories")
+        identities = payload.get("identities")
+
+        if locations is not None and torch.is_tensor(locations):
+            locations_ll = locations.tolist()
+        else:
+            locations_ll = [[None] * T for _ in range(B)]
+        categories_ll = categories if categories is not None else [[None] * T for _ in range(B)]
+        identities_ll = identities if identities is not None else [[None] * T for _ in range(B)]
+
+        source = {"location": locations_ll, "category": categories_ll, "identity": identities_ll}[property_name]
+
+        for b in range(B):
+            if task_index is not None and task_indices is not None and int(task_indices[b]) != task_index:
+                continue
+            if n_value is not None and n_vals is not None and int(n_vals[b]) != n_value:
+                continue
+
+            val = source[b][label_time]
+            if val is None:
+                continue
+            xs.append(hidden[b, feature_time])
+            raw_vals.append(int(val) if property_name == "location" else val)
+
+    label2idx, ys, keep = _apply_label2idx(raw_vals, label2idx)
+    xs = [x for x, k in zip(xs, keep) if k]
+    vals = [v for v, k in zip(raw_vals, keep) if k]
+    if not xs:
+        return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx, []
+    return torch.stack(xs, dim=0), torch.tensor(ys, dtype=torch.long), label2idx, vals
 
 
 def build_cnn_matrix(payloads: List[Dict[str, Any]],
@@ -211,16 +302,15 @@ def build_cnn_matrix(payloads: List[Dict[str, Any]],
         label2idx: Mapping from label values to indices
     """
     assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
-    
-    label2idx: Dict[Any, int] = {}
+
     xs: List[torch.Tensor] = []
-    ys: List[int] = []
-    
+    raw_vals: List[Any] = []
+
     for payload in payloads:
         cnn_act = payload.get("cnn_activations")
         if cnn_act is None:
             continue
-            
+
         B, T, H = cnn_act.shape
         task_indices = payload.get("task_index")
         n_vals = payload.get("n")
@@ -258,13 +348,11 @@ def build_cnn_matrix(payloads: List[Dict[str, Any]],
             
             if val is None:
                 continue
-            
-            if val not in label2idx:
-                label2idx[val] = len(label2idx)
-            
+
             xs.append(cnn_act[b, time])
-            ys.append(label2idx[val])
-    
+            raw_vals.append(val)
+
+    label2idx, ys, keep = _apply_label2idx(raw_vals, None)
     if not xs:
         return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx
 
@@ -298,9 +386,8 @@ def build_gate_matrix(payloads: List[Dict[str, Any]],
     """
     assert property_name in PROPERTY_NAMES, f"Unknown property: {property_name}"
 
-    label2idx: Dict[Any, int] = {}
     xs: List[torch.Tensor] = []
-    ys: List[int] = []
+    raw_vals: List[Any] = []
 
     for payload in payloads:
         gates = payload.get("gates")
@@ -342,12 +429,10 @@ def build_gate_matrix(payloads: List[Dict[str, Any]],
             if val is None:
                 continue
 
-            if val not in label2idx:
-                label2idx[val] = len(label2idx)
-
             xs.append(gates[b, time])
-            ys.append(label2idx[val])
+            raw_vals.append(val)
 
+    label2idx, ys, keep = _apply_label2idx(raw_vals, None)
     if not xs:
         return torch.empty(0), torch.empty(0, dtype=torch.long), label2idx
 

@@ -43,7 +43,18 @@ def _task_name_to_index(name: Optional[str]) -> Optional[int]:
     raise ValueError(f"Unknown task name: {name}")
 
 
-def one_vs_rest_weights(X: torch.Tensor, y: torch.Tensor) -> Dict[int, np.ndarray]:
+def one_vs_rest_weights(X: torch.Tensor, y: torch.Tensor,
+                        input_space: bool = False) -> Dict[int, np.ndarray]:
+    """One-vs-rest hyperplane normals, unit-normalized.
+
+    Args:
+        input_space: The SVC is fitted on standardized features, so `coef_` is a
+            direction in z-space. Geometry-only measures (cosine angles,
+            Procrustes) are computed there consistently and want the default.
+            Set True to map the normal back to raw-feature space (w / sigma) —
+            required when the direction is used to *move* an actual hidden
+            state, otherwise the perturbation is applied along the wrong axis.
+    """
     classes = sorted(set(y.tolist()))
     W: Dict[int, np.ndarray] = {}
     for c in classes:
@@ -54,6 +65,9 @@ def one_vs_rest_weights(X: torch.Tensor, y: torch.Tensor) -> Dict[int, np.ndarra
         ])
         clf.fit(X.numpy(), y_bin)
         w = clf.named_steps["svc"].coef_[0]
+        if input_space:
+            scale = clf.named_steps["scaler"].scale_
+            w = w / np.where(scale > 0, scale, 1.0)
         W[c] = w / (np.linalg.norm(w) + 1e-12)
     return W
 

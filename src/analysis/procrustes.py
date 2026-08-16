@@ -44,7 +44,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score
 
-from .activations import load_payloads, build_matrix, TASK_INDEX_TO_NAME
+from .activations import (
+    load_payloads, build_matrix, build_matrix_with_values, make_label2idx,
+    TASK_INDEX_TO_NAME,
+)
 from .orthogonalization import one_vs_rest_weights
 
 PROPERTY_CHOICES = ["location", "identity", "category"]
@@ -191,12 +194,25 @@ def procrustes_analysis(
     payloads = load_payloads(Path(hidden_root), epochs=epochs)
     ti = _task_name_to_index(task)
     
-    # Build matrices for source and target times
-    X_source, y_source, label2idx_source = build_matrix(
+    # Build both matrices in one class space. Weights are keyed by class index
+    # and the source's rotated weights are scored against the target's labels,
+    # so an index must mean the same class at both times — it would not if each
+    # call numbered only the classes it happened to observe.
+    _, _, _, vals_source = build_matrix_with_values(
         payloads, property_name, time=source_time, task_index=ti, n_value=n_value
     )
-    X_target, y_target, label2idx_target = build_matrix(
+    _, _, _, vals_target = build_matrix_with_values(
         payloads, property_name, time=target_time, task_index=ti, n_value=n_value
+    )
+    shared_label2idx = make_label2idx(list(vals_source) + list(vals_target))
+
+    X_source, y_source, label2idx_source = build_matrix(
+        payloads, property_name, time=source_time, task_index=ti, n_value=n_value,
+        label2idx=shared_label2idx,
+    )
+    X_target, y_target, label2idx_target = build_matrix(
+        payloads, property_name, time=target_time, task_index=ti, n_value=n_value,
+        label2idx=shared_label2idx,
     )
     
     if X_source.numel() == 0 or X_target.numel() == 0:
@@ -233,6 +249,14 @@ def procrustes_analysis(
     }
 
 
+def _stable_hash(value: Any) -> int:
+    """Process-stable hash. The builtin `hash()` salts strings per interpreter
+    run (PYTHONHASHSEED), which would put the same stimulus in group A on one
+    run and group B on the next, making the swap test irreproducible."""
+    import hashlib
+    return int.from_bytes(hashlib.sha256(str(value).encode("utf-8")).digest()[:8], "big")
+
+
 def _split_payloads_by_stimulus(
     payloads: List[Dict], property_name: str, time: int
 ) -> Tuple[List[Dict], List[Dict]]:
@@ -247,7 +271,7 @@ def _split_payloads_by_stimulus(
         but with only the assigned trials kept.
     """
     import copy
-    
+
     def _trial_hash(trial_identities, b, t, prop):
         if prop == "location" and trial_identities.get("locations") is not None:
             locs = trial_identities["locations"]
@@ -255,16 +279,16 @@ def _split_payloads_by_stimulus(
                 val = int(locs[b, t]) if t < locs.shape[1] else 0
             else:
                 val = 0
-            return hash(str(val))
+            return _stable_hash(val)
         elif prop == "identity" and trial_identities.get("identities") is not None:
             ids = trial_identities["identities"]
             val = ids[b][t] if b < len(ids) and t < len(ids[b]) else ""
-            return hash(str(val))
+            return _stable_hash(val)
         elif prop == "category" and trial_identities.get("categories") is not None:
             cats = trial_identities["categories"]
             val = cats[b][t] if b < len(cats) and t < len(cats[b]) else ""
-            return hash(str(val))
-        return hash(b)
+            return _stable_hash(val)
+        return _stable_hash(b)
     
     result_a, result_b = [], []
     for payload in payloads:
@@ -281,7 +305,8 @@ def _split_payloads_by_stimulus(
         
         if mask_a.any():
             pa = copy.deepcopy(payload)
-            for key in ("hidden", "logits", "task_vector", "task_index", "n", "targets"):
+            for key in ("hidden", "cnn_activations", "gates", "logits",
+                        "task_vector", "task_index", "n", "targets"):
                 if key in pa and torch.is_tensor(pa[key]):
                     pa[key] = pa[key][mask_a]
             for key in ("locations",):
@@ -295,7 +320,8 @@ def _split_payloads_by_stimulus(
         
         if mask_b.any():
             pb = copy.deepcopy(payload)
-            for key in ("hidden", "logits", "task_vector", "task_index", "n", "targets"):
+            for key in ("hidden", "cnn_activations", "gates", "logits",
+                        "task_vector", "task_index", "n", "targets"):
                 if key in pb and torch.is_tensor(pb[key]):
                     pb[key] = pb[key][mask_b]
             for key in ("locations",):
@@ -380,11 +406,26 @@ def swap_hypothesis_test(
     k = k_offset
     times = [j, j + 1, j + k, j + k + 1]
 
+    # One class space for every matrix in this test. The whole test consists of
+    # applying weights/rotations derived from one matrix to another (other time,
+    # other stimulus group), and `one_vs_rest_weights` keys its output by class
+    # index — so if each matrix numbered its classes independently, the rotations
+    # would be fitted between mismatched classes and every swap accuracy would be
+    # an artifact of that permutation.
+    value_pool: List[Any] = []
+    for t in times:
+        _, _, _, vals = build_matrix_with_values(
+            payloads, swap_property, time=t, task_index=ti, n_value=n_value
+        )
+        value_pool.extend(vals)
+    shared_label2idx = make_label2idx(value_pool)
+
     # Build matrices for full data (used for correct and swap1)
     weights_full = {}
     for t in times:
-        X, y, label2idx = build_matrix(
-            payloads, swap_property, time=t, task_index=ti, n_value=n_value
+        X, y, _ = build_matrix(
+            payloads, swap_property, time=t, task_index=ti, n_value=n_value,
+            label2idx=shared_label2idx,
         )
         if X.numel() == 0:
             raise RuntimeError(f"No samples at time {t}")
@@ -394,25 +435,35 @@ def swap_hypothesis_test(
     weights_a = {}
     matrices_a = {}
     for t in [j, j + 1]:
-        X, y, label2idx = build_matrix(
-            payloads_a, swap_property, time=t, task_index=ti, n_value=n_value
+        X, y, l2i = build_matrix(
+            payloads_a, swap_property, time=t, task_index=ti, n_value=n_value,
+            label2idx=shared_label2idx,
         )
         if X.numel() == 0:
             raise RuntimeError(f"No samples in group A at time {t}")
-        matrices_a[t] = (X, y, label2idx)
+        matrices_a[t] = (X, y, l2i)
         weights_a[t] = one_vs_rest_weights(X, y)
 
     # Build matrices for group B (used as held-out test set)
     matrices_b = {}
     weights_b = {}
     for t in [j, j + 1]:
-        X, y, label2idx = build_matrix(
-            payloads_b, swap_property, time=t, task_index=ti, n_value=n_value
+        X, y, l2i = build_matrix(
+            payloads_b, swap_property, time=t, task_index=ti, n_value=n_value,
+            label2idx=shared_label2idx,
         )
         if X.numel() == 0:
             raise RuntimeError(f"No samples in group B at time {t}")
-        matrices_b[t] = (X, y, label2idx)
+        matrices_b[t] = (X, y, l2i)
         weights_b[t] = one_vs_rest_weights(X, y)
+
+    # A class missing from one group would make that group's rotation
+    # undefined for it; report it rather than silently comparing subsets.
+    class_sets = {name: set(W.keys()) for name, W in
+                  [("full_j", weights_full[j]), ("A_j", weights_a[j]), ("B_j", weights_b[j])]}
+    if len(set(map(frozenset, class_sets.values()))) > 1:
+        print(f"  ⚠ Class sets differ between groups: {class_sets} — "
+              f"Procrustes will use the intersection only")
 
     # ===== CORRECT ROTATION (pooled data) =====
     R_correct, disp_correct = compute_procrustes_alignment(

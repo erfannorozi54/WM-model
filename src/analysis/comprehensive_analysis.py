@@ -34,7 +34,8 @@ import seaborn as sns
 
 from .activations import (
     load_payloads, build_matrix, build_matrix_with_values,
-    build_matrix_with_metadata, build_cnn_matrix, TASK_INDEX_TO_NAME,
+    build_matrix_with_metadata, build_matrix_tracked, build_cnn_matrix,
+    make_label2idx, TASK_INDEX_TO_NAME,
 )
 from .orthogonalization import one_vs_rest_weights, orthogonalization_index
 from .procrustes import compute_procrustes_alignment
@@ -281,16 +282,9 @@ class ComprehensiveAnalysis:
         print("ANALYSIS 2: ENCODING OF OBJECT PROPERTIES")
         print("="*70)
 
-        if self.payloads is None:
-            # Discover best epoch from training log
-            best_epoch = self._find_best_epoch(best_epoch_by)
-            if best_epoch is not None:
-                print(f"  Loading payloads from best epoch {best_epoch} (by {best_epoch_by})")
-                self.load_data(epochs=[best_epoch])
-            else:
-                print("  No training log found, loading all epochs")
-                self.load_data()
-        
+        self._ensure_data_loaded(best_epoch_by)
+
+
         results = {}
         
         # A. Task-Relevance Decoding (Figure 2b)
@@ -577,6 +571,24 @@ class ComprehensiveAnalysis:
     # Helper Methods
     # ========================================================================
 
+    def _ensure_data_loaded(self, best_epoch_by: str = "val_novel_identity_acc"):
+        """Load the best epoch's payloads once, for whichever analysis runs first.
+
+        Every analysis must see the same data whether it is run on its own or as
+        part of `--analysis all`. Loading every epoch also puts the same trial in
+        the decoder's train and test split (once per epoch), since trials are only
+        identified by their position within the loaded payload list.
+        """
+        if self.payloads is not None:
+            return
+        best_epoch = self._find_best_epoch(best_epoch_by)
+        if best_epoch is not None:
+            print(f"  Loading payloads from best epoch {best_epoch} (by {best_epoch_by})")
+            self.load_data(epochs=[best_epoch])
+        else:
+            print("  No training log found, loading all epochs")
+            self.load_data()
+
     def _find_best_epoch(self, metric: str = "val_novel_identity_acc") -> Optional[int]:
         """Find the epoch with the highest value of the given metric from training_log.json."""
         log_path = self.hidden_root.parent / "training_log.json"
@@ -652,8 +664,7 @@ class ComprehensiveAnalysis:
         print("ANALYSIS 3: REPRESENTATIONAL ORTHOGONALIZATION")
         print("="*70)
         
-        if self.payloads is None:
-            self.load_data()
+        self._ensure_data_loaded()
         
         properties = ["location", "identity", "category"]
         results = {"encoding": {}, "perceptual": {}}
@@ -809,8 +820,7 @@ class ComprehensiveAnalysis:
         print("ANALYSIS 4: MECHANISMS OF WM DYNAMICS")
         print("="*70)
         
-        if self.payloads is None:
-            self.load_data()
+        self._ensure_data_loaded()
         
         results = {}
         
@@ -839,65 +849,121 @@ class ComprehensiveAnalysis:
         """
         Test H1: Train decoder on E(S=1, T=1), test on M(S=1, T=2..6).
         Expected: Accuracy drops off over time (disproves slot-based memory).
+
+        The item is tracked: at every timestep the decoder is scored on the
+        property of the stimulus shown at t=0, i.e. how well the *aging memory*
+        of that item can still be read out. Scoring the stimulus currently on
+        screen instead measures whether the encoding subspace is stationary,
+        which is a different question; it is still reported, as
+        `accuracies_current_stimulus`, but it is not the H1 test.
+
+        All timesteps — including t=0 — are scored on a held-out 20% of trials,
+        so the t=0 point is comparable to the later ones rather than being the
+        decoder's own training accuracy.
         """
         print("  Training decoder on encoding space (t=0)...")
-        
-        # Train on first encoding
-        X_train, y_train, label2idx = build_matrix(
-            self.payloads, property_name, time=0, task_index=None, n_value=None
+
+        # Rows are one per trial, in a fixed order for a given label_time, so a
+        # single trial-level split applies to every timestep.
+        X0, y0, label2idx, _ = build_matrix_tracked(
+            self.payloads, property_name, feature_time=0, label_time=0,
+            task_index=None, n_value=None,
         )
-        
-        if X_train.numel() == 0:
+
+        if X0.numel() == 0:
             return {"status": "no_data"}
-        
-        clf = self._train_decoder(X_train, y_train)
-        
-        # Test across all timesteps
-        accuracies = []
+
+        n_trials = int(X0.shape[0])
+        _, class_counts = np.unique(y0.numpy(), return_counts=True)
+        idx_train, idx_test = train_test_split(
+            np.arange(n_trials), test_size=0.2, random_state=42,
+            stratify=y0.numpy() if class_counts.min() >= 2 else None,
+        )
+
+        clf = self._train_decoder(X0[idx_train], y0[idx_train])
+        chance = 1.0 / max(len(label2idx), 1)
+
+        accuracies: List[Optional[float]] = []
+        accuracies_current: List[Optional[float]] = []
         for t in range(max_time + 1):
-            X_test, y_test, _, raw_vals = build_matrix_with_values(
-                self.payloads, property_name, time=t, task_index=None, n_value=None
+            # H1: same item, older memory
+            X_t, y_t, _, _ = build_matrix_tracked(
+                self.payloads, property_name, feature_time=t, label_time=0,
+                task_index=None, n_value=None, label2idx=label2idx,
             )
-            
-            if X_test.numel() == 0:
+            if X_t.numel() == 0 or X_t.shape[0] != n_trials:
                 accuracies.append(None)
-                continue
-            
-            y_test_idx, keep = self._align_test_labels(raw_vals, label2idx)
-            if keep.sum() == 0:
-                accuracies.append(None)
-                continue
-            
-            X_test_np = X_test.numpy()[keep]
-            y_pred = clf.predict(X_test_np)
-            acc = accuracy_score(y_test_idx, y_pred)
-            accuracies.append(float(acc))
-            
-            print(f"    t={t}: acc={acc:.4f}")
-        
+            else:
+                acc = accuracy_score(y_t[idx_test], clf.predict(X_t[idx_test].numpy()))
+                accuracies.append(float(acc))
+
+            # Stationarity of the encoding subspace: whatever is on screen at t
+            X_c, _, _, raw_vals = build_matrix_with_values(
+                self.payloads, property_name, time=t, task_index=None, n_value=None,
+            )
+            if X_c.numel() == 0:
+                accuracies_current.append(None)
+            else:
+                y_c_all, keep = self._align_test_labels(raw_vals, label2idx)
+                if X_c.shape[0] == n_trials:
+                    # Same row order as the tracked matrix, so the same held-out
+                    # trials can be isolated — needed at t=0, where the decoder
+                    # would otherwise be scored on its own training trials.
+                    keep_test = np.zeros(n_trials, dtype=bool)
+                    keep_test[idx_test] = True
+                    sel = keep & keep_test
+                    y_c = y_c_all[keep_test[keep]]
+                else:
+                    sel, y_c = keep, y_c_all
+                if sel.sum() == 0:
+                    accuracies_current.append(None)
+                else:
+                    acc_c = accuracy_score(y_c, clf.predict(X_c.numpy()[sel]))
+                    accuracies_current.append(float(acc_c))
+
+            print(f"    t={t}: tracked-item acc={accuracies[-1]}, "
+                  f"current-stimulus acc={accuracies_current[-1]} (chance={chance:.4f})")
+
         # Plot cross-time decoding
-        self._plot_cross_time_decoding(accuracies)
-        
+        self._plot_cross_time_decoding(accuracies, chance=chance)
+
         # Check if accuracy drops (H1 disproved)
-        if len([a for a in accuracies if a is not None]) >= 2:
-            first_acc = accuracies[0]
-            last_acc = accuracies[-1] if accuracies[-1] is not None else accuracies[-2]
+        valid = [a for a in accuracies if a is not None]
+        if len(valid) >= 2:
+            first_acc, last_acc = accuracies[0], valid[-1]
             if first_acc and last_acc and last_acc < first_acc * 0.8:
                 print(f"  ✓ H1 DISPROVED: Accuracy drops from {first_acc:.3f} to {last_acc:.3f}")
             else:
                 print(f"  ⚠ H1 NOT CLEARLY DISPROVED: Accuracy stable")
-        
-        return {"accuracies": accuracies, "times": list(range(len(accuracies)))}
+            if last_acc <= chance * 1.5:
+                print(f"  ℹ Late-timestep accuracy is at chance ({chance:.4f}) — "
+                      f"the item is not linearly readable at all, not merely displaced")
+
+        return {
+            "accuracies": accuracies,
+            "accuracies_current_stimulus": accuracies_current,
+            "times": list(range(len(accuracies))),
+            "n_classes": int(len(label2idx)),
+            "chance_level": float(chance),
+            "n_train": int(len(idx_train)),
+            "n_test": int(len(idx_test)),
+            "note": "accuracies = tracked item from t=0 (H1 test, held-out trials). "
+                    "accuracies_current_stimulus = stimulus on screen at t.",
+        }
     
-    def _plot_cross_time_decoding(self, accuracies: List[Optional[float]]):
+    def _plot_cross_time_decoding(self, accuracies: List[Optional[float]], chance: Optional[float] = None):
         """Plot cross-time decoding accuracy (Figure 4b style)."""
         fig, ax = plt.subplots(figsize=(8, 5))
-        
+
         times = list(range(len(accuracies)))
         valid_times = [t for t, a in zip(times, accuracies) if a is not None]
         valid_accs = [a for a in accuracies if a is not None]
-        
+
         ax.plot(valid_times, valid_accs, marker='o', linewidth=2, markersize=8, color='#2196F3')
+        if chance is not None:
+            ax.axhline(y=chance, color='gray', linestyle=':', linewidth=1.5,
+                       label=f'Chance ({chance:.3f})')
+            ax.legend(loc='upper right', fontsize=9)
         ax.set_xlabel('Timestep (Memory Age)', fontsize=12)
         ax.set_ylabel('Decoding Accuracy', fontsize=12)
         ax.set_title('Cross-Time Decoding (Figure 4b)\nTest H1: Slot-Based Memory', fontsize=14, fontweight='bold')
@@ -982,9 +1048,13 @@ class ComprehensiveAnalysis:
         clf_val.fit(X_a_train, y_a_train)
         val_acc = float(accuracy_score(y_a_held, clf_val.predict(X_a_held)))
 
-        # Generalization accuracy on val_novel_identity (novel identities, same time t)
+        # Generalization accuracy on val_novel_identity (novel identities, same time t).
+        # The test matrix MUST be built in the training decoder's class space:
+        # class indices are per-value, and any value the decoder never saw is
+        # dropped rather than scored against an index that means something else.
         X_test, y_test, _, _ = build_matrix_with_values(
-            payloads_novel, decode_property, time=encoding_time, task_index=None, n_value=None
+            payloads_novel, decode_property, time=encoding_time, task_index=None,
+            n_value=None, label2idx=label2idx,
         )
 
         if X_test.numel() == 0:
@@ -1030,16 +1100,27 @@ class ComprehensiveAnalysis:
         print("  Running Procrustes swap analysis...")
         from .procrustes import swap_hypothesis_test
         
-        # Compute consecutive Procrustes disparities
-        weights_by_time = {}
-        for t in range(min(max_time + 1, 4)):
-            X, y, label2idx = build_matrix(
+        # Compute consecutive Procrustes disparities. All timesteps share one
+        # class space so that a given class index means the same class at every
+        # time — the disparity is fitted between matched classes.
+        times_to_scan = list(range(min(max_time + 1, 4)))
+        value_pool = []
+        for t in times_to_scan:
+            _, _, _, vals = build_matrix_with_values(
                 self.payloads, property_name, time=t, task_index=None, n_value=None
+            )
+            value_pool.extend(vals)
+        shared_label2idx = make_label2idx(value_pool)
+
+        weights_by_time = {}
+        for t in times_to_scan:
+            X, y, _ = build_matrix(
+                self.payloads, property_name, time=t, task_index=None, n_value=None,
+                label2idx=shared_label2idx,
             )
             if X.numel() == 0:
                 continue
-            W = one_vs_rest_weights(X, y)
-            weights_by_time[t] = W
+            weights_by_time[t] = one_vs_rest_weights(X, y)
         
         procrustes_results = []
         times = sorted(weights_by_time.keys())
