@@ -222,14 +222,16 @@ transition: fade
 
 # Paper's 5 Analyses — Re-Run With Fixed Code
 
-After auditing the analysis pipeline, we fixed 4 bugs and re-ran all 18 experiments.
+After **two** audits of the analysis pipeline, we re-ran all 18 experiments.
 Full audit: `docs/ANALYSIS_AUDIT_FINDINGS.md`
 
-**Key fixes**:
-- SVC `max_iter=10000` + `random_state=42` (no convergence warnings, reproducible)
-- H2 cross-stimulus now uses val_novel_angle→val_novel_identity (was mislabeled cross-time)
-- Procrustes swap test with per-stimulus group split + location for label alignment
-- Sample-size warnings when n_test < n_classes
+**Audit 1** — SVC determinism (`max_iter=10000`, `random_state=42`); H2 cross-stimulus was
+running the *cross-time* test; Procrustes swap test rebuilt; sample-size warnings.
+
+**Audit 2 — the important one**: `build_matrix*` numbered classes **in order of first
+appearance within each call**, so any test that trained on one matrix and scored against
+another matrix's labels was comparing a *random label permutation*. This alone produced
+both of our apparent contradictions of the paper.
 
 ---
 transition: fade-out
@@ -284,6 +286,8 @@ transition: fade-out
 **Method**: Train linear decoder per (task, property) pair from MTMF hidden states at t=0.
 Each cell = test accuracy on held-out 20%. n=51-56 test samples per cell.
 
+<span class="text-red-500">⚠ Numbers below predate the class-index fix and are pending regeneration — with n_test≈51 these cells carry ±10pp of split noise, so small differences are not interpretable.</span>
+
 </div>
 
 <div class="text-xs">
@@ -335,6 +339,8 @@ transition: fade-out
 **Question (Figure 2a)**: Do representations transfer across tasks?
 **Method**: Train decoder on task A, test on task B (different property classes).
 
+<span class="text-red-500">⚠ h128 rows predate the class-index fix and are pending regeneration.</span>
+
 </div>
 
 <div class="text-xs">
@@ -385,11 +391,11 @@ transition: fade-out
 | Model | Loc: P → E | Ident: P → E | Cat: P → E | Below |
 |-------|-----------:|-------------:|-----------:|------:|
 | wm_mtmf | 0.730 → 0.719 | 0.953 → 0.938 | 0.750 → 0.764 | 2/3 |
-| wm_h128_mtmf | 0.752 → 0.698 | 0.933 → 0.915 | 0.768 → 0.782 | 2/3 |
+| wm_h128_mtmf | 0.755 → 0.683 | 0.932 → 0.911 | 0.743 → 0.808 | 2/3 |
 | wm_attention_mtmf | 0.678 → 0.715 | 0.951 → 0.937 | 0.749 → 0.734 | 2/3 |
 | wm_dual_attention_mtmf | 0.688 → 0.724 | 0.951 → 0.935 | 0.749 → 0.731 | 2/3 |
-| wm_h128_attention_mtmf | 0.723 → 0.715 | 0.932 → 0.913 | 0.758 → 0.737 | 3/3 |
-| wm_h128_dual_attention_mtmf | 0.728 → 0.773 | 0.933 → 0.911 | 0.743 → 0.760 | 1/3 |
+| wm_h128_attention_mtmf | 0.715 → 0.710 | 0.928 → 0.907 | 0.770 → 0.758 | 3/3 |
+| wm_h128_dual_attention_mtmf | 0.746 → 0.678 | 0.930 → 0.901 | 0.745 → 0.794 | 2/3 |
 
 </div>
 
@@ -417,24 +423,31 @@ transition: fade-out
 **Three hypotheses** (Figure 4e): H1=slot-based, H2=chronological, H3=stimulus-specific
 </div>
 
+<div class="text-xs mb-2">
+
+**H1 test**: decode the identity of the item shown at t=0 out of the hidden state at t=0…5 — i.e. can an *aging memory* still be read from the encoding subspace? Held-out 20% of trials at every timestep, including t=0. Chance = 1/72 = **0.014**.
+
+</div>
+
 <div class="text-xs">
 
-### H1: Cross-Time Decoding (MTMF)
+### H1: Memory-Age Decoding (MTMF)
 
-| Model | t=0 | t=1 | t=2 | t=5 | Drop |
-|-------|----:|----:|----:|----:|-----:|
-| wm_mtmf | 98.2% | 5.5% | 4.2% | 2.1% | **96pp** |
-| wm_h128_mtmf | 95.6% | 5.1% | 3.9% | 1.4% | **94pp** |
-| wm_attention_mtmf | 92.4% | 4.4% | 2.5% | 1.5% | **91pp** |
-| wm_dual_attention_mtmf | 91.2% | 3.8% | 2.4% | 2.5% | **89pp** |
-| wm_h128_attention_mtmf | 78.1% | 4.6% | 1.6% | 2.0% | **76pp** |
-| wm_h128_dual_attention_mtmf | 85.0% | 4.2% | 2.4% | 1.9% | **83pp** |
+| Model | t=0 | t=5 | Chance |
+|-------|----:|----:|-------:|
+| wm_mtmf | 55.0% | 1.9% | 1.4% |
+| wm_h128_mtmf | 83.6% | 1.5% | 1.4% |
+| wm_attention_mtmf | 32.5% | 0.6% | 1.4% |
+| wm_dual_attention_mtmf | 40.6% | 0.6% | 1.4% |
+| wm_h128_attention_mtmf | 63.9% | 0.9% | 1.4% |
+| wm_h128_dual_attention_mtmf | 63.9% | 2.2% | 1.4% |
 
 </div>
 
 <div class="mt-2 p-2 bg-red-500/10 rounded-lg text-xs">
 
-✅ **H1 DISPROVED** in all 18/18 experiments — accuracy collapses to 1-6% at t≥1. **Memory is NOT in fixed slots.**
+✅ **H1 DISPROVED** in all 18/18 — the item is readable at encoding, then falls **to chance** by t≥1. **Memory is NOT in fixed slots.**
+<br>⚠️ t=0 spread (32-90%) tracks `num_val` (400 vs 2000), *not* architecture — h128 runs get 5× the decoder samples.
 
 </div>
 
@@ -454,34 +467,34 @@ transition: fade-out
 
 ### H2 Cross-Stimulus (decode on location)
 
-| Model | Val (known ids) | Gen (novel ids) | Diff | Status |
-|-------|----------------:|----------------:|-----:|--------|
-| wm_mtmf | 0.463 | 0.290 | 0.173 | H3 possible |
-| wm_h128_mtmf | 0.475 | 0.237 | 0.237 | H3 possible |
-| wm_attention_mtmf | 0.550 | 0.372 | 0.178 | H3 possible |
-| wm_dual_attention_mtmf | 0.700 | 0.145 | 0.555 | H3 possible |
-| wm_h128_attention_mtmf | 0.562 | 0.268 | 0.295 | H3 possible |
-| wm_h128_dual_attention_mtmf | 0.738 | 0.260 | 0.478 | H3 possible |
+| Model | Gen — before fix | **Gen — after fix** | Val | Diff |
+|-------|----------------:|----------------:|----:|-----:|
+| wm_mtmf | 0.290 | **0.380** | 0.487 | 0.107 |
+| wm_h128_mtmf | 0.247 | **0.352** | 0.540 | 0.188 |
+| wm_attention_mtmf | 0.372 | **0.588** | 0.550 | 0.038 |
+| wm_dual_attention_mtmf | 0.145 | **0.560** | 0.675 | 0.115 |
+| wm_h128_attention_mtmf | 0.129 | **0.637** | 0.760 | 0.123 |
+| wm_h128_stsf | 0.000 | **0.868** | 1.000 | 0.132 |
 
 </div>
 
 <div class="text-xs mt-3">
 
-### Procrustes Swap Test (Figure 4g)
+### Procrustes Swap Test (Figure 4g) — now known to be underpowered
 
-| Model | Correct | Swap1 (wrong time) | Swap2 (diff stimuli) | Status |
-|-------|--------:|-------------------:|---------------------:|--------|
-| wm_mtmf | 0.222 | 0.230 | 0.244 | H2 NOT confirmed |
-| wm_dual_attention_mtmf | 0.293 | 0.215 | 0.293 | H2 confirmed |
-| wm_h128_dual_attention_mtmf | 0.333 | 0.215 | 0.279 | H2 confirmed |
+| Model | Correct | Swap1 | Swap2 | **Baseline (direct decode)** |
+|-------|--------:|------:|------:|-----:|
+| wm_mtmf | 0.249 | 0.231 | 0.196 | **0.933** |
+| wm_dual_attention_mtmf | 0.391 | 0.265 | 0.208 | **0.968** |
+| wm_h128_dual_attention_mtmf | 0.260 | 0.248 | 0.249 | **0.933** |
 
 </div>
 
-<div class="mt-2 p-2 bg-orange-500/10 rounded-lg text-xs">
+<div class="mt-2 p-2 bg-green-500/10 rounded-lg text-xs">
 
-- ⚠️ **H2 NOT fully supported**: val ≫ gen in all MTMF models (diff 0.17-0.56) — decoders do NOT generalize to novel identities
-- 🔍 **Procrustes swap is mixed**: 2/6 MTMF models show paper pattern (swap2 > swap1)
-- 🔍 **Models are stimulus-specific** (H3-like) rather than sharing encoding across stimuli (H2)
+- ✅ **H2 IS supported**: the old "val ≫ gen" was a **class-index bug** — the test scored predictions against a permuted label set. Mean generalization across 18 experiments: **0.23 → 0.60**
+- 🚩 **`wm_h128_stsf` gen = 0.000 exactly** was the tell: a failed 4-class decoder floors at chance (0.25), never 0
+- ⚠️ **Procrustes swap withdrawn as inconclusive**: all three conditions sit at chance (~0.25) while direct decoding reaches 0.93 — a 256×256 rotation cannot be fitted from **4** class correspondences
 
 </div>
 
@@ -493,32 +506,32 @@ transition: fade-out
 
 <div class="text-sm mb-2">
 
-**Method**: Perturb hidden states along the mean direction of all class decoder normals, then re-classify. Paper expects P(Match) drops and P(No-Action) rises.
+**Method**: Perturb hidden states along the mean direction of all class decoder normals, then re-classify. Distances in **SDs of the state's spread along that direction**, swept ±50 (was ±2 — far too small to reach any boundary).
 </div>
 
 <div class="text-xs">
 
-### Causal Perturbation — MTMF Models (property=identity)
+### Causal Perturbation (property=identity) — 12/18 cross the boundary
 
-| Model | P(Match) start→end | Drop | P(No-Action) start→end |
-|-------|-------------------:|-----:|----------------------:|
-| wm_mtmf | 0.790 → 0.731 | **5.9%** | 0.0002 → 0.0007 |
-| wm_h128_mtmf | 0.858 → 0.618 | **24.0%** | 0.0001 → 0.0003 |
-| wm_attention_mtmf | 0.974 → 0.960 | 1.4% | 0.0000 → 0.0000 |
-| wm_dual_attention_mtmf | 0.957 → 0.948 | 0.9% | 0.0000 → 0.0000 |
-| wm_h128_attention_mtmf | 0.943 → 0.939 | 0.4% | 0.0000 → 0.0000 |
-| wm_h128_dual_attention_mtmf | 0.921 → 0.828 | **9.3%** | 0.0000 → 0.0001 |
+| Model | P(Match) unpert. → min | P(No-Action) max | Crosses at |
+|-------|-------------------:|-----:|-----:|
+| wm_h128_mtmf | 0.803 → **0.000** | **1.000** | 22 SD |
+| wm_h128_dual_attention_mtmf | 0.713 → **0.000** | **1.000** | 14 SD |
+| wm_attention_stmf | 0.971 → **0.000** | **1.000** | 24 SD |
+| wm_mtmf | 0.761 → **0.003** | **0.997** | 32 SD |
+| wm_dual_attention_mtmf | 0.953 → 0.079 | 0.921 | 39 SD |
+| wm_attention_mtmf | 0.967 → 0.138 | 0.862 | 40 SD |
 
 </div>
 
 <v-clicks>
 
-<div class="mt-2 p-2 bg-yellow-500/10 rounded-lg text-xs">
+<div class="mt-2 p-2 bg-green-500/10 rounded-lg text-xs">
 
-- ✅ **P(Match) drops** when perturbed (0.4-24%) — confirms decoder-defined subspace is causally relevant
-- ⚠️ **P(No-Action) does NOT rise** — paper expects 0.10→0.61; we see 0.000→0.001
-- 🔍 **Limitation**: Current implementation runs only the classifier, not the recurrent dynamics
-- 🔍 **Strongest effects** in baseline models; attention models are more robust to perturbation
+- ✅ **Paper's Figure A7 pattern reproduced**: P(Match) collapses to ~0 **and** P(No-Action) rises to 0.86–1.00 in 10/18
+- 🚩 The old "No-Action stays 0" was **not** the classifier-only implementation — the sweep was ~20× too small to reach a boundary
+- 🔍 **6 non-crossers are mostly STSF**, where the probed property (identity) is *task-irrelevant* — a task-irrelevant subspace **should** be causally inert
+- 🔍 Direction diagnostic: mean of 72 class normals has norm **0.134** (they largely cancel), so distance must be measured in SDs, not raw units
 
 </div>
 
@@ -536,21 +549,22 @@ transition: slide-up
 | Analysis | Paper Claim | Our Result | Match? |
 |----------|-------------|------------|:------:|
 | **1. Behavioral** | Novel Identity < Novel Angle | Confirmed in 18/18 (gap 0-4pp) | ✅ |
-| **2A. Task-Relevance** | MTMF preserves all features | Diagonal 88-100% (✓), off-diagonal 14-60% | ⚠️ Partial |
+| **2A. Task-Relevance** | MTMF preserves all features | Diagonal high, off-diagonal varies | ⚠️ Partial |
 | **2B. Cross-Task** | GRU task-specific | Loc/Ident task-specific ✓, Category partial transfer | ⚠️ Partial |
 | **3. Orthogonalization** | RNN de-orthogonalizes | 12/18 MTMF points below diagonal (2/3 avg) | ✅ |
-| **4. H1 Slot-Based** | Disproved | 18/18: t0 78-98% → t1 1-6% | ✅ |
-| **4. H2 Chronological** | Supported | val > gen in 9/9 MTMF (H3-like) | ❌ |
-| **5. Causal Perturbation** | Match ↓, No-Action ↑ | Match ↓ (0.4-24%), No-Action stays 0 | ⚠️ Partial |
+| **4. H1 Slot-Based** | Disproved | 18/18: readable at encoding → **chance** by t≥1 | ✅ |
+| **4. H2 Shared Encoding** | Supported | Mean gen **0.23 → 0.60** after fixing class-index bug | ✅ |
+| **5. Causal Perturbation** | Match ↓, No-Action ↑ | 12/18 cross; No-Action → 0.86-1.00 in 10 | ✅ |
+| **4. Procrustes Swap** | swap2 > swap1 | All conditions at chance vs baseline 0.93 | 🚫 Inconclusive |
 
 </div>
 
 <div class="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
 
-**Bottom line**: 4/7 paper findings fully replicated, 3/7 partially supported, 0/7 contradicted.
-The H2 cross-stimulus test is the main divergence — our models show stimulus-specific
-encoding rather than the shared encoding the paper claims. Likely due to differences
-in training regime or architecture details.
+**Bottom line**: 5/7 paper findings replicated, 2/7 partially supported, **0/7 contradicted**.
+The two results that previously *appeared* to contradict the paper — H2 cross-stimulus and
+the causal perturbation — were **defects in our own analysis code**, not properties of our
+models. The Procrustes swap test is withdrawn as underpowered rather than reported either way.
 
 </div>
 
@@ -742,27 +756,95 @@ transition: fade-out
 transition: fade-out
 ---
 
-# Reference 1: Poppenk, Moscovitch & McIntosh (2016)
+# Reference 1: The Question They Asked
+
+<div class="text-sm text-gray-400 mb-2">Poppenk, Moscovitch & McIntosh (2016) — <em>fMRI evidence of equivalent neural suppression by repetition and prior knowledge.</em> Neuropsychologia, 90, 159–169. Read in full.</div>
 
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### What it is
-*fMRI evidence of equivalent neural suppression by repetition and prior knowledge.* Neuropsychologia, 90, 159–169. Read in full (not an abstract skim).
-
-### What they did
-Participants read (a) novel Asian proverbs, (b) proverbs repeated ~30 min earlier in the same session, and (c) English proverbs known from a lifetime of prior exposure — **prior knowledge, no recent repetition at all**.
+### The well-known part
+When you see something a **second time**, the brain region that processes it usually responds **more weakly** — as if it doesn't have to work as hard because it already recognizes it. This is called "repetition suppression," and it's one of the best-established signatures in cognitive neuroscience.
 
 </div>
 
 <div>
 
-### What they found and concluded
-Recently-repeated items and previously-known items produced **statistically indistinguishable neural suppression** relative to novel items, across a broad visual-linguistic network — confirmed by a multivariate conjunction analysis (r=0.65, p<0.001). Their conclusion: suppression is a general signature of *any* retrieved information facilitating processing, not a narrow repetition-specific effect.
+### The open question nobody had asked
+Almost every prior study only tested this a few **minutes** after the first exposure. Nobody had checked: if you already know something well — from years of everyday exposure, not a recent viewing — does just *seeing it* produce that same "worked less hard" signal?
+
+</div>
+
+</div>
+
+<div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
+
+**Their hypothesis:** if suppression really reflects "the brain already has relevant information available," it shouldn't matter *how* that information got there — a proverb you saw 30 minutes ago and a proverb you've known your whole life should produce the same suppression.
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Reference 1: What They Actually Did
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### The setup
+18 people, in an MRI scanner, reading proverbs. Three kinds were shown, matched for length and difficulty:
+
+1. **Novel** — Asian proverbs (translated) never seen before
+2. **Recently repeated** — different Asian proverbs, shown 3× about 30 minutes earlier in the *same session*
+3. **Known for a lifetime** — common English proverbs ("the early bird catches the worm") — never shown earlier in the experiment, but familiar from years of everyday life
+
+</div>
+
+<div>
+
+### The comparison
+While people read/rated each proverb, the scanner measured how much brain activity dropped for "recently repeated" and for "known for a lifetime" proverbs, each relative to "novel" ones.
+
+Then: are those two drop-off patterns **the same regions, same size** — or different?
+
+</div>
+
+</div>
+
+<div class="mt-6 p-3 bg-purple-500/10 rounded-lg text-center text-sm">
+
+Because participants couldn't have "recently repeated" the English proverbs (they'd known them for years), any similarity between the two suppression patterns can't be explained by recent exposure — it has to come from familiarity itself.
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Reference 1: What They Found
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### The main result
+Across a broad network of vision and language brain regions, **recently-repeated** and **known-for-a-lifetime** proverbs produced **statistically indistinguishable** suppression — same regions, same strength (correlation r=0.65, p<0.001, between the two suppression maps).
+
+Only two small regions broke the pattern, and only by showing suppression exclusively for recent repetition — consistent with those two specifically tracking recent-episode memory, not general familiarity.
+
+</div>
+
+<div>
+
+### In one line
+
+> Knowing something well quiets the brain the same way seeing it twice does.
 
 ### Why it matters to us
-This is the **direct precedent** for our Level 2 claim: if prior knowledge suppresses neural response in humans regardless of how that knowledge was acquired, our proxy-pretrained model (knowledge from a different task) should show the same signature on its hidden-state activity — exactly what we test.
+This is the **direct precedent** for our Level 2 claim: if prior knowledge suppresses neural response in humans regardless of how it was acquired, our proxy-pretrained model (knowledge from a *different* task) should show the same signature on its hidden-state activity — exactly what we test.
 
 </div>
 
@@ -772,29 +854,44 @@ This is the **direct precedent** for our Level 2 claim: if prior knowledge suppr
 transition: fade-out
 ---
 
-# Reference 2: Constantinidis & Klingberg (2016)
+# Reference 2: The Pattern Across Studies
+
+<div class="text-sm text-gray-400 mb-2">Constantinidis & Klingberg (2016) — <em>The neuroscience of working memory capacity and training.</em> Nature Reviews Neuroscience, 17(7), 438–449. A **review**, not a single experiment — it synthesizes dozens of monkey brain-cell-recording and human brain-imaging studies of WM training into the pattern that repeats across all of them.</div>
 
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### What it is
-*The neuroscience of working memory capacity and training.* Nature Reviews Neuroscience, 17(7), 438–449. Full text and both boxes read directly.
+### More cells get involved...
+After training, **more** prefrontal neurons become active during the task, and they fire more overall.
 
-### What they found and concluded
-After WM training, PFC neurons show **decreased mean selectivity** (broader tuning) even as more neurons get recruited — efficiency is a **shift in how activity is organized**, not just "less activity." Training is also linked to **decreased trial-to-trial firing-rate variability** (lower Fano factor) and lower noise correlation — a sharper, less noisy population code.
+### ...but each one gets less picky
+On average, each neuron becomes **more broadly tuned** (less selective) after training. It's not that neurons become sharper specialists — the job spreads across a wider crew, each doing a less narrowly-defined part.
 
 </div>
 
 <div>
 
-### The methodological warning we adopted (Box 2)
-BOLD-signal changes are ambiguous between "efficiency" and simple changes in task engagement — **a naive "activity went down = more efficient" reading is not licensed** without controlling for accuracy. This is exactly why every comparison in our method reports the accuracy gap, and why we specifically re-ran Level 2 at a near-zero accuracy gap (Pair 2, next section) instead of trusting the first, confounded pair alone.
-
-### Why it matters to us
-It predicts our participation-ratio/Fano-factor metrics should go **down** (sharper, less variable) under familiarity — this is the specific prediction our Level 2 results below actually contradict, and we report that honestly rather than hide it.
+### The group gets more reliable
+Trial to trial, the same neuron's firing becomes **less erratic** — its response "wobbles" less relative to its average (this wobble is called the **Fano factor**). Neurons also stop making the same noisy mistakes together (lower "noise correlation").
 
 </div>
+
+</div>
+
+<div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-sm">
+
+**The paper's own definition (glossary box):** "Variance of spike counts divided by their mean, per unit of time."
+
+$$F = \dfrac{\sigma^2_{\text{spike count}}}{\mu_{\text{spike count}}}$$
+
+In plain terms: count how many times a neuron fires in a fixed time window, repeat that same trial many times, then divide the *spread* of those counts (variance) by their *average* (mean). $F=1$ is what pure random (Poisson) firing looks like; $F<1$ after training means the neuron's firing is **more consistent** than chance would predict — the "less erratic" behavior described above.
+
+</div>
+
+<div class="mt-4 p-3 bg-purple-500/10 rounded-lg text-center text-sm">
+
+Put together: "efficiency" after training isn't simply "less activity" — it's a **reorganization**: broader per-neuron tuning + more neurons recruited + a calmer, less noisy population.
 
 </div>
 
@@ -802,29 +899,29 @@ It predicts our participation-ratio/Fano-factor metrics should go **down** (shar
 transition: fade-out
 ---
 
-# References for Level 3 (Explicit Gating)
+# Reference 2: A Warning We Adopted (Box 2)
 
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
-### Desimone & Duncan (1995)
-*Neural mechanisms of selective visual attention.* Annual Review of Neuroscience, 18, 193–222. The biased-competition model: attention resolves competition between stimulus representations by suppressing task-irrelevant ones.
+### The problem with fMRI activity
+fMRI's brain-activity signal (BOLD) is a blurry, indirect proxy. It **cannot distinguish** "this region is genuinely processing the task more efficiently" from "the person is simply less engaged" or "getting more of it wrong."
+
+### The rule this forces
+You cannot read "activity went down" as "got more efficient" — not without first checking that task performance (accuracy) is genuinely comparable between the two things you're comparing. A quieter signal that also performs worse is not evidence of efficiency.
 
 </div>
 
 <div>
 
-### Treue & Martínez-Trujillo (1999)
-*Feature-based attention influences motion processing gain in macaque visual cortex.* Nature, 399, 575–579. The feature-similarity gain model: attending to one feature suppresses neural responses to other, task-irrelevant features.
+### How we applied it
+Every comparison in our method also reports the **accuracy gap** between the two conditions, so an activity/decodability difference can't be waved away as "just being more accurate." We specifically re-ran our Level 2 comparison at a **near-zero accuracy gap**, instead of trusting only the first pair, where the two models also differed a lot in accuracy.
+
+### The prediction it makes
+It predicts our Fano-factor analogue should move **down** (less variable) under familiarity — the one prediction the review cleanly licenses, and the one our Level 2 results go *against*, which we report rather than hide. It makes **no** prediction for the participation ratio: its tuning claim is about *single-unit* selectivity (which it says gets **broader**), while PR measures *population* effective dimensionality — a different quantity.
 
 </div>
-
-</div>
-
-<div class="mt-6 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
-
-Named as the standard citations for "attention suppresses irrelevant feature responses" — **not independently read in full** the way references 1–2 were, so cited with lower confidence. Our Level 3 metric (gate-suppression index) is a direct, literal operationalization of this idea: it is not an analogy, since our model's gates ARE an explicit suppression signal by construction.
 
 </div>
 
@@ -858,6 +955,12 @@ transition: fade-out
 
 </div>
 
+<div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-sm">
+
+**In plain terms:** "Decodability" = if you tried to guess the object's identity just from the model's hidden state using a simple classifier, how often would you succeed? Lower is better here — it means identity (irrelevant to the task) is harder to read out, i.e. more hidden/suppressed. The other three sub-metrics probe the same idea from different angles (how separated, how similarly-shaped, how robust the encoding is) — two move the same direction, two don't move at all.
+
+</div>
+
 <div class="mt-4 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
 
 2 of 4 sub-metrics clearly support suppression, 2 are flat (ceiling-limited by this MTMF config, not contradictory).
@@ -884,20 +987,26 @@ transition: fade-out
 
 ### Same direction in both pairs, every cell
 
-| Metric | Under proxy pretraining | vs. Reference 2 |
+| Metric | Under proxy pretraining | Graded against |
 |---|---|---|
-| Activation magnitude | **Lower**, p<0.0001 | ✅ matches Poppenk et al. |
-| Population sparsity | **Higher**, most cells | ✅ matches, small effect |
-| Participation ratio | **Higher**, every cell | ❌ opposite of prediction |
-| Fano-factor analogue | **Higher**, every cell | ❌ opposite of prediction |
+| Activation magnitude | **Lower**, p<0.0001 | ✅ **Ref. 1** (Poppenk) — Ref. 2 reports firing *up* |
+| Population sparsity | **Higher**, most cells | ⚪ **our own assumption** — neither ref. predicts it |
+| Participation ratio | **Higher**, every cell | ⚪ **ungraded** — Ref. 2's claim is per-unit tuning |
+| Fano-factor analogue | **Higher**, every cell | ❌ **Ref. 2** — the one genuine contradiction |
 
 </div>
+
+</div>
+
+<div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-sm">
+
+**In plain terms:** "Magnitude" = how loud the hidden-state signal is on average. "Sparsity" = what fraction of hidden units are actually doing something for a given input (higher = fewer units firing at once). "Participation ratio" = roughly how many independent patterns the population is using (higher = information spread across more directions, not squeezed into a few). "Fano-factor analogue" = same wobble idea as in Reference 2, computed on our model's units instead of real neurons.
 
 </div>
 
 <div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
 
-Magnitude/sparsity effect **replicates at near-zero accuracy gap** — survives the Box 2 confound check, not just "the proxy model is more accurate."
+Magnitude/sparsity effect **replicates at near-zero accuracy gap** — survives the Box 2 confound check, not just "the proxy model is more accurate." Only the Fano row genuinely contradicts a reference: PR measures *population* dimensionality, which Ref. 2 makes no prediction about."
 
 </div>
 
@@ -931,9 +1040,15 @@ Never run anywhere before this pass — directly answers "can attention-containi
 
 </div>
 
+<div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-sm">
+
+**In plain terms:** the "gate" is our attention mechanism's literal on/off dial per feature channel. "Suppression index" = how much lower the gate sits on task-irrelevant channels vs. task-relevant ones — more negative means it mutes the irrelevant stuff more strongly (near-zero or positive means it barely distinguishes them). "Gate-relevance correlation" = how tightly the gate's setting tracks a channel's actual relevance to the task — higher means the gate is reliably reading relevance, not doing something only loosely related to it.
+
+</div>
+
 <div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
 
-For **category**, attention-only barely gates at all (index ≈0, sometimes wrong-signed); attention+proxy fixes this completely. Accuracy-matched, large effect, and a signature a plain RNN baseline structurally cannot produce.
+For **category**, attention-only barely gates at all (index ≈0, sometimes wrong-signed); attention+proxy fixes this completely. Accuracy-matched, large effect, and a signature a plain RNN baseline structurally cannot produce. Unlike Levels 1–2, this level needs no external reference to interpret: the gates are a **literal, built-in** suppression signal, not something we infer indirectly.
 
 </div>
 
@@ -952,7 +1067,7 @@ transition: fade-out
 | Level | vs. reference prediction |
 |---|---|
 | 3. Explicit gating | **Strongest support** — accuracy-matched, 9/9 cells, large effect |
-| 2. Population activity | **Partial support** — magnitude/sparsity match Ref. 1 and replicate at matched accuracy; participation-ratio/Fano contradict Ref. 2's "sharpening" prediction |
+| 2. Population activity | **Partial support** — magnitude matches Ref. 1 and replicates at matched accuracy; Fano is a genuine contradiction of Ref. 2; PR/sparsity are ungraded (no reference prediction) |
 | 1. Representational content | **Weakest, not contradictory** — 2/4 sub-metrics support, 2/4 flat at ceiling |
 
 </div>
@@ -969,7 +1084,7 @@ Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional 
 
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
-We report this honestly graded, not as a uniform win — Level 3 is the strongest and most novel result; Level 2 partially confirms the literature and partially contradicts it; Level 1 is supporting, not central, evidence.
+We report this honestly graded, not as a uniform win — Level 3 is the strongest and most novel result; Level 2 confirms the literature on magnitude and contradicts it on Fano; Level 1 is supporting, not central, evidence. Where a metric has no reference prediction, we say so rather than manufacture one.
 
 </div>
 
@@ -987,12 +1102,12 @@ transition: fade-out
 
 <v-clicks>
 
-1. ✅ **H1 Slot-based memory**: Disproved (18/18: t0→t1 drops 76-96pp)
+1. ✅ **H1 Slot-based memory**: Disproved (18/18: readable at encoding → chance by t≥1)
 2. ✅ **Orthogonalization**: RNN de-orthogonalizes (12/18 MTMF points below diagonal)
-3. ✅ **Task-specific subspaces** (location, identity): Cross-task off-diagonal 4-39% vs diagonal 28-67%
-4. ⚠️ **MTMF preserves all features**: Diagonal 88-100% ✓, off-diagonal varies 14-60%
-5. ⚠️ **H2 Cross-stimulus shared encoding**: Not supported (val > gen in 9/9 MTMF)
-6. ⚠️ **Causal perturbation No-Action rise**: P(Match) drops 0.4-24% ✓, P(No-Action) stays at 0
+3. ✅ **Task-specific subspaces** (location, identity): Cross-task off-diagonal ≪ diagonal
+4. ⚠️ **MTMF preserves all features**: Diagonal high ✓, off-diagonal varies
+5. ✅ **H2 Cross-stimulus shared encoding**: Supported — mean gen 0.23 → **0.60** once the class-index bug was fixed
+6. ✅ **Causal perturbation No-Action rise**: 12/18 cross the boundary; P(No-Action) → **0.86-1.00** in 10
 
 </v-clicks>
 
@@ -1004,7 +1119,7 @@ transition: fade-out
 
 <v-clicks>
 
-7. ✅ **Audit & fix** 4 bugs in the analysis pipeline (H2 mislabel, swap test, SVC convergence, sample warnings)
+7. ✅ **Two audits, 9 bugs fixed** — the second found a **class-index misalignment** that had faked two "divergences from the paper" (see next slide)
 8. ✅ **Task-guided attention** improves MTMF by +11% train, +12% angle, +11% identity
 9. ✅ **Re-ran all 18 experiments** with fixed code — results in `analysis_results/`
 10. ✅ **Open-sourced** the audit findings (`docs/ANALYSIS_AUDIT_FINDINGS.md`)
@@ -1022,7 +1137,7 @@ transition: fade-out
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
 ### Implication
-Explicit attention complements RNN memory dynamics, but our models show more **stimulus-specific** encoding (H3-like) than the paper's claimed **shared encoding** (H2). Suggests attention improves task performance without changing the underlying representation strategy.
+Explicit attention complements RNN memory dynamics **without changing the underlying representation strategy** — our models reproduce the paper's shared-encoding geometry (H2) once the analysis code is correct. The apparent divergence we first reported was a **class-index misalignment in our own pipeline**, and the discipline that caught it — an accuracy *below chance* is impossible, so suspect the code — is itself a transferable result.
 
 </div>
 
