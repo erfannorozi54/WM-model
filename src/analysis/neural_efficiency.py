@@ -56,7 +56,17 @@ TASK_CHOICES = ["location", "identity", "category", "any"]
 FANO_CAVEAT = (
     "Computed on |hidden_state| (rectified), not the literal spike-count Fano factor: "
     "GRU/LSTM/RNN hidden states are signed (tanh-bounded), so Var/Mean on the raw signed "
-    "value is unstable whenever the mean crosses zero. Treat as a functional analogue only."
+    "value is unstable whenever the mean crosses zero. Treat as a functional analogue only. "
+    "It is also SCALE-DEPENDENT (unlike the count-based Fano factor, which is dimensionless): "
+    "scaling all activity by c scales this by c, so it is not directly comparable between two "
+    "conditions that differ in activation magnitude. Read 'cv_squared' alongside it."
+)
+DIMENSIONALITY_CAVEAT = (
+    "participation_ratio measures the effective dimensionality of the POPULATION response; it "
+    "is not a measure of single-unit tuning width. Constantinidis & Klingberg's training result "
+    "is about per-neuron selectivity (which they report gets BROADER, alongside more neurons "
+    "recruited) - that is a different quantity and does not translate into a directional "
+    "prediction for PR. Do not grade PR as confirming or contradicting that review."
 )
 MAGNITUDE_CAVEAT = (
     "RNN hidden-state L2 norm is not literally a BOLD or spike-rate signal; treat as a "
@@ -190,6 +200,19 @@ def fano_factor_analogue(X_groups: List[np.ndarray], min_group_size: int = 3) ->
     analogue to "repeated presentations of the same condition" for a dataset
     with no literal stimulus repeats. Groups smaller than min_group_size are
     skipped (variance estimates from <3 trials are not meaningful).
+
+    Variance uses ddof=1. With ddof=0 (numpy's default) a group of size g
+    underestimates the variance by a factor (g-1)/g - a 33% downward bias at
+    the min_group_size=3 floor - so two conditions with different group sizes
+    would differ on this metric for purely arithmetic reasons.
+
+    NOTE ON SCALE: unlike the textbook Fano factor (dimensionless for counts),
+    Var/Mean on a continuous signal scales linearly with the activity scale:
+    multiply every activation by c and this metric multiplies by c. Two
+    conditions that differ in activation magnitude - which is exactly what the
+    magnitude metric above measures - are therefore NOT directly comparable on
+    this number alone. Use coefficient_of_variation_squared() for the
+    scale-invariant version of the same "relative variability" claim.
     """
     ratios = []
     for X in X_groups:
@@ -197,11 +220,37 @@ def fano_factor_analogue(X_groups: List[np.ndarray], min_group_size: int = 3) ->
             continue
         abs_x = np.abs(X)
         mean = abs_x.mean(axis=0)
-        var = abs_x.var(axis=0)
+        var = abs_x.var(axis=0, ddof=1)
         valid = mean > 1e-6
         if not np.any(valid):
             continue
         ratios.append(var[valid] / mean[valid])
+    if not ratios:
+        return float("nan")
+    return float(np.concatenate(ratios).mean())
+
+
+def coefficient_of_variation_squared(X_groups: List[np.ndarray], min_group_size: int = 3) -> float:
+    """Scale-invariant companion to fano_factor_analogue: mean of Var(|h|)/Mean(|h|)^2.
+
+    Multiplying every activation by a constant leaves this unchanged, so it
+    isolates "is the response more variable relative to its own size" from
+    "is the response smaller." That separation matters here because the
+    magnitude metric already reports a large scale difference between the two
+    conditions being compared - any Var/Mean difference is partly that scale
+    difference re-expressed, and this metric is the part that isn't.
+    """
+    ratios = []
+    for X in X_groups:
+        if X.shape[0] < min_group_size:
+            continue
+        abs_x = np.abs(X)
+        mean = abs_x.mean(axis=0)
+        var = abs_x.var(axis=0, ddof=1)
+        valid = mean > 1e-6
+        if not np.any(valid):
+            continue
+        ratios.append(var[valid] / (mean[valid] ** 2))
     if not ratios:
         return float("nan")
     return float(np.concatenate(ratios).mean())
@@ -364,12 +413,37 @@ def compare_cell(
 
     groups_a = fano_groups_for_cell(payloads_a, task_index=task_index, n_value=n_value)
     groups_b = fano_groups_for_cell(payloads_b, task_index=task_index, n_value=n_value)
+    used_a = [g for g in groups_a if g.shape[0] >= 3]
+    used_b = [g for g in groups_b if g.shape[0] >= 3]
     result["fano_factor_analogue"] = {
         "a": fano_factor_analogue(groups_a),
         "b": fano_factor_analogue(groups_b),
         "n_groups_a": len(groups_a),
         "n_groups_b": len(groups_b),
+        # Groups below min_group_size are dropped, so the counts above overstate
+        # what actually entered the estimate; report both.
+        "n_groups_used_a": len(used_a),
+        "n_groups_used_b": len(used_b),
+        "mean_group_size_a": float(np.mean([g.shape[0] for g in used_a])) if used_a else float("nan"),
+        "mean_group_size_b": float(np.mean([g.shape[0] for g in used_b])) if used_b else float("nan"),
     }
+    result["cv_squared"] = {
+        "a": coefficient_of_variation_squared(groups_a),
+        "b": coefficient_of_variation_squared(groups_b),
+    }
+
+    # PR and threshold-based sparsity are both estimated from a finite sample and
+    # both grow with the number of trials on identical data (PR because more
+    # samples reveal more of the covariance spectrum; sparsity because a unit's
+    # own max, which sets the threshold, grows with the sample). Comparing them
+    # across conditions is only meaningful at matched trial counts.
+    if result["n_trials_a"] != result["n_trials_b"]:
+        result["trial_count_warning"] = (
+            f"Unequal trial counts ({result['n_trials_a']} vs {result['n_trials_b']}): "
+            "participation_ratio and population_sparsity are both biased upward by "
+            "sample size, so their between-condition difference is confounded here. "
+            "activation_magnitude and cv_squared are unaffected."
+        )
 
     return result
 
@@ -430,7 +504,11 @@ def run_neural_efficiency_analysis(
         "label_a": label_a, "label_b": label_b,
         "hidden_root_a": str(hidden_root_a), "hidden_root_b": str(hidden_root_b),
         "epoch_a": epoch_a, "epoch_b": epoch_b, "split": split,
-        "caveats": {"activation_magnitude": MAGNITUDE_CAVEAT, "fano_factor_analogue": FANO_CAVEAT},
+        "caveats": {
+            "activation_magnitude": MAGNITUDE_CAVEAT,
+            "fano_factor_analogue": FANO_CAVEAT,
+            "participation_ratio": DIMENSIONALITY_CAVEAT,
+        },
         "cells": cells,
         "magnitude_over_time": curves,
     }

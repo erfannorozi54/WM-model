@@ -179,14 +179,32 @@ def gate_suppression_index(
     mean_gate_per_channel = X_gates.mean(axis=0)
     corr = float(np.corrcoef(mean_gate_per_channel, contrast)[0, 1]) if H > 1 and contrast.std() > 1e-12 else float("nan")
 
-    return {
+    # In 'task_only' mode the gate is a pure function of the task vector, so every
+    # trial in a (task, n) cell from a single checkpoint carries an IDENTICAL gate
+    # vector. Resampling trials then cannot move the statistic, and the bootstrap
+    # CI collapses to zero width - which looks like a precise estimate but carries
+    # no information. Detect and say so rather than reporting a vacuous interval.
+    n_distinct_gates = len({row.tobytes() for row in np.ascontiguousarray(X_gates)})
+    ci_degenerate = bool(n_distinct_gates <= 1 or (np.isfinite(lo) and np.isfinite(hi) and hi - lo < 1e-12))
+
+    result = {
         "task": relevant_property, "n": n_value,
         "n_trials": int(X_gates.shape[0]), "n_channels": int(H),
+        "n_distinct_gate_vectors": n_distinct_gates,
         "top_frac": top_frac, "k": int(k),
         "suppression_index": {"point": point, "ci_lo": lo, "ci_hi": hi},
         "gate_relevance_correlation": corr,
+        "ci_degenerate": ci_degenerate,
         "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
     }
+    if ci_degenerate:
+        result["ci_warning"] = (
+            "Trial-level bootstrap CI is degenerate: the gate does not vary across the "
+            "resampled trials (expected for attention_mode='task_only', where the gate "
+            "depends only on the task vector). Treat the interval as uninformative - "
+            "uncertainty here lives across channels, checkpoints and seeds, not trials."
+        )
+    return result
 
 
 def compare_gate_suppression(
@@ -216,6 +234,21 @@ def compare_gate_suppression(
     if not payloads_b:
         raise RuntimeError(f"No payloads found under {hidden_root_b} (epoch={epoch_b}, split={split})")
 
+    # Pooling epochs is a decisive confound for this particular comparison: a
+    # from-scratch run contributes many early checkpoints whose gates are still
+    # near their initialization, while a short fine-tune-from-proxy run
+    # contributes only already-converged ones. The resulting "sharper gating
+    # after proxy pretraining" would then be a statement about the two training
+    # trajectories, not about the two trained models.
+    epochs_pooled = epoch_a is None or epoch_b is None
+    if epochs_pooled:
+        print(
+            "  ! WARNING: epoch_a and/or epoch_b is None, so every saved epoch is pooled.\n"
+            "    Condition A and condition B will contribute checkpoints of different\n"
+            "    maturity, and the accuracy match between them (if any) does not apply.\n"
+            "    Pass --epoch_a/--epoch_b to compare specific, accuracy-matched checkpoints."
+        )
+
     cells = []
     for ti in task_indices:
         for nv in n_values:
@@ -233,10 +266,17 @@ def compare_gate_suppression(
         "label_a": label_a, "label_b": label_b,
         "hidden_root_a": str(hidden_root_a), "hidden_root_b": str(hidden_root_b),
         "epoch_a": epoch_a, "epoch_b": epoch_b, "split": split, "top_frac": top_frac,
+        "epochs_pooled": epochs_pooled,
         "caveat": (
             "Relevance ranking is computed independently per condition (see module docstring): "
             "only the scalar suppression_index values are compared across a/b, not raw channel indices."
         ),
+        **({"epoch_warning": (
+            "epoch_a and/or epoch_b was None: results pool every saved checkpoint of each run. "
+            "A from-scratch run contributes near-initialization gates that a short fine-tune run "
+            "does not, so any a/b difference reported here is confounded with training maturity "
+            "and is NOT accuracy-matched."
+        )} if epochs_pooled else {}),
         "cells": cells,
     }
 

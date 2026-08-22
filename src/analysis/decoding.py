@@ -95,8 +95,9 @@ def evaluate(
     train_n: Optional[List[int]],
     test_n: Optional[List[int]],
     epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
-    payloads = load_payloads(Path(hidden_root), epochs=epochs)
+    payloads = load_payloads(Path(hidden_root), epochs=epochs, split=split)
 
     # Build train matrix
     ti = _task_name_to_index(train_task)

@@ -44,6 +44,9 @@ def compare_decoding(
     test_times: List[int],
     task: Optional[str] = None,
     n_value: Optional[int] = None,
+    baseline_epochs: Optional[List[int]] = None,
+    attention_epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compare decoding performance between baseline and attention models.
@@ -72,6 +75,8 @@ def compare_decoding(
         test_task=task,
         train_n=[n_value] if n_value else None,
         test_n=[n_value] if n_value else None,
+        epochs=baseline_epochs,
+        split=split,
     )
     
     # Attention model
@@ -84,6 +89,8 @@ def compare_decoding(
         test_task=task,
         train_n=[n_value] if n_value else None,
         test_n=[n_value] if n_value else None,
+        epochs=attention_epochs,
+        split=split,
     )
     
     # Extract accuracies
@@ -98,12 +105,26 @@ def compare_decoding(
         else:
             improvements[t] = None
     
+    # Chance level, so a "decodability dropped" read can be checked against the
+    # floor rather than only against the other model (identity pools ~72 classes
+    # across both splits, so chance is ~1.4%, not 50%).
+    n_classes_baseline = len(baseline_result.get('classes') or {})
+    n_classes_attention = len(attention_result.get('classes') or {})
+
     return {
         'property': property_name,
         'train_time': train_time,
         'test_times': test_times,
         'baseline_accuracies': baseline_accs,
         'attention_accuracies': attention_accs,
+        'n_classes_baseline': n_classes_baseline,
+        'n_classes_attention': n_classes_attention,
+        'chance_baseline': 1.0 / n_classes_baseline if n_classes_baseline else None,
+        'chance_attention': 1.0 / n_classes_attention if n_classes_attention else None,
+        'note_train_time': (
+            f"test_times includes train_time={train_time}; that entry is in-sample "
+            "(same rows the decoder was fit on) and is not a held-out score."
+        ),
         'improvements': improvements,
         'mean_baseline': np.mean([v for v in baseline_accs.values() if v is not None]),
         'mean_attention': np.mean([v for v in attention_accs.values() if v is not None]),
@@ -118,6 +139,9 @@ def compare_orthogonalization(
     time: int,
     task: Optional[str] = None,
     n_value: Optional[int] = None,
+    baseline_epochs: Optional[List[int]] = None,
+    attention_epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compare orthogonalization indices between models.
@@ -142,6 +166,8 @@ def compare_orthogonalization(
         time=time,
         task=task,
         n_value=n_value,
+        epochs=baseline_epochs,
+        split=split,
     )
     
     # Attention model
@@ -151,6 +177,8 @@ def compare_orthogonalization(
         time=time,
         task=task,
         n_value=n_value,
+        epochs=attention_epochs,
+        split=split,
     )
     
     return {
@@ -172,6 +200,9 @@ def compare_procrustes(
     target_time: int,
     task: Optional[str] = None,
     n_value: Optional[int] = None,
+    baseline_epochs: Optional[List[int]] = None,
+    attention_epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compare Procrustes analysis between models.
@@ -198,6 +229,8 @@ def compare_procrustes(
         target_time=target_time,
         task=task,
         n_value=n_value,
+        epochs=baseline_epochs,
+        split=split,
     )
     
     # Attention model
@@ -208,6 +241,8 @@ def compare_procrustes(
         target_time=target_time,
         task=task,
         n_value=n_value,
+        epochs=attention_epochs,
+        split=split,
     )
     
     return {
@@ -231,6 +266,9 @@ def compare_swap_test(
     k_offset: int = 1,
     task: Optional[str] = None,
     n_value: Optional[int] = None,
+    baseline_epochs: Optional[List[int]] = None,
+    attention_epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compare swap hypothesis test between models.
@@ -257,6 +295,8 @@ def compare_swap_test(
         k_offset=k_offset,
         task=task,
         n_value=n_value,
+        epochs=baseline_epochs,
+        split=split,
     )
     
     # Attention model
@@ -267,6 +307,8 @@ def compare_swap_test(
         k_offset=k_offset,
         task=task,
         n_value=n_value,
+        epochs=attention_epochs,
+        split=split,
     )
     
     return {
@@ -292,12 +334,35 @@ def compare_swap_test(
     }
 
 
+def find_best_epoch(hidden_root: Path, metric: str = "val_novel_identity_acc") -> Optional[int]:
+    """Best epoch for an experiment, read from its training_log.json.
+
+    Mirrors ComprehensiveAnalysis._find_best_epoch so this tool selects the same
+    checkpoint the single-model pipeline reports on. Returns None if the log is
+    missing or unreadable, in which case the caller falls back to all epochs.
+    """
+    log_path = Path(hidden_root).parent / "training_log.json"
+    if not log_path.exists():
+        return None
+    try:
+        with open(log_path) as f:
+            log = json.load(f)
+        if not log:
+            return None
+        return int(max(log, key=lambda x: x.get(metric, 0))["epoch"])
+    except (KeyError, IndexError, ValueError, TypeError):
+        return None
+
+
 def comprehensive_comparison(
     baseline_root: Path,
     attention_root: Path,
     property_name: str = 'identity',
     task: Optional[str] = None,
     n_value: Optional[int] = None,
+    baseline_epochs: Optional[List[int]] = None,
+    attention_epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run comprehensive comparison across all analyses.
@@ -320,13 +385,24 @@ def comprehensive_comparison(
     print(f"Property: {property_name}")
     print(f"Task: {task or 'all'}")
     print(f"N-back: {n_value or 'all'}")
-    
+    print(f"Baseline epochs: {baseline_epochs or 'ALL (pooled across training)'}")
+    print(f"Attention epochs: {attention_epochs or 'ALL (pooled across training)'}")
+    print(f"Split: {split or 'all'}")
+    if baseline_epochs is None or attention_epochs is None:
+        print("  ! Pooling every saved epoch mixes untrained early checkpoints into the\n"
+              "    comparison and does not match the two runs' training trajectories.\n"
+              "    Pass --best_epoch (or --epochs) for a checkpoint-matched comparison.")
+
     results = {
         'baseline_root': str(baseline_root),
         'attention_root': str(attention_root),
         'property': property_name,
         'task': task,
         'n_value': n_value,
+        'baseline_epochs': baseline_epochs,
+        'attention_epochs': attention_epochs,
+        'split': split,
+        'epochs_pooled': baseline_epochs is None or attention_epochs is None,
     }
     
     # 1. Decoding comparison
@@ -341,11 +417,19 @@ def comprehensive_comparison(
             test_times=[2, 3, 4, 5],
             task=task,
             n_value=n_value,
+            baseline_epochs=baseline_epochs,
+            attention_epochs=attention_epochs,
+            split=split,
         )
         results['decoding'] = decoding_comp
         print(f"  Mean baseline accuracy: {decoding_comp['mean_baseline']:.3f}")
         print(f"  Mean attention accuracy: {decoding_comp['mean_attention']:.3f}")
         print(f"  Mean improvement: {decoding_comp['mean_improvement']:+.3f}")
+        if decoding_comp['chance_baseline'] is not None:
+            print(f"  Chance level: {decoding_comp['chance_baseline']:.4f} "
+                  f"({decoding_comp['n_classes_baseline']} classes, baseline) / "
+                  f"{decoding_comp['chance_attention']:.4f} "
+                  f"({decoding_comp['n_classes_attention']} classes, attention)")
     except Exception as e:
         print(f"  ✗ Decoding comparison failed: {e}")
         results['decoding'] = None
@@ -361,6 +445,9 @@ def comprehensive_comparison(
             time=3,
             task=task,
             n_value=n_value,
+            baseline_epochs=baseline_epochs,
+            attention_epochs=attention_epochs,
+            split=split,
         )
         results['orthogonalization'] = ortho_comp
         print(f"  Baseline O-index: {ortho_comp['baseline_orthogonalization']:.3f}")
@@ -382,6 +469,9 @@ def comprehensive_comparison(
             target_time=3,
             task=task,
             n_value=n_value,
+            baseline_epochs=baseline_epochs,
+            attention_epochs=attention_epochs,
+            split=split,
         )
         results['procrustes'] = procrustes_comp
         print(f"  Baseline disparity: {procrustes_comp['baseline_disparity']:.4f}")
@@ -404,6 +494,9 @@ def comprehensive_comparison(
             k_offset=1,
             task=task,
             n_value=n_value,
+            baseline_epochs=baseline_epochs,
+            attention_epochs=attention_epochs,
+            split=split,
         )
         results['swap_test'] = swap_comp
         print(f"  Baseline hypothesis confirmed: {swap_comp['baseline']['hypothesis_confirmed']}")
@@ -469,12 +562,43 @@ def main():
         default="results/comparison",
         help="Output directory for results"
     )
-    
+    parser.add_argument(
+        "--best_epoch",
+        action="store_true",
+        help="Restrict each model to its own best epoch (highest val_novel_identity_acc "
+             "in its training_log.json). Without this, every saved epoch is pooled, "
+             "which mixes untrained early checkpoints into the comparison."
+    )
+    parser.add_argument(
+        "--baseline_epochs", type=int, nargs="*", default=None,
+        help="Explicit epochs for the baseline model (overrides --best_epoch)"
+    )
+    parser.add_argument(
+        "--attention_epochs", type=int, nargs="*", default=None,
+        help="Explicit epochs for the attention model (overrides --best_epoch)"
+    )
+    parser.add_argument(
+        "--split", type=str, default=None,
+        choices=["val_novel_angle", "val_novel_identity"],
+        help="Restrict to one validation split (default: pool both)"
+    )
+
     args = parser.parse_args()
-    
+
     baseline_root = Path(args.baseline)
     attention_root = Path(args.attention)
     output_dir = Path(args.output_dir)
+
+    baseline_epochs, attention_epochs = args.baseline_epochs, args.attention_epochs
+    if args.best_epoch:
+        if baseline_epochs is None:
+            be = find_best_epoch(baseline_root)
+            baseline_epochs = [be] if be is not None else None
+            print(f"Baseline best epoch: {be}")
+        if attention_epochs is None:
+            ae = find_best_epoch(attention_root)
+            attention_epochs = [ae] if ae is not None else None
+            print(f"Attention best epoch: {ae}")
     
     # Check paths exist
     if not baseline_root.exists():
@@ -492,6 +616,9 @@ def main():
         property_name=args.property,
         task=args.task,
         n_value=args.n,
+        baseline_epochs=baseline_epochs,
+        attention_epochs=attention_epochs,
+        split=args.split,
     )
     
     # Save results

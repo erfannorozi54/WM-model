@@ -249,3 +249,122 @@ classes chance is 0.014, so the old "collapses to 1-6%" was partly *at* chance.
    statement about the encoder, not about task-relevance gating.
 4. **Analysis 5 only runs `model.classifier`**, not the recurrent step — already
    noted in the deck, still true.
+
+---
+
+# Third Audit (2026-08-16): Neural-Efficiency Chapter (Levels 1–3)
+
+Scope: the second half of `slidev-presentation/slides.md` — the chapter graded
+against **Poppenk, Moscovitch & McIntosh (2016)** and **Constantinidis &
+Klingberg (2016)** — plus `neural_efficiency.py`, `gate_suppression.py`,
+`compare_models.py`. The trigger was the same question as the first two audits:
+*are the places where our results disagree with the papers real, or artifacts?*
+
+**Headline: the two ❌ rows in the Level 2 table are not both real.** One of them
+grades our result against a prediction that was derived with the sign flipped
+from what the review actually reports; the other survives, and is in fact
+understated. Separately, the Level 3 headline result is confounded by an
+unfiltered epoch pool, and Level 1 was never run on a trained checkpoint.
+
+## A. Mis-derived reference predictions (comparison errors, not code bugs)
+
+| Level 2 row | Deck said | Actually |
+|---|---|---|
+| Activation magnitude ↓ | "✅ matches" under a **vs. Reference 2** column | Matches **Reference 1** (Poppenk). Reference 2 §4 reports the *opposite* for single neurons — more PFC neurons recruited, mean firing rate *up*. The column header grades all four rows against Ref 2 while the cell text cites Ref 1. |
+| Population sparsity ↑ | "✅ matches" vs. Reference 2 | Neither reference predicts sparsity. "Efficient ⇒ sparser" is our own assumption (`FUTURE_WORK` §4.3 item 3). Ref 2's "more neurons recruited" argues for *less* sparse. |
+| Participation ratio ↑ | "❌ opposite of prediction" | **The prediction is unsound; withdraw the ❌.** `PAPER_EXPLAINED_CONSTANTINIDIS_KLINGBERG_2016.md` §8 derived "lower PR" from "sharpened tuning", but §4 of the same document reports tuning gets **broader** after training. And PR is a *population* effective-dimensionality measure, not a *single-unit* tuning-width measure — more neurons recruited and a newly multiplexed rule signal push PR up, redundant broad tuning pushes it down, so the review makes no determinate PR prediction. |
+| Fano analogue ↑ | "❌ opposite of prediction" | **Real, and understated.** Ref 2 does cleanly predict lower Fano. Moreover `Var/Mean` on a continuous signal scales *linearly* with activity magnitude, and the proxy condition has *lower* magnitude — so a pure scale effect would have pushed this metric *down*. Observing it go *up* anyway means the scale-invariant CV² moves further still. |
+
+Net: **Level 2 has one genuine contradiction with the literature (Fano), not
+two**, and the magnitude/sparsity ✅s should be re-attributed to Reference 1 /
+to our own assumption respectively.
+
+To actually test Reference 2's tuning claim you need a **per-unit selectivity**
+metric (per-hidden-unit decoding accuracy, or a selectivity index across
+stimulus conditions); the prediction there is that selectivity gets *broader*.
+Not implemented, not run.
+
+## B. Estimator biases, verified numerically
+
+Same underlying distribution in every row below — all differences are estimator
+artifacts (`/home/erfan/.claude/jobs/6028ae81/tmp/metric_bias_check.py`):
+
+| Metric | N=50 | N=400 | N=1600 | Consequence |
+|---|---:|---:|---:|---|
+| `participation_ratio` | 14.4 | 20.0 | 20.7 | +44% from sample size alone |
+| `population_sparsity` | 0.099 | 0.126 | 0.141 | +42% from sample size alone |
+
+`fano_factor_analogue` used `np.var(..., ddof=0)`, which underestimates variance
+by `(g-1)/g` — a **33% downward bias** at the `min_group_size=3` floor, and a
+bias that differs between conditions whenever their group sizes differ.
+
+**Before quoting the PR or sparsity rows, check `n_trials_a == n_trials_b` in
+`neural_efficiency.json`.** The code now emits `trial_count_warning` when they
+differ. Magnitude and CV² are unaffected by both biases.
+
+## C. Level 3 (the headline) is not accuracy-matched as the deck claims
+
+The `gate_suppression.py` command in `EXECUTION_PLAN_NEURAL_EFFICIENCY.md` §3/§4
+passes **no `--epoch_a`/`--epoch_b`**, so `load_payloads(epochs=None)` pooled
+*every saved epoch* of both runs. Condition A (`wm_attention_mtmf_20260726_161735`)
+is a from-scratch run contributing many near-initialization checkpoints;
+condition B (`finetune_proxy_wm_attention_mtmf_20260726_201707`) is a short
+fine-tune contributing only already-converged ones. "Attention+proxy gates more
+sharply, 9/9 cells" is therefore partly a statement about **training maturity**,
+not about the two trained models.
+
+The "93.43% vs 93.51%" accuracy match quoted on the Level 3 slide was selected
+by `select_matched_epoch` for the **Level 2** run and does **not** transfer to
+Level 3 as executed.
+
+**Verify in one command:** `epoch_a` / `epoch_b` in
+`analysis_results/gate_suppression_mtmf/gate_suppression.json` should be `null`.
+Re-run with explicit epochs (ep43 vs ep1) before the claim can stand.
+
+Related: both models are `attention_mode: "task_only"`, so the gate is a pure
+function of the task vector — every trial in a `(task, n)` cell from one
+checkpoint carries an **identical** gate vector. The trial-level bootstrap CI is
+therefore zero-width and carries no information; epoch pooling was the only
+thing injecting variability into it, which is the confound itself. The code now
+reports `n_distinct_gate_vectors` / `ci_degenerate` / `ci_warning`.
+
+## D. Level 1 was never run on a trained checkpoint
+
+`compare_models.py` called `decoding_evaluate` / `orthogonalization_evaluate` /
+`procrustes_analysis` / `swap_hypothesis_test` **without `epochs=` or `split=`**
+— the same class of bug as gotcha 1, in the one tool that had no way to filter.
+The reported "identity decodability 14.6/12.0/10.1% → 7.2/6.5/5.9%" is averaged
+over each run's entire training trajectory and over both validation splits.
+
+Also on Level 1:
+- **No chance level reported.** Pooling both splits gives ~72 identity classes,
+  so chance ≈ **1.4%**. Both models are above chance, so the direction survives
+   — but the deck should state the floor, per the discipline adopted for
+  Analysis 4 H1 in the second audit.
+- **`--task` was not passed**, so all three task contexts are pooled. In MTMF,
+  identity is the *task-relevant* feature on a third of trials, which dilutes an
+  "irrelevant-feature suppression" claim. Use `--task location` / `--task
+  category` for a clean test.
+- `test_times` includes `train_time=2`; that entry is in-sample, not held out.
+  The deck correctly omits it; the JSON now labels it.
+
+## Fixes applied
+
+| File | Change |
+|---|---|
+| `neural_efficiency.py` | `ddof=1` in the Fano analogue; new `coefficient_of_variation_squared()` (scale-invariant); `n_groups_used_*` / `mean_group_size_*`; `trial_count_warning` on unequal N; `DIMENSIONALITY_CAVEAT` for PR |
+| `gate_suppression.py` | epoch-pooling warning (stdout + `epochs_pooled` / `epoch_warning` in JSON); `n_distinct_gate_vectors`, `ci_degenerate`, `ci_warning` |
+| `compare_models.py` | `--best_epoch` / `--baseline_epochs` / `--attention_epochs` / `--split`; per-model epoch plumbing through all four sub-analyses; chance level + class counts in the decoding output; in-sample `train_time` note |
+| `decoding.py`, `orthogonalization.py`, `procrustes.py` | `split=` parameter plumbed to `load_payloads` (was unreachable from these entry points) |
+| `PAPER_EXPLAINED_CONSTANTINIDIS_KLINGBERG_2016.md` §8 | rewritten: states which single prediction the review licenses (Fano ↓) and why the magnitude and PR predictions were wrong |
+| `FUTURE_WORK_NEURAL_EFFICIENCY.md` §4.3 | items 2/3/4 corrected (PR ungraded + N-biased; sparsity is our assumption; Fano needs ddof=1 + CV²) |
+
+## Re-runs required before the chapter's numbers can be quoted
+
+1. **Level 3** — `gate_suppression.py` with `--epoch_a 43 --epoch_b 1` (the
+   accuracy-matched pair). This is the headline result; it is the priority.
+2. **Level 1** — `compare_models.py --best_epoch --split val_novel_identity
+   --task location` (and `--task category`), for a trained-checkpoint,
+   irrelevant-feature-only comparison.
+3. **Level 2** — re-run for `cv_squared` and the corrected Fano; check
+   `n_trials_a == n_trials_b` before quoting PR/sparsity.

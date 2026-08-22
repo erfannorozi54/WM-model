@@ -175,6 +175,7 @@ def procrustes_analysis(
     task: Optional[str] = None,
     n_value: Optional[int] = None,
     epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Perform Procrustes analysis between two time points.
@@ -187,11 +188,12 @@ def procrustes_analysis(
         task: Task context filter
         n_value: N-back value filter
         epochs: Specific epochs to analyze
-    
+        split: Validation split filter (None for all)
+
     Returns:
         Dictionary with rotation matrix, disparity, and reconstruction accuracy
     """
-    payloads = load_payloads(Path(hidden_root), epochs=epochs)
+    payloads = load_payloads(Path(hidden_root), epochs=epochs, split=split)
     ti = _task_name_to_index(task)
     
     # Build both matrices in one class space. Weights are keyed by class index
@@ -349,6 +351,7 @@ def swap_hypothesis_test(
     task: Optional[str] = None,
     n_value: Optional[int] = None,
     epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Test chronological memory subspace hypothesis using rotation matrix swaps.
@@ -381,11 +384,12 @@ def swap_hypothesis_test(
         task: Task context filter (location/identity/category or None for all)
         n_value: N-back value filter (1/2/3 or None for all)
         epochs: Specific epochs to analyze (None for all)
+        split: Validation split filter (None for all)
 
     Returns:
         Dictionary with reconstruction accuracies and disparities
     """
-    payloads = load_payloads(Path(hidden_root), epochs=epochs)
+    payloads = load_payloads(Path(hidden_root), epochs=epochs, split=split)
     ti = _task_name_to_index(task)
 
     # Use location (4 fixed classes) for label alignment between groups.

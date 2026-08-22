@@ -103,8 +103,9 @@ def evaluate(
     task: Optional[str],
     n_value: Optional[int],
     epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
 ) -> Dict[str, Any]:
-    payloads = load_payloads(Path(hidden_root), epochs=epochs)
+    payloads = load_payloads(Path(hidden_root), epochs=epochs, split=split)
     ti = _task_name_to_index(task)
     X, y, label2idx = build_matrix(payloads, property_name, time=time, task_index=ti, n_value=n_value)
     if X.numel() == 0:
