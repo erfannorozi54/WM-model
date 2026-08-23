@@ -1,0 +1,92 @@
+{
+  "baseline_root": "experiments/wm_mtmf_20260520_140601/hidden_states",
+  "attention_root": "experiments/wm_attention_mtmf_20260520_203605/hidden_states",
+  "property": "identity",
+  "task": "category",
+  "n_value": null,
+  "baseline_epochs": [
+    17
+  ],
+  "attention_epochs": [
+    25
+  ],
+  "split": "val_novel_identity",
+  "epochs_pooled": false,
+  "decoding": {
+    "property": "identity",
+    "train_time": 2,
+    "test_times": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "baseline_accuracies": {
+      "2": 1.0,
+      "3": 0.20454545454545456,
+      "4": 0.1590909090909091,
+      "5": 0.1590909090909091
+    },
+    "attention_accuracies": {
+      "2": 1.0,
+      "3": 0.15384615384615385,
+      "4": 0.19230769230769232,
+      "5": 0.16541353383458646
+    },
+    "n_classes_baseline": 32,
+    "n_classes_attention": 30,
+    "chance_baseline": 0.03125,
+    "chance_attention": 0.03333333333333333,
+    "note_train_time": "test_times includes train_time=2; that entry is in-sample (same rows the decoder was fit on) and is not a held-out score.",
+    "improvements": {
+      "2": 0.0,
+      "3": -0.0506993006993007,
+      "4": 0.03321678321678323,
+      "5": 0.006322624743677369
+    },
+    "mean_baseline": 0.38068181818181823,
+    "mean_attention": 0.37789184499710815,
+    "mean_improvement": -0.002789973184710026
+  },
+  "orthogonalization": {
+    "property": "identity",
+    "time": 3,
+    "baseline_orthogonalization": 0.9438963883837513,
+    "attention_orthogonalization": 0.9439996332765421,
+    "improvement": 0.00010324489279078808,
+    "baseline_n_classes": 32,
+    "attention_n_classes": 32
+  },
+  "procrustes": {
+    "property": "identity",
+    "source_time": 2,
+    "target_time": 3,
+    "baseline_disparity": 30.799211210232176,
+    "attention_disparity": 29.02348003371121,
+    "disparity_difference": 1.7757311765209671,
+    "baseline_reconstruction_acc": 1.0,
+    "attention_reconstruction_acc": 0.935251798561151,
+    "reconstruction_improvement": -0.06474820143884896
+  },
+  "swap_test": {
+    "property": "identity",
+    "encoding_time": 2,
+    "baseline": {
+      "correct_acc": 0.36363636363636365,
+      "swap1_acc": 0.2727272727272727,
+      "swap2_acc": 0.2,
+      "hypothesis_confirmed": false
+    },
+    "attention": {
+      "correct_acc": 0.32142857142857145,
+      "swap1_acc": 0.19642857142857142,
+      "swap2_acc": 0.19642857142857142,
+      "hypothesis_confirmed": false
+    },
+    "improvements": {
+      "correct": -0.042207792207792194,
+      "swap1": -0.07629870129870128,
+      "swap2": -0.0035714285714285865
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "baseline_root": "experiments/wm_mtmf_20260520_140601/hidden_states",
+  "attention_root": "experiments/wm_attention_mtmf_20260520_203605/hidden_states",
+  "property": "identity",
+  "task": "location",
+  "n_value": null,
+  "baseline_epochs": [
+    17
+  ],
+  "attention_epochs": [
+    25
+  ],
+  "split": "val_novel_identity",
+  "epochs_pooled": false,
+  "decoding": {
+    "property": "identity",
+    "train_time": 2,
+    "test_times": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "baseline_accuracies": {
+      "2": 1.0,
+      "3": 0.2846153846153846,
+      "4": 0.18045112781954886,
+      "5": 0.15267175572519084
+    },
+    "attention_accuracies": {
+      "2": 0.9925925925925926,
+      "3": 0.05343511450381679,
+      "4": 0.023255813953488372,
+      "5": 0.05303030303030303
+    },
+    "n_classes_baseline": 31,
+    "n_classes_attention": 31,
+    "chance_baseline": 0.03225806451612903,
+    "chance_attention": 0.03225806451612903,
+    "note_train_time": "test_times includes train_time=2; that entry is in-sample (same rows the decoder was fit on) and is not a held-out score.",
+    "improvements": {
+      "2": -0.007407407407407418,
+      "3": -0.2311802701115678,
+      "4": -0.1571953138660605,
+      "5": -0.0996414526948878
+    },
+    "mean_baseline": 0.40443456704003106,
+    "mean_attention": 0.2805784560200502,
+    "mean_improvement": -0.12385611101998087
+  },
+  "orthogonalization": {
+    "property": "identity",
+    "time": 3,
+    "baseline_orthogonalization": 0.9385370312067874,
+    "attention_orthogonalization": 0.945560001958627,
+    "improvement": 0.007022970751839552,
+    "baseline_n_classes": 31,
+    "attention_n_classes": 30
+  },
+  "procrustes": {
+    "property": "identity",
+    "source_time": 2,
+    "target_time": 3,
+    "baseline_disparity": 28.902764382010233,
+    "attention_disparity": 27.79468948777595,
+    "disparity_difference": 1.1080748942342815,
+    "baseline_reconstruction_acc": 0.9264705882352942,
+    "attention_reconstruction_acc": 0.8296296296296296,
+    "reconstruction_improvement": -0.09684095860566455
+  },
+  "swap_test": {
+    "property": "identity",
+    "encoding_time": 2,
+    "baseline": {
+      "correct_acc": 0.4067796610169492,
+      "swap1_acc": 0.3389830508474576,
+      "swap2_acc": 0.23728813559322035,
+      "hypothesis_confirmed": false
+    },
+    "attention": {
+      "correct_acc": 1.0,
+      "swap1_acc": 0.9696969696969697,
+      "swap2_acc": 0.9696969696969697,
+      "hypothesis_confirmed": false
+    },
+    "improvements": {
+      "correct": 0.5932203389830508,
+      "swap1": 0.6307139188495121,
+      "swap2": 0.7324088341037494
+    }
+  }
+}

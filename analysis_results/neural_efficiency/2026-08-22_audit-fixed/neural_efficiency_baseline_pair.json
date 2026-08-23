@@ -1,0 +1,781 @@
+{
+  "label_a": "baseline",
+  "label_b": "baseline_proxy_finetuned",
+  "hidden_root_a": "experiments/wm_mtmf_20260520_140601/hidden_states",
+  "hidden_root_b": "experiments/finetune_proxy_wm_mtmf_20260705_164908/hidden_states",
+  "epoch_a": 12,
+  "epoch_b": 1,
+  "split": "val_novel_identity",
+  "caveats": {
+    "activation_magnitude": "RNN hidden-state L2 norm is not literally a BOLD or spike-rate signal; treat as a functional analogy (facilitated processing -> suppressed representational magnitude), not a claim of biophysical equivalence.",
+    "fano_factor_analogue": "Computed on |hidden_state| (rectified), not the literal spike-count Fano factor: GRU/LSTM/RNN hidden states are signed (tanh-bounded), so Var/Mean on the raw signed value is unstable whenever the mean crosses zero. Treat as a functional analogue only. It is also SCALE-DEPENDENT (unlike the count-based Fano factor, which is dimensionless): scaling all activity by c scales this by c, so it is not directly comparable between two conditions that differ in activation magnitude. Read 'cv_squared' alongside it.",
+    "participation_ratio": "participation_ratio measures the effective dimensionality of the POPULATION response; it is not a measure of single-unit tuning width. Constantinidis & Klingberg's training result is about per-neuron selectivity (which they report gets BROADER, alongside more neurons recruited) - that is a different quantity and does not translate into a directional prediction for PR. Do not grade PR as confirming or contradicting that review."
+  },
+  "cells": [
+    {
+      "task": "location",
+      "n": 1,
+      "n_trials_a": 228,
+      "n_trials_b": 270,
+      "activation_magnitude": {
+        "a": [
+          14.229113578796387,
+          14.005953049659729,
+          14.442164015769958
+        ],
+        "b": [
+          12.871005058288574,
+          12.787394881248474,
+          12.951153755187988
+        ],
+        "difference": {
+          "diff": 1.3581085205078125,
+          "ci_lo": 1.1328580379486084,
+          "ci_hi": 1.5650876522064208,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          1.1872442960739136,
+          1.150286141037941,
+          1.2423749536275863
+        ],
+        "b": [
+          7.081331729888916,
+          6.620055937767029,
+          7.204570853710175
+        ],
+        "difference": {
+          "diff": -5.894087433815002,
+          "ci_lo": -6.00707334280014,
+          "ci_hi": -5.4399019360542304,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.005790844298245614,
+          0.004677220394736842,
+          0.006938733552631579
+        ],
+        "b": [
+          0.017809606481481482,
+          0.016767578125,
+          0.018880208333333332
+        ],
+        "difference": {
+          "diff": -0.012018762183235868,
+          "ci_lo": -0.01344093605324074,
+          "ci_hi": -0.010323112740618907,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.010909315198659897,
+        "b": 0.06494943052530289,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 9.5,
+        "mean_group_size_b": 11.25
+      },
+      "cv_squared": {
+        "a": 0.03355735167860985,
+        "b": 0.12394096702337265
+      },
+      "trial_count_warning": "Unequal trial counts (228 vs 270): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "location",
+      "n": 2,
+      "n_trials_a": 294,
+      "n_trials_b": 282,
+      "activation_magnitude": {
+        "a": [
+          13.78084659576416,
+          13.584649538993835,
+          13.970375633239746
+        ],
+        "b": [
+          12.071940422058105,
+          11.95619444847107,
+          12.17835807800293
+        ],
+        "difference": {
+          "diff": 1.7089061737060547,
+          "ci_lo": 1.4822952508926392,
+          "ci_hi": 1.949467897415161,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          1.3222076892852783,
+          1.2780453562736511,
+          1.3566738754510879
+        ],
+        "b": [
+          9.329629898071289,
+          8.465835857391358,
+          9.655139183998108
+        ],
+        "difference": {
+          "diff": -8.00742220878601,
+          "ci_lo": -8.323261526226997,
+          "ci_hi": -7.179387021064758,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.007878932823129252,
+          0.0067362882653061226,
+          0.00895514455782313
+        ],
+        "b": [
+          0.022883421985815604,
+          0.02160904255319149,
+          0.024143949468085107
+        ],
+        "difference": {
+          "diff": -0.015004489162686352,
+          "ci_lo": -0.016672447735743234,
+          "ci_hi": -0.013325498500597046,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.014020324684679508,
+        "b": 0.08762579411268234,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 12.25,
+        "mean_group_size_b": 11.75
+      },
+      "cv_squared": {
+        "a": 0.04237532243132591,
+        "b": 0.16495640575885773
+      },
+      "trial_count_warning": "Unequal trial counts (294 vs 282): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "location",
+      "n": 3,
+      "n_trials_a": 294,
+      "n_trials_b": 276,
+      "activation_magnitude": {
+        "a": [
+          13.227470397949219,
+          13.027052998542786,
+          13.415448307991028
+        ],
+        "b": [
+          11.407793998718262,
+          11.30349235534668,
+          11.515581321716308
+        ],
+        "difference": {
+          "diff": 1.819676399230957,
+          "ci_lo": 1.5915486574172975,
+          "ci_hi": 2.0194176912307737,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          1.4148776531219482,
+          1.354735505580902,
+          1.4771685689687728
+        ],
+        "b": [
+          8.438071250915527,
+          7.634215402603149,
+          8.810539388656617
+        ],
+        "difference": {
+          "diff": -7.023193597793579,
+          "ci_lo": -7.4244910866022105,
+          "ci_hi": -6.220641192793846,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.009832057823129252,
+          0.008782419217687075,
+          0.010975034545068025
+        ],
+        "b": [
+          0.027386209239130436,
+          0.025956394361413043,
+          0.02865998641304348
+        ],
+        "difference": {
+          "diff": -0.017554151416001182,
+          "ci_lo": -0.019278083176205264,
+          "ci_hi": -0.015769310866330228,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.017161360010504723,
+        "b": 0.08731768280267715,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 12.25,
+        "mean_group_size_b": 11.5
+      },
+      "cv_squared": {
+        "a": 0.053203776478767395,
+        "b": 0.1834087371826172
+      },
+      "trial_count_warning": "Unequal trial counts (294 vs 276): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "identity",
+      "n": 1,
+      "n_trials_a": 276,
+      "n_trials_b": 228,
+      "activation_magnitude": {
+        "a": [
+          12.664285659790039,
+          12.550695943832398,
+          12.779039072990418
+        ],
+        "b": [
+          12.387408256530762,
+          12.285186338424683,
+          12.483488368988038
+        ],
+        "difference": {
+          "diff": 0.27687740325927734,
+          "ci_lo": 0.1311441421508789,
+          "ci_hi": 0.4269116163253784,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          5.199287414550781,
+          4.7944131135940555,
+          5.400505983829498
+        ],
+        "b": [
+          9.628418922424316,
+          8.22405161857605,
+          10.299461126327515
+        ],
+        "difference": {
+          "diff": -4.429131507873535,
+          "ci_lo": -5.184327793121338,
+          "ci_hi": -3.1654662489891057,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.02212126358695652,
+          0.020550271739130436,
+          0.023678102355072464
+        ],
+        "b": [
+          0.020953262061403508,
+          0.01961691337719298,
+          0.022135844983552633
+        ],
+        "difference": {
+          "diff": 0.0011680015255530127,
+          "ci_lo": -0.0008239327088100717,
+          "ci_hi": 0.0033165880053394364,
+          "p_value": 0.252
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.06272180378437042,
+        "b": 0.07753162831068039,
+        "n_groups_a": 150,
+        "n_groups_b": 134,
+        "n_groups_used_a": 30,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 3.566666666666667,
+        "mean_group_size_b": 3.4166666666666665
+      },
+      "cv_squared": {
+        "a": 0.15131764113903046,
+        "b": 0.173272967338562
+      },
+      "trial_count_warning": "Unequal trial counts (276 vs 228): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "identity",
+      "n": 2,
+      "n_trials_a": 252,
+      "n_trials_b": 234,
+      "activation_magnitude": {
+        "a": [
+          12.339509010314941,
+          12.216891598701476,
+          12.467187809944154
+        ],
+        "b": [
+          11.596235275268555,
+          11.460836720466613,
+          11.722694325447083
+        ],
+        "difference": {
+          "diff": 0.7432737350463867,
+          "ci_lo": 0.5587466478347778,
+          "ci_hi": 0.9366292953491211,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.680546760559082,
+          6.171540486812592,
+          6.885372364521027
+        ],
+        "b": [
+          8.510361671447754,
+          7.453190803527832,
+          9.201739239692689
+        ],
+        "difference": {
+          "diff": -1.8298149108886719,
+          "ci_lo": -2.681401586532592,
+          "ci_hi": -0.8774989843368534,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.02179439484126984,
+          0.02015051463293651,
+          0.023422386532738097
+        ],
+        "b": [
+          0.026392227564102564,
+          0.02478924612713675,
+          0.027862496661324787
+        ],
+        "difference": {
+          "diff": -0.004597832722832724,
+          "ci_lo": -0.006977861006181318,
+          "ci_hi": -0.0023877191601801,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.08252736181020737,
+        "b": 0.08795439451932907,
+        "n_groups_a": 143,
+        "n_groups_b": 142,
+        "n_groups_used_a": 21,
+        "n_groups_used_b": 23,
+        "mean_group_size_a": 3.761904761904762,
+        "mean_group_size_b": 3.1739130434782608
+      },
+      "cv_squared": {
+        "a": 0.1766490489244461,
+        "b": 0.20661242306232452
+      },
+      "trial_count_warning": "Unequal trial counts (252 vs 234): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "identity",
+      "n": 3,
+      "n_trials_a": 264,
+      "n_trials_b": 282,
+      "activation_magnitude": {
+        "a": [
+          12.045059204101562,
+          11.928388381004334,
+          12.16090168952942
+        ],
+        "b": [
+          11.228381156921387,
+          11.101736402511596,
+          11.344505786895752
+        ],
+        "difference": {
+          "diff": 0.8166780471801758,
+          "ci_lo": 0.6389930248260498,
+          "ci_hi": 0.9845466136932373,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.2122273445129395,
+          5.675986242294312,
+          6.5479525327682495
+        ],
+        "b": [
+          6.371341705322266,
+          5.79405529499054,
+          6.834151327610016
+        ],
+        "difference": {
+          "diff": -0.15911436080932617,
+          "ci_lo": -0.8672288060188293,
+          "ci_hi": 0.5561762571334838,
+          "p_value": 0.5980000000000001
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.02510949337121212,
+          0.023481519294507577,
+          0.026768169981060606
+        ],
+        "b": [
+          0.028050199468085107,
+          0.02649843472960993,
+          0.029574260305851065
+        ],
+        "difference": {
+          "diff": -0.0029407060968729866,
+          "ci_lo": -0.005176450236238719,
+          "ci_hi": -0.0006178284675209541,
+          "p_value": 0.010000000000000009
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.08223512768745422,
+        "b": 0.09389836341142654,
+        "n_groups_a": 143,
+        "n_groups_b": 148,
+        "n_groups_used_a": 30,
+        "n_groups_used_b": 37,
+        "mean_group_size_a": 3.466666666666667,
+        "mean_group_size_b": 3.4324324324324325
+      },
+      "cv_squared": {
+        "a": 0.18104727566242218,
+        "b": 0.22104835510253906
+      },
+      "trial_count_warning": "Unequal trial counts (264 vs 282): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "category",
+      "n": 1,
+      "n_trials_a": 324,
+      "n_trials_b": 306,
+      "activation_magnitude": {
+        "a": [
+          12.739974975585938,
+          12.635162782669067,
+          12.848098063468933
+        ],
+        "b": [
+          12.547304153442383,
+          12.4622092962265,
+          12.628373456001281
+        ],
+        "difference": {
+          "diff": 0.1926708221435547,
+          "ci_lo": 0.06200284957885746,
+          "ci_hi": 0.32617278099060054,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          5.305771827697754,
+          4.979799616336822,
+          5.478915226459503
+        ],
+        "b": [
+          9.834722518920898,
+          8.860214114189148,
+          10.19022581577301
+        ],
+        "difference": {
+          "diff": -4.5289506912231445,
+          "ci_lo": -5.008884406089782,
+          "ci_hi": -3.578636944293976,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.017083815586419752,
+          0.01581759982638889,
+          0.01844648196373457
+        ],
+        "b": [
+          0.01962060866013072,
+          0.018497242647058824,
+          0.020680466196895425
+        ],
+        "difference": {
+          "diff": -0.002536793073710967,
+          "ci_lo": -0.004241149946668484,
+          "ci_hi": -0.0008605912706517773,
+          "p_value": 0.0040000000000000036
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.06320387870073318,
+        "b": 0.0762963816523552,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 13.5,
+        "mean_group_size_b": 12.75
+      },
+      "cv_squared": {
+        "a": 0.1239604726433754,
+        "b": 0.1427914947271347
+      },
+      "trial_count_warning": "Unequal trial counts (324 vs 306): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "category",
+      "n": 2,
+      "n_trials_a": 264,
+      "n_trials_b": 258,
+      "activation_magnitude": {
+        "a": [
+          12.402644157409668,
+          12.292102646827697,
+          12.52351417541504
+        ],
+        "b": [
+          11.826026916503906,
+          11.705840897560119,
+          11.94081735610962
+        ],
+        "difference": {
+          "diff": 0.5766172409057617,
+          "ci_lo": 0.4227923393249512,
+          "ci_hi": 0.7456981658935546,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.943291664123535,
+          6.409030401706696,
+          7.1474334359169
+        ],
+        "b": [
+          9.504383087158203,
+          8.357729268074035,
+          10.18949007987976
+        ],
+        "difference": {
+          "diff": -2.561091423034668,
+          "ci_lo": -3.4707989573478697,
+          "ci_hi": -1.4433894753456116,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.020537405303030304,
+          0.01914654356060606,
+          0.022017415364583334
+        ],
+        "b": [
+          0.025663154069767442,
+          0.024118822674418606,
+          0.027087496971899223
+        ],
+        "difference": {
+          "diff": -0.0051257487667371385,
+          "ci_lo": -0.00707555317895525,
+          "ci_hi": -0.003076275105708244,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.08054088801145554,
+        "b": 0.09226085990667343,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 11.0,
+        "mean_group_size_b": 10.75
+      },
+      "cv_squared": {
+        "a": 0.15267567336559296,
+        "b": 0.18128864467144012
+      },
+      "trial_count_warning": "Unequal trial counts (264 vs 258): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "category",
+      "n": 3,
+      "n_trials_a": 204,
+      "n_trials_b": 264,
+      "activation_magnitude": {
+        "a": [
+          12.05688190460205,
+          11.911679935455322,
+          12.192221856117248
+        ],
+        "b": [
+          11.272289276123047,
+          11.16025459766388,
+          11.38558201789856
+        ],
+        "difference": {
+          "diff": 0.7845926284790039,
+          "ci_lo": 0.5947885990142823,
+          "ci_hi": 0.9787625312805176,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.57222843170166,
+          5.930342996120453,
+          6.887152600288391
+        ],
+        "b": [
+          7.096929550170898,
+          6.3999377369880674,
+          7.491870725154877
+        ],
+        "difference": {
+          "diff": -0.5247011184692383,
+          "ci_lo": -1.281728327274322,
+          "ci_hi": 0.13860763311386107,
+          "p_value": 0.1140000000000001
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.02267156862745098,
+          0.021043485753676473,
+          0.024203910079656863
+        ],
+        "b": [
+          0.028379498106060608,
+          0.02673672762784091,
+          0.029844341856060608
+        ],
+        "difference": {
+          "diff": -0.005707929478609628,
+          "ci_lo": -0.007828340853386809,
+          "ci_hi": -0.003325425962288322,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.079491026699543,
+        "b": 0.08899098634719849,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 8.5,
+        "mean_group_size_b": 11.0
+      },
+      "cv_squared": {
+        "a": 0.15854378044605255,
+        "b": 0.1904660016298294
+      },
+      "trial_count_warning": "Unequal trial counts (204 vs 264): participation_ratio and population_sparsity are both biased upward by sample size, so their between-condition difference is confounded here. activation_magnitude and cv_squared are unaffected."
+    }
+  ],
+  "magnitude_over_time": {
+    "a": [
+      {
+        "time": 0,
+        "mean": 10.423137664794922,
+        "ci_lo": 10.377921319007873,
+        "ci_hi": 10.470979452133179,
+        "n": 400
+      },
+      {
+        "time": 1,
+        "mean": 12.537487983703613,
+        "ci_lo": 12.461441159248352,
+        "ci_hi": 12.612314105033875,
+        "n": 400
+      },
+      {
+        "time": 2,
+        "mean": 13.278453826904297,
+        "ci_lo": 13.185916686058045,
+        "ci_hi": 13.373950815200805,
+        "n": 400
+      },
+      {
+        "time": 3,
+        "mean": 13.61286735534668,
+        "ci_lo": 13.512829780578613,
+        "ci_hi": 13.710328483581543,
+        "n": 400
+      },
+      {
+        "time": 4,
+        "mean": 13.641986846923828,
+        "ci_lo": 13.530662488937377,
+        "ci_hi": 13.737839698791504,
+        "n": 400
+      },
+      {
+        "time": 5,
+        "mean": 13.58389663696289,
+        "ci_lo": 13.47487781047821,
+        "ci_hi": 13.69035062789917,
+        "n": 400
+      }
+    ],
+    "b": [
+      {
+        "time": 0,
+        "mean": 10.133724212646484,
+        "ci_lo": 10.052225494384766,
+        "ci_hi": 10.210690593719482,
+        "n": 400
+      },
+      {
+        "time": 1,
+        "mean": 11.736947059631348,
+        "ci_lo": 11.669748878479004,
+        "ci_hi": 11.798496437072753,
+        "n": 400
+      },
+      {
+        "time": 2,
+        "mean": 12.391695976257324,
+        "ci_lo": 12.337221693992614,
+        "ci_hi": 12.448049449920655,
+        "n": 400
+      },
+      {
+        "time": 3,
+        "mean": 12.241299629211426,
+        "ci_lo": 12.169275879859924,
+        "ci_hi": 12.313234996795654,
+        "n": 400
+      },
+      {
+        "time": 4,
+        "mean": 12.48862075805664,
+        "ci_lo": 12.44330279827118,
+        "ci_hi": 12.53348891735077,
+        "n": 400
+      },
+      {
+        "time": 5,
+        "mean": 12.504552841186523,
+        "ci_lo": 12.458349013328553,
+        "ci_hi": 12.549672818183899,
+        "n": 400
+      }
+    ]
+  }
+}

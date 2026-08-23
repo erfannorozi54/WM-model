@@ -1,0 +1,392 @@
+{
+  "label_a": "attention_only",
+  "label_b": "attention_proxy",
+  "hidden_root_a": "experiments/wm_attention_mtmf_20260726_161735/hidden_states",
+  "hidden_root_b": "experiments/finetune_proxy_wm_attention_mtmf_20260726_201707/hidden_states",
+  "epoch_a": 43,
+  "epoch_b": 1,
+  "split": "val_novel_identity",
+  "top_frac": 0.25,
+  "epochs_pooled": false,
+  "caveat": "Relevance ranking is computed independently per condition (see module docstring): only the scalar suppression_index values are compared across a/b, not raw channel indices.",
+  "cells": [
+    {
+      "task": "location",
+      "n": 1,
+      "attention_only": {
+        "task": "location",
+        "n": 1,
+        "n_trials": 270,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.4759370684623718,
+          "ci_lo": -0.4759370684623718,
+          "ci_hi": -0.4759370684623718
+        },
+        "gate_relevance_correlation": 0.7319184617047977,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "location",
+        "n": 1,
+        "n_trials": 312,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.5063869953155518,
+          "ci_lo": -0.5063869953155518,
+          "ci_hi": -0.5063869953155518
+        },
+        "gate_relevance_correlation": 0.849515251972211,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": true,
+      "index_gap": 0.03044992685317993
+    },
+    {
+      "task": "location",
+      "n": 2,
+      "attention_only": {
+        "task": "location",
+        "n": 2,
+        "n_trials": 300,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.4313010275363922,
+          "ci_lo": -0.4313010275363922,
+          "ci_hi": -0.4313010275363922
+        },
+        "gate_relevance_correlation": 0.6646210146268121,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "location",
+        "n": 2,
+        "n_trials": 222,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.487805038690567,
+          "ci_lo": -0.487805038690567,
+          "ci_hi": -0.487805038690567
+        },
+        "gate_relevance_correlation": 0.854163409540985,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": true,
+      "index_gap": 0.056504011154174805
+    },
+    {
+      "task": "location",
+      "n": 3,
+      "attention_only": {
+        "task": "location",
+        "n": 3,
+        "n_trials": 270,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.5242714881896973,
+          "ci_lo": -0.5242714881896973,
+          "ci_hi": -0.5242714881896973
+        },
+        "gate_relevance_correlation": 0.7024977709832104,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "location",
+        "n": 3,
+        "n_trials": 306,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.4897335469722748,
+          "ci_lo": -0.4897335469722748,
+          "ci_hi": -0.4897335469722748
+        },
+        "gate_relevance_correlation": 0.8438651527381499,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": false,
+      "index_gap": -0.034537941217422485
+    },
+    {
+      "task": "identity",
+      "n": 1,
+      "attention_only": {
+        "task": "identity",
+        "n": 1,
+        "n_trials": 252,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": 0.0728115439414978,
+          "ci_lo": 0.0728115439414978,
+          "ci_hi": 0.0728115439414978
+        },
+        "gate_relevance_correlation": 0.032284819992989204,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "identity",
+        "n": 1,
+        "n_trials": 264,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.09943053126335144,
+          "ci_lo": -0.09943053126335144,
+          "ci_hi": -0.09943053126335144
+        },
+        "gate_relevance_correlation": 0.21177250020143276,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": true,
+      "index_gap": 0.17224207520484924
+    },
+    {
+      "task": "identity",
+      "n": 2,
+      "attention_only": {
+        "task": "identity",
+        "n": 2,
+        "n_trials": 264,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": 0.13427972793579102,
+          "ci_lo": 0.13427972793579102,
+          "ci_hi": 0.13427972793579102
+        },
+        "gate_relevance_correlation": -0.016442722725324887,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "identity",
+        "n": 2,
+        "n_trials": 240,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": 0.10866443812847137,
+          "ci_lo": 0.10866443812847137,
+          "ci_hi": 0.10866443812847137
+        },
+        "gate_relevance_correlation": 0.030938976683173604,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": true,
+      "index_gap": 0.02561528980731964
+    },
+    {
+      "task": "identity",
+      "n": 3,
+      "attention_only": {
+        "task": "identity",
+        "n": 3,
+        "n_trials": 228,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": 0.030519545078277588,
+          "ci_lo": 0.030519545078277588,
+          "ci_hi": 0.030519545078277588
+        },
+        "gate_relevance_correlation": 0.045003177349403435,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "identity",
+        "n": 3,
+        "n_trials": 210,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": 0.18014729022979736,
+          "ci_lo": 0.18014729022979736,
+          "ci_hi": 0.18014729022979736
+        },
+        "gate_relevance_correlation": -0.04950721587809661,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": false,
+      "index_gap": -0.14962774515151978
+    },
+    {
+      "task": "category",
+      "n": 1,
+      "attention_only": {
+        "task": "category",
+        "n": 1,
+        "n_trials": 258,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.48235803842544556,
+          "ci_lo": -0.48235803842544556,
+          "ci_hi": -0.48235803842544556
+        },
+        "gate_relevance_correlation": 0.49826959442483093,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "category",
+        "n": 1,
+        "n_trials": 258,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.4775463044643402,
+          "ci_lo": -0.4775463044643402,
+          "ci_hi": -0.4775463044643402
+        },
+        "gate_relevance_correlation": 0.5399071595258205,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": false,
+      "index_gap": -0.004811733961105347
+    },
+    {
+      "task": "category",
+      "n": 2,
+      "attention_only": {
+        "task": "category",
+        "n": 2,
+        "n_trials": 324,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.4491674602031708,
+          "ci_lo": -0.4491674602031708,
+          "ci_hi": -0.4491674602031708
+        },
+        "gate_relevance_correlation": 0.47385131085907495,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "category",
+        "n": 2,
+        "n_trials": 300,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.5276579260826111,
+          "ci_lo": -0.5276579260826111,
+          "ci_hi": -0.5276579260826111
+        },
+        "gate_relevance_correlation": 0.5844185381252689,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": true,
+      "index_gap": 0.07849046587944031
+    },
+    {
+      "task": "category",
+      "n": 3,
+      "attention_only": {
+        "task": "category",
+        "n": 3,
+        "n_trials": 234,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.4214945137500763,
+          "ci_lo": -0.4214945137500763,
+          "ci_hi": -0.4214945137500763
+        },
+        "gate_relevance_correlation": 0.46167707894031335,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "attention_proxy": {
+        "task": "category",
+        "n": 3,
+        "n_trials": 288,
+        "n_channels": 256,
+        "n_distinct_gate_vectors": 1,
+        "top_frac": 0.25,
+        "k": 64,
+        "suppression_index": {
+          "point": -0.47746312618255615,
+          "ci_lo": -0.47746312618255615,
+          "ci_hi": -0.47746312618255615
+        },
+        "gate_relevance_correlation": 0.5457200587011573,
+        "ci_degenerate": true,
+        "note": "suppression_index expected negative; gate_relevance_correlation expected positive, if attention suppresses irrelevant channels and amplifies relevant ones",
+        "ci_warning": "Trial-level bootstrap CI is degenerate: the gate does not vary across the resampled trials (expected for attention_mode='task_only', where the gate depends only on the task vector). Treat the interval as uninformative - uncertainty here lives across channels, checkpoints and seeds, not trials."
+      },
+      "index_sharper_in_b": true,
+      "index_gap": 0.05596861243247986
+    }
+  ]
+}
