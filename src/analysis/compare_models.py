@@ -311,20 +311,34 @@ def compare_swap_test(
         split=split,
     )
     
+    # swap_hypothesis_test always decodes location (identity/category labels are
+    # unique per trial and cannot be aligned across the two disjoint stimulus
+    # groups the test needs). Reporting property_name here would present a
+    # location result as evidence about property_name - the exact mislabelling
+    # that put a location number in an identity-suppression table in the deck.
+    decoded = baseline_result.get('decoded_property', 'location')
     return {
-        'property': property_name,
+        'decoded_property': decoded,
+        'grouping_property': property_name,
+        'interpretation_warning': (
+            f"This test decodes '{decoded}', not '{property_name}'. It measures whether a "
+            f"rotation fitted at one time/stimulus group transfers to another; it is NOT "
+            f"evidence about '{property_name}' decodability or suppression."
+        ),
         'encoding_time': encoding_time,
         'baseline': {
             'correct_acc': baseline_result['correct_accuracy'],
             'swap1_acc': baseline_result['swap1_accuracy'],
             'swap2_acc': baseline_result['swap2_accuracy'],
             'hypothesis_confirmed': baseline_result['hypothesis_confirmed'],
+            'verdict': baseline_result.get('verdict'),
         },
         'attention': {
             'correct_acc': attention_result['correct_accuracy'],
             'swap1_acc': attention_result['swap1_accuracy'],
             'swap2_acc': attention_result['swap2_accuracy'],
             'hypothesis_confirmed': attention_result['hypothesis_confirmed'],
+            'verdict': attention_result.get('verdict'),
         },
         'improvements': {
             'correct': attention_result['correct_accuracy'] - baseline_result['correct_accuracy'],
@@ -499,8 +513,9 @@ def comprehensive_comparison(
             split=split,
         )
         results['swap_test'] = swap_comp
-        print(f"  Baseline hypothesis confirmed: {swap_comp['baseline']['hypothesis_confirmed']}")
-        print(f"  Attention hypothesis confirmed: {swap_comp['attention']['hypothesis_confirmed']}")
+        print(f"  NOTE: {swap_comp['interpretation_warning']}")
+        print(f"  Baseline verdict: {swap_comp['baseline']['verdict']}")
+        print(f"  Attention verdict: {swap_comp['attention']['verdict']}")
         print(f"  Correct accuracy improvement: {swap_comp['improvements']['correct']:+.3f}")
     except Exception as e:
         print(f"  ✗ Swap test comparison failed: {e}")
@@ -639,7 +654,9 @@ def main():
         print(f"Procrustes reconstruction: {results['procrustes']['reconstruction_improvement']:+.3f} improvement")
     
     if results.get('swap_test'):
-        print(f"Swap test correct: {results['swap_test']['improvements']['correct']:+.3f} improvement")
+        st = results['swap_test']
+        print(f"Swap test correct: {st['improvements']['correct']:+.3f} improvement "
+              f"(decoded on '{st['decoded_property']}', NOT '{st['grouping_property']}')")
     
     print("\n" + "="*70 + "\n")
 

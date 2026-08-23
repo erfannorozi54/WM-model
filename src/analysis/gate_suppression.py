@@ -4,7 +4,7 @@ Gate-suppression index for attention-enhanced working memory models.
 
 Tests whether FeatureChannelAttention's per-channel gate (src/models/attention.py)
 suppresses task-irrelevant channels more than task-relevant ones, and whether
-that gap sharpens after proxy pretraining. See docs/FUTURE_WORK_NEURAL_EFFICIENCY.md
+that gap sharpens after proxy pretraining. See docs/NEURAL_EFFICIENCY.md
 sec 4.8 / 4.8.1 for the full rationale and literature this operationalizes.
 
 Design notes (read before trusting the numbers):

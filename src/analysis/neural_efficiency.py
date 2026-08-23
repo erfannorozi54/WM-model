@@ -5,8 +5,9 @@ Neural-efficiency analyses on RNN hidden states saved by train_with_generalizati
 
 Tests whether a "familiar/structured" condition (e.g. proxy-pretrained-then-fine-tuned)
 shows a suppressed / more efficient population code relative to a "baseline" condition,
-at matched behavioral accuracy. See docs/FUTURE_WORK_NEURAL_EFFICIENCY.md secs 2-4 for
-the literature and full rationale (Poppenk et al. 2016; Constantinidis & Klingberg 2016).
+at matched behavioral accuracy. See docs/NEURAL_EFFICIENCY.md for the literature,
+what each reference does and does not license, and the current results with their
+confidence levels (Poppenk et al. 2016; Constantinidis & Klingberg 2016).
 
 Four metrics, computed per (task_index, n) cell:
   1. activation_magnitude    - per-trial L2 norm of the hidden vector
@@ -172,19 +173,6 @@ def population_sparsity(X: np.ndarray, rel_threshold: float = 0.05) -> float:
     unit_max = np.where(unit_max < 1e-12, 1.0, unit_max)  # avoid 0/0 -> "sparse" for dead units
     near_zero = abs_x < (rel_threshold * unit_max)
     return float(near_zero.mean())
-
-
-def population_sparsity_gini(X: np.ndarray) -> float:
-    """Gini coefficient of |activation| pooled across all (trial, unit) entries,
-    as an alternative to the threshold-based sparsity above (no free parameter)."""
-    if X.size == 0:
-        return float("nan")
-    v = np.sort(np.abs(X).ravel())
-    n = v.shape[0]
-    if v.sum() <= 1e-12:
-        return float("nan")
-    cum = np.cumsum(v)
-    return float((n + 1 - 2 * (cum.sum() / cum[-1])) / n)
 
 
 # ---------------------------------------------------------------------------
@@ -440,9 +428,11 @@ def compare_cell(
     if result["n_trials_a"] != result["n_trials_b"]:
         result["trial_count_warning"] = (
             f"Unequal trial counts ({result['n_trials_a']} vs {result['n_trials_b']}): "
-            "participation_ratio and population_sparsity are both biased upward by "
-            "sample size, so their between-condition difference is confounded here. "
-            "activation_magnitude and cv_squared are unaffected."
+            "participation_ratio and population_sparsity are both biased upward by sample "
+            "size. Measured on synthetic data at this project's operating range (PR 1-10, "
+            "N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not "
+            "explain effects larger than that - but check the direction before quoting a "
+            "small effect. activation_magnitude and cv_squared are unaffected."
         )
 
     return result
@@ -595,7 +585,11 @@ def main():
     p.add_argument("--training_log_a", type=str, default=None,
                    help="If given with --training_log_b, auto-select the closest-accuracy epoch pair instead of --epoch_a/--epoch_b")
     p.add_argument("--training_log_b", type=str, default=None)
-    p.add_argument("--match_metric", type=str, default="val_novel_angle_acc")
+    p.add_argument("--match_metric", type=str, default=None,
+                   help="training_log key to match accuracy on. Defaults to the metric for "
+                        "--split, so the epoch pair is matched on the same split whose hidden "
+                        "states are analysed (matching on a different split weakens the Box 2 "
+                        "control this whole design rests on).")
     args = p.parse_args()
 
     epoch_a, epoch_b = args.epoch_a, args.epoch_b
@@ -604,7 +598,12 @@ def main():
             log_a = json.load(f)
         with open(args.training_log_b) as f:
             log_b = json.load(f)
-        match = select_matched_epoch(log_a, log_b, metric_key=args.match_metric)
+        match_metric = args.match_metric or f"{args.split}_acc"
+        if args.match_metric and not args.match_metric.startswith(args.split):
+            print(f"WARNING: matching accuracy on '{args.match_metric}' but analysing hidden "
+                  f"states from split '{args.split}'. These are different populations; the "
+                  f"reported accuracy gap does not describe the data being compared.")
+        match = select_matched_epoch(log_a, log_b, metric_key=match_metric)
         epoch_a, epoch_b = match["epoch_a"], match["epoch_b"]
         print(f"Matched-accuracy epoch pair: {args.label_a}@epoch{epoch_a} "
               f"(acc={match['acc_a']:.4f}) vs {args.label_b}@epoch{epoch_b} "

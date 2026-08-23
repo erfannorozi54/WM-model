@@ -541,6 +541,13 @@ def swap_hypothesis_test(
                   if abs(acc_swap2 - acc_correct) < abs(acc_swap1 - acc_correct)
                   else "h2_not_supported")
         ),
+        # The property actually decoded is ALWAYS location (see swap_property above),
+        # regardless of the property_name argument, which only selects how trials are
+        # split into disjoint stimulus groups. Callers must report this field, not
+        # their own property_name, or the result reads as evidence about the wrong
+        # feature.
+        "decoded_property": swap_property,
+        "grouping_property": property_name,
         "note": "Decoded on location (aligned labels). Groups split by identity hash for cross-stimulus effect."
     }
 
