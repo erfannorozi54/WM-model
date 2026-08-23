@@ -248,6 +248,10 @@ hidden_states/
 *.json
 !configs/*.json
 !package*.json
+# The neural-efficiency chapter's result artifacts are small (~50KB total) and are
+# the evidence behind a written chapter, so they are tracked rather than left to
+# live only on whichever machine happened to run the analysis.
+!analysis_results/neural_efficiency/**/*.json
 
 # Project-specific: Visualization outputs
 figures/
