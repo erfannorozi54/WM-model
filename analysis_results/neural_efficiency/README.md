@@ -4,34 +4,50 @@ These JSONs are the evidence behind the neural-efficiency chapter. They are
 tracked in git (via an explicit negation in `.gitignore`) despite the repo-wide
 `*.json` ignore, because they are small and a written chapter depends on them.
 
-Interpretation, confidence levels, and known confounds: **`docs/NEURAL_EFFICIENCY.md`**.
-Do not read numbers straight out of these files into a slide — several carry
-confounds that the chapter document explains.
+Interpretation, confidence levels, and known limits: **`docs/NEURAL_EFFICIENCY.md`**.
 
-## `2026-07-27_run1/` — the run behind the current slides
+## `2026-08-22_audit-fixed/` — current, and the basis of the slides
 
-Produced on `hamrah-gpu-internal`. Recovered into the repo on 2026-08-22; they
-had been left in a Claude session temp directory and existed on one machine only.
+Produced on `hamrah-gpu-internal`. The Level 2 and Level 3 files were generated
+2026-08-22 14:37–14:42 UTC, three minutes after the audit fixes landed in
+`17499de` (14:34:21 UTC). The two Level 1 files were regenerated 2026-08-23
+07:13 UTC under `820a8f8` to pick up the swap-test labelling fix; their numbers
+are unchanged by that commit, only the reported field names.
 
-| File | Level | Status |
+| File | Level | Provenance |
 |---|---|---|
-| `neural_efficiency_baseline_vs_proxy_mtmf.json` | 2 | Usable; 10pp accuracy gap, and its `location` cells have a near-rank-1 condition A (PR ≈ 1.2) that inflates ratios — prefer the attention pair |
-| `neural_efficiency_attention_pair.json` | 2 | **Best evidence in the chapter**; 0.08pp accuracy gap, epochs 43 vs 1 |
-| `gate_suppression_mtmf.json` | 3 | **Confounded** — `epoch_a`/`epoch_b` are `null`, so ~45 checkpoints per condition were pooled |
-| `compare_baseline_vs_attention_mtmf.json` | 1 | **Confounded** — no epoch, split, or task filtering; its swap-test block decodes `location`, not `identity` |
+| `neural_efficiency_attention_pair.json` | 2 | **Best evidence in the chapter** — epochs 43/1, 0.08pp accuracy gap |
+| `neural_efficiency_baseline_pair.json` | 2 | Epochs 12/1, 10pp gap; its `location` cells have a near-rank-1 condition A (PR ≈ 1.2) that inflates ratios — prefer the attention pair |
+| `gate_suppression.json` | 3 | Epochs 43/1, `epochs_pooled: false` — the run that **overturned** the earlier 9/9 headline |
+| `comparison_task_location.json` | 1 | Best epoch, single split, `task=location` — identity decodability collapses to ~chance |
+| `comparison_task_category.json` | 1 | Same, `task=category` — no suppression |
 
-All four predate the estimator fixes, so none contains `cv_squared`,
-`n_groups_used_*`, `mean_group_size_*`, or `trial_count_warning`. The `ddof=0`
-variance error they carry is worth ~3% at the real group sizes (9–13 trials) and
-changes no conclusion.
+All five carry the post-fix fields: `cv_squared`, `n_groups_used_*`,
+`mean_group_size_*`, `trial_count_warning`, `epochs_pooled`, `ci_degenerate`,
+and (Level 1) `decoded_property` / `interpretation_warning`.
+
+### What was removed
+
+The `2026-07-27_run1/` artifacts were deleted. They were produced by pre-fix
+code, existed only in a scratch directory on one machine, and are not merely
+older — they are wrong in a way that changed conclusions:
+
+- Level 3 pooled ~45 checkpoints per condition and reported 9/9 cells with a
+  large effect. With epochs pinned it is 6/9 and small.
+- Level 1 pooled epochs, both validation splits and all three task contexts,
+  reporting a uniform "roughly halved" that averaged near-total suppression in
+  the location context together with none in the category context.
+- Level 2 used `ddof=0` and had no `cv_squared`. Its direction held.
 
 ## Adding a new run
 
 ```bash
-./run_neural_efficiency.sh <tag>     # writes analysis_results/neural_efficiency/<date>_<tag>/
+./run_neural_efficiency.sh              # all levels
+./run_neural_efficiency.sh level1       # one level
 ```
 
-Then update the status table above and `docs/NEURAL_EFFICIENCY.md` §4. Keep old
-runs rather than overwriting them — the chapter cites specific numbers, and
-being able to point at the file that produced them is the whole reason these are
-tracked.
+Results land in `analysis_results/<per-run dirs>`, logs and provenance in
+`logs/neural_efficiency_rerun_<timestamp>/`. Copy the JSONs into a new dated
+directory here, update the table above and `docs/NEURAL_EFFICIENCY.md` §4, and
+keep old runs rather than overwriting — the chapter cites specific numbers, and
+being able to point at the file that produced them is why these are tracked.

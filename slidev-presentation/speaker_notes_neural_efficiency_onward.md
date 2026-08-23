@@ -97,24 +97,11 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 
 ---
 
-## Slide: Reference 2 — What Kind of Paper Is This?
-
-**Say:**
-> "Our second reference is Constantinidis and Klingberg's 2016 Nature Reviews Neuroscience paper on working-memory training. I want to flag something important up front: this is a *review*, not a single experiment. The authors didn't collect new data — they read and summarized dozens of separate studies, both monkey brain-cell recordings and human brain-imaging studies of WM training, and pulled out the pattern that repeats across all of them."
-
-> "We're deliberately citing a review here rather than one paper, because for this claim we needed the general, well-replicated pattern of what happens to brain activity when working-memory performance improves through training — not just one lab's single result."
-
-> "The question relevant to us: when training improves WM performance, what changes about *how* brain cells represent the task — not just how much they fire, but how that activity is organized?"
-
-**Emphasize:**
-- Correct the natural assumption that this is a single study — say clearly it's a review.
-- Frame this as a deliberate, appropriate choice of source, not a weaker citation.
-
----
-
 ## Slide: Reference 2 — The Pattern Across Studies
 
 **Say:**
+> "Our second reference is Constantinidis and Klingberg, 2016, in Nature Reviews Neuroscience. Flag up front that this is a *review*, not a single experiment — they read and synthesised dozens of monkey electrophysiology and human imaging studies of WM training and pulled out the pattern that repeats across all of them. That's a deliberate choice, not a weaker citation: for this claim we wanted the well-replicated general pattern, not one lab's single result."
+
 > "Two things happen together after training. First, more prefrontal neurons get involved — more of them become active during the task, and they fire more overall. Second, and this is the counterintuitive part, each individual neuron gets *less* picky — more broadly tuned, less selective. It's not that neurons become sharper specialists. The job spreads across a wider crew, each doing a less narrowly-defined part."
 
 > "At the same time, the population as a whole gets more reliable. Trial to trial, the same neuron's firing becomes less erratic — that wobble is called the Fano factor — and neurons stop making the same noisy mistakes together, which is a drop in noise correlation."
@@ -138,7 +125,22 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 
 **Emphasize:**
 - Box 2 by name. This is the reason the matched-accuracy design exists — say it plainly.
-- That the paper predicts specific directions: participation ratio down, Fano down. We will report honestly when our results go the *opposite* direction.
+- That this review licenses exactly **one** directional prediction for us: Fano down. Not magnitude (§4 has firing rate going *up* — that prediction is Ref 1's), and not participation ratio (a population measure, where the review's finding is about single-unit tuning). We report honestly when our Fano result goes the opposite way.
+
+---
+
+## Slide: The Grading Contract
+
+**Say:**
+> "Before I show any result, I want to fix how each metric gets graded — because an earlier version of this chapter graded three of four metrics against the wrong reference, and I'd rather show you the corrected contract than quietly fix it in the background."
+
+> "Magnitude is graded against Reference 1, Poppenk. Reference 2 actually predicts the opposite — its single-neuron section has firing rate going *up* after training. The Fano analogue is the one metric graded against Reference 2, and it's the one clean directional prediction that review licenses. Participation ratio is graded against nothing: it's a *population* dimensionality measure, while Reference 2's tuning finding is a single-unit property — and the review reports tuning getting *broader*, not sharper. Sparsity is our own assumption; neither paper predicts it. And the gate-suppression index needs no reference at all, because the gates are a literal suppression signal we read off directly."
+
+> "The reason to state this first: a metric can only confirm or contradict a prediction that was actually made. Deciding the grading up front is what stops a result from being retro-fitted to whichever reference it happens to agree with."
+
+**Emphasize:**
+- Only **one** of five metrics is graded against Reference 2 — and it's the one we contradict. Say that plainly; it's the honest structure of the chapter.
+- If asked why the grading changed: the old PR prediction was derived from "sharpened tuning," but the review says tuning broadens, and PR is a population measure anyway. Withdrawing an unsound prediction is not the same as hiding a result — the PR result is still on the next slides.
 
 ---
 
@@ -149,14 +151,22 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 
 > "The results are mixed, leaning supportive — and I'll be honest, this is the weakest of the three levels."
 
-> "Identity decodability at timesteps 3, 4, and 5 roughly halves under attention — from 15, 12, 10 percent down to 7, 7, 6 percent. That's clearly supporting suppression. The Procrustes swap test also supports it — 7 percentage points better accuracy when you respect the identity boundary."
+> "We run this separately for the two task contexts where identity is genuinely irrelevant, because pooling them — which the first pass did — mixes in the identity task, where identity is the feature the model is *supposed* to keep."
 
-> "But the orthogonalization index is flat — 0.936 versus 0.933 — and Procrustes reconstruction is also flat. Both are at ceiling for this config, so this isn't a contradiction, it's a limitation of the MTMF setup for this particular metric."
+> "Separated, the result is much more interesting than the pooled version. Under the location task, identity decodability drops from 28, 18, 15 percent to 5, 2, 5 percent — chance is about 3 percent, so attention drives it essentially to the floor. Under the category task, it doesn't move at all: 20, 16, 16 becomes 15, 19, 17."
 
-> "Bottom line: 2 of 4 sub-metrics clearly support suppression, 2 are flat at ceiling. Supporting, not central, evidence."
+> "So attention suppresses irrelevant identity almost completely in one task context and not at all in another. The pooled run reported a uniform 'roughly halved', which was the average of those two very different things."
+
+> "Orthogonalization is flat in both contexts, at ceiling. Procrustes reconstruction is actually lower under attention."
+
+> "You'll see the swap-test row struck out. We removed it on inspection: that test decodes *location*, not identity — deliberately, because identity labels are unique per trial and can't be aligned across the two stimulus groups the test needs. It was being reported under 'property: identity', which made it look like evidence about identity suppression. It isn't, so we don't count it."
+
+> "Bottom line: a real, strong, but task-dependent suppression effect — sharper than what we reported before filtering, not weaker."
 
 **Emphasize:**
 - Anchor the audience with the one-sentence "what is decodability" definition before showing numbers — the table is unreadable without it.
+- State the chance level out loud. It's the discipline this project adopted after the earlier audits.
+- The struck-out row is a *strength*, not an embarrassment — we checked what the metric actually computed rather than trusting its label.
 - That you're reporting this honestly, graded, not as a uniform win.
 - The distinction between "flat at ceiling" and "contradictory." These are not failures — they're limitations of the metric in this config.
 
@@ -169,64 +179,66 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 
 > "We ran two independent pairs. Pair 1 is baseline versus proxy-finetuned with a 10-percentage-point accuracy gap — that's the unmatched comparison. Pair 2 is attention-only versus attention-plus-proxy with a *0.08-percentage-point* accuracy gap — that's our clean, matched-accuracy replication."
 
-> "Same direction in both pairs, in every cell. Activation magnitude is lower under proxy pretraining — that matches Poppenk et al.'s suppression finding. Population sparsity is higher in most cells — also matches, though the effect is small."
+> "Same direction in both pairs, in all eighteen cells. Activation magnitude is lower under proxy pretraining — that matches *Reference 1*, Poppenk. I want to be precise about the attribution: Reference 2 actually reports the opposite for single neurons, more cells recruited and firing rate going up, so it would be wrong to put the magnitude result in a 'versus Reference 2' column. Population sparsity is higher in 17 of 18 cells, but neither paper predicts sparsity — that one is our own assumption, and I'm labelling it as such."
 
-> "But here's where we have to report honestly: participation ratio is *higher* in every cell, and the Fano-factor analogue is also *higher* in every cell. Both go the *opposite* direction from what Constantinidis and Klingberg predict. Their prediction was that training produces a sharper, less variable code — lower PR, lower Fano. Ours says the proxy model produces a lower-magnitude, sparser code, but one that is *higher-dimensional* and *more variable*."
+> "Participation ratio is higher in every cell. An earlier version of this deck graded that as contradicting Reference 2. We withdrew that: PR measures the effective dimensionality of the *population*, while the review's tuning finding is about *single neurons* — and the review reports tuning getting *broader*, not sharper. Those are different quantities, so the review licenses no PR prediction at all. The effect is real, it's just ungraded."
 
-> "The critical point: the magnitude and sparsity effects *replicate at near-zero accuracy gap* in Pair 2. They survive the Box 2 confound check. They're not just 'the proxy model is more accurate.'"
+> "And it is real — we checked whether it was a sample-size artifact, because PR is biased upward by trial count. It isn't: in 11 of the 18 cells the proxy condition has *fewer* trials and still shows higher PR, and in one cell with exactly equal trial counts, 258 against 258, PR still rises 76 percent."
+
+> "That leaves one genuine contradiction: the Fano-factor analogue is higher in every cell, and Reference 2 cleanly predicts lower. It's actually understated. Var-over-mean scales with activity level, and the proxy condition is *quieter* — so a pure scale effect would have pushed this metric *down*. It went up anyway, which means the scale-invariant version of the same measure moves further still."
+
+> "The critical control: the magnitude effect *replicates at near-zero accuracy gap* in Pair 2. It survives the Box 2 confound check. It's not just 'the proxy model is more accurate.'"
 
 **Emphasize:**
-- The two-pair design. Pair 1 is the headline, Pair 2 is the confound check. Say this clearly.
-- The honest contradiction with Reference 2. Do not hide this. Say "opposite of prediction" and mean it.
-- That the result is *nuanced*: lower magnitude and sparser, yes — but higher-dimensional and more variable, not the simple "sharpening" the literature predicts. This is a genuine, interesting finding in its own right, not a failure.
+- The two-pair design. Pair 1 is the unmatched comparison, Pair 2 is the confound check. Say this clearly.
+- The corrected attribution. Magnitude is graded against Ref 1, sparsity against our own assumption, PR against nothing. Only Fano is graded against Ref 2 — and only Fano contradicts it.
+- If asked why the PR grading changed: the prediction was derived from "sharpened tuning," but the review says tuning gets broader, and PR is a population measure anyway. Withdrawing an unsound prediction is not the same as hiding a result — the result stays on the slide.
+- That the finding is *nuanced*: lower magnitude and sparser, yes — but higher-dimensional and more variable, not the simple "sharpening" story. A genuine finding in its own right, not a failure.
 
 ---
 
 ## Slide: Results — Level 3: Explicit Gating (Headline)
 
 **Say:**
-> "Level 3 is our headline result. Two quick definitions first: the 'gate' is our attention mechanism's literal on/off dial per feature channel. 'Suppression index' is how much lower the gate sits on task-irrelevant channels versus task-relevant ones — more negative means it mutes the irrelevant stuff more strongly. 'Gate-relevance correlation' is how tightly the gate's setting tracks a channel's actual relevance — higher means the gate is reliably reading relevance, not doing something only loosely related to it."
+> "This slide used to be my headline result, and I'm going to tell you why it isn't any more — because I think how we found the problem matters more than the number we lost."
 
-> "We compared attention-only against attention-plus-proxy on the MTMF config, at near-matched accuracy — 93.43 percent versus 93.51 percent. This experiment had never been run before this analysis pass. It directly answers: can attention-containing models be used in proxy pretraining, and does it help?"
+> "Two quick definitions. The 'gate' is the attention mechanism's literal per-channel dial. The 'suppression index' is how much lower the gate sits on task-irrelevant channels than task-relevant ones — more negative means it mutes irrelevant features more strongly."
 
-> "The answer is yes, dramatically. Nine out of nine cells are sharper under proxy pretraining."
+> "The original run compared attention-only against attention-plus-proxy and found the proxy model gated more sharply in nine cells out of nine, with attention-only barely gating at all. That's a big, clean-looking result. But that run pooled every saved checkpoint of both models — about 45 each. The attention-only model was trained from scratch, so its pool included checkpoints from near initialisation. The proxy model was fine-tuned from a pretrained network and was already converged at its first epoch. So I was partly comparing a half-trained model against a trained one."
 
-> "For the attention-only model, the suppression index ranges from negative 0.17 to positive 0.07 — that means in 2 of 9 cells, the index is *wrong-signed*: the model is gating *up* the irrelevant channels relative to the relevant ones. The gate-relevance correlation is weak, 0.09 to 0.24."
+> "When we pin both to the accuracy-matched epoch pair — 43 against 1 — the result changes. It's six cells out of nine, not nine, and the gaps are small. Attention-only already gates strongly on location and category, around minus 0.42 to minus 0.52. The claim that it 'barely gates' was an artifact of averaging in its untrained checkpoints."
 
-> "For attention-plus-proxy, the suppression index ranges from negative 0.33 to negative 0.52 — consistently negative, consistently large. The gate-relevance correlation jumps to 0.45 to 0.72 — strong."
-
-> "Let me put this in concrete terms. For the *category* feature, the attention-only model barely gates at all — the index is near zero, sometimes wrong-signed. Attention-plus-proxy fixes this completely. This is at matched accuracy, the effect is large, and it's a signature a plain RNN baseline structurally cannot produce."
-
-> "One more thing that makes this level different from the other two: it needs no external reference to interpret. Levels 1 and 2 are analogies to a human finding. Here the gates *are* an explicit suppression signal by construction — we're reading it off directly, not inferring it."
+> "What does survive: the gate-relevance correlation improves consistently under proxy pretraining — 0.66 to 0.73 becoming 0.84 to 0.85 for location. And a genuinely interesting negative: *neither* model gates on identity. Both sit near zero or wrong-signed there."
 
 **Emphasize:**
-- **This is the strongest result in the entire section.** Slow down here. Let the 9-out-of-9 number land.
-- That Level 3 is *not* an analogy the way Levels 1 and 2 are. The gates are literally suppression, so no outside citation is doing any work here.
-- The word "headline" is on the slide for a reason. This is the most novel and most defensible finding.
-- That a plain GRU *cannot* produce this result. It's unique to the attention architecture combined with proxy pretraining.
-- The wrong-signed cells in attention-only. This is a striking detail — the model without proxy pretraining isn't just bad at gating, it's sometimes gating in the *wrong direction*.
+- Lead with the retraction. Do not let the audience discover it in questions.
+- The mechanism of the confound — training maturity, not the intervention — in one sentence. It's the most transferable lesson in the talk.
+- That the gates being a *literal* signal is what made the confound detectable at all.
+- If asked why you re-ran: an audit found `epoch_a` and `epoch_b` were null in the output. The check took a minute; the result it overturned was the chapter's headline.
+
+**Be careful about:** do not soften this into "the effect was smaller than we thought." The specific claims — 9/9 cells, attention-only barely gating — are withdrawn.
 
 ---
 
 ## Slide: Neural-Efficiency Chapter: Conclusion
 
 **Say:**
-> "Let me grade each level against its reference prediction."
+> "Let me grade each level, in the order the evidence now supports rather than the order I originally expected."
 
-> "Level 3, explicit gating: strongest support. Accuracy-matched, 9 out of 9 cells, large effect. This is the most novel result."
+> "Level 2, population activity, is the strongest leg. Proxy pretraining lowers activation magnitude in all eighteen cells, across two independent model pairs, and it replicates at a near-zero accuracy gap — so it survives the Box 2 check. That matches Reference 1. The Fano analogue and its scale-invariant companion, CV-squared, both rise in all eighteen cells, which genuinely contradicts Reference 2's one directional prediction. Participation ratio also rises, but that one is ungraded — the review licenses no PR direction."
 
-> "Level 2, population activity: partial support. Magnitude and sparsity match Poppenk et al. and replicate at matched accuracy — that's real. But participation ratio and Fano factor contradict Constantinidis and Klingberg's sharpening prediction. The population code is lower-magnitude and sparser, but higher-dimensional and more variable — not the simple 'quieter and sharper' story the literature predicts."
+> "Level 1, representational content, is task-dependent. Under the location task, attention drives irrelevant identity decodability from 28 percent essentially down to chance. Under the category task, it doesn't move it at all. The earlier pooled run reported a uniform 'roughly halved', which was just the average of those two."
 
-> "Level 1, representational content: weakest, not contradictory. Two of four sub-metrics support suppression, two are flat at ceiling."
+> "Level 3, explicit gating, is the one I have to downgrade. It was my headline: nine cells out of nine. That run pooled all checkpoints, and the from-scratch model contributed near-initialisation ones. With epochs pinned it's six of nine with small gaps, and attention-only turns out to already gate strongly. I'm retracting the strong version of that claim."
 
-> "The claim we can defend: proxy pretraining produces a lower-magnitude, sparser, but higher-dimensional and more variable population code, and dramatically sharpens explicit gating — both at matched accuracy, so neither is just 'the model got better.' This is a genuine, observable WM phenomenon, distinct from and not reducible to the accuracy gain already in the deck."
-
-> "We report this honestly graded. Level 3 is the strongest and most novel result. Level 2 partially confirms the literature and partially contradicts it. Level 1 is supporting, not central, evidence."
+> "So what we defend is this: proxy pretraining produces a lower-magnitude, sparser, but higher-dimensional and more variable population code, at matched accuracy, in every cell we measured. That is an observable mechanistic phenomenon distinct from the accuracy gain — which is what was asked for."
 
 **Emphasize:**
-- The graded honesty. You're not claiming a uniform win. You're saying "here's what's strong, here's what's partial, here's what's weak."
-- The claim is *defensible* precisely because you're reporting it this way.
-- That the finding is *distinct from the accuracy gain*. This is the answer to the professor's ask.
+- Lead with Level 2 now. It is the result that survived every check.
+- State the Level 3 retraction plainly and early. An audience that hears it from you reads it as rigour; an audience that finds it in questions reads it as an error.
+- The graded honesty is the point: three levels were run precisely so that one failing would not sink the chapter — and that is exactly what happened.
+
+**If asked "why should we trust the rest?":** because the same audit that found this also confirmed Level 2 twice, at two different accuracy gaps, with a scale-invariant control added specifically to rule out the most likely artifact.
 
 ---
 

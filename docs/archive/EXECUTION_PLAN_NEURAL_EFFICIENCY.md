@@ -1,5 +1,12 @@
 # Execution Plan: Attention + Proxy Pretraining as a Neural-Efficiency Finding
 
+> **SUPERSEDED — historical record.** This was a *planning* document; its plan has
+> been executed and several of its statements were later corrected. The current,
+> authoritative account of the neural-efficiency chapter — references, method,
+> results, confidence levels, and reproduction steps — is
+> [`docs/NEURAL_EFFICIENCY.md`](../NEURAL_EFFICIENCY.md). Read that first; consult
+> this only for how the work got here.
+
 **Purpose:** a run-order checklist for producing the new-finding chapter of the thesis. Rationale, literature, and metric definitions live in `docs/FUTURE_WORK_NEURAL_EFFICIENCY.md` — this document only says *what to run, in what order, what to compare, and what to prioritize*.
 
 **Core claim to establish:** familiarity/structure (from proxy pretraining) and explicit gating (from attention) both suppress task-irrelevant processing, observable at three independent levels — representational content, population activity, and explicit gate values. Three converging signatures make a stronger chapter than any one alone.

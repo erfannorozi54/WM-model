@@ -69,19 +69,23 @@
     "reconstruction_improvement": -0.09684095860566455
   },
   "swap_test": {
-    "property": "identity",
+    "decoded_property": "location",
+    "grouping_property": "identity",
+    "interpretation_warning": "This test decodes 'location', not 'identity'. It measures whether a rotation fitted at one time/stimulus group transfers to another; it is NOT evidence about 'identity' decodability or suppression.",
     "encoding_time": 2,
     "baseline": {
       "correct_acc": 0.4067796610169492,
       "swap1_acc": 0.3389830508474576,
       "swap2_acc": 0.23728813559322035,
-      "hypothesis_confirmed": false
+      "hypothesis_confirmed": false,
+      "verdict": "h2_not_supported"
     },
     "attention": {
       "correct_acc": 1.0,
       "swap1_acc": 0.9696969696969697,
       "swap2_acc": 0.9696969696969697,
-      "hypothesis_confirmed": false
+      "hypothesis_confirmed": false,
+      "verdict": "uninformative"
     },
     "improvements": {
       "correct": 0.5932203389830508,

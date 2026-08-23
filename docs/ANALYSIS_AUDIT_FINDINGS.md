@@ -1,5 +1,12 @@
 # Comprehensive Analysis: Code Methodology Audit
 
+> **This is a chronological log, not a statement of current state.** It records four
+> audit passes in the order they happened, and later passes correct earlier ones —
+> so reading it top-down gives you superseded conclusions first. For the
+> neural-efficiency chapter (passes 3 and 4), the current truth is
+> [`docs/NEURAL_EFFICIENCY.md`](NEURAL_EFFICIENCY.md). Passes 1 and 2 cover the
+> paper-replication analyses and remain the record for those.
+
 **Date**: 2026-06-15
 **Scope**: All 18 experiments (9 original + 9 h128) audited against paper methodology.
 **Status**: Code fixed, h128 experiments re-run with new code, original experiments re-running in background.
@@ -304,7 +311,7 @@ differ. Magnitude and CV² are unaffected by both biases.
 
 ## C. Level 3 (the headline) is not accuracy-matched as the deck claims
 
-The `gate_suppression.py` command in `EXECUTION_PLAN_NEURAL_EFFICIENCY.md` §3/§4
+The `gate_suppression.py` command in `docs/archive/EXECUTION_PLAN_NEURAL_EFFICIENCY.md` §3/§4
 passes **no `--epoch_a`/`--epoch_b`**, so `load_payloads(epochs=None)` pooled
 *every saved epoch* of both runs. Condition A (`wm_attention_mtmf_20260726_161735`)
 is a from-scratch run contributing many near-initialization checkpoints;
@@ -357,7 +364,7 @@ Also on Level 1:
 | `compare_models.py` | `--best_epoch` / `--baseline_epochs` / `--attention_epochs` / `--split`; per-model epoch plumbing through all four sub-analyses; chance level + class counts in the decoding output; in-sample `train_time` note |
 | `decoding.py`, `orthogonalization.py`, `procrustes.py` | `split=` parameter plumbed to `load_payloads` (was unreachable from these entry points) |
 | `PAPER_EXPLAINED_CONSTANTINIDIS_KLINGBERG_2016.md` §8 | rewritten: states which single prediction the review licenses (Fano ↓) and why the magnitude and PR predictions were wrong |
-| `FUTURE_WORK_NEURAL_EFFICIENCY.md` §4.3 | items 2/3/4 corrected (PR ungraded + N-biased; sparsity is our assumption; Fano needs ddof=1 + CV²) |
+| `docs/archive/FUTURE_WORK_NEURAL_EFFICIENCY.md` §4.3 | items 2/3/4 corrected (PR ungraded + N-biased; sparsity is our assumption; Fano needs ddof=1 + CV²) |
 
 ## Re-runs required before the chapter's numbers can be quoted
 
@@ -368,3 +375,83 @@ Also on Level 1:
    irrelevant-feature-only comparison.
 3. **Level 2** — re-run for `cv_squared` and the corrected Fano; check
    `n_trials_a == n_trials_b` before quoting PR/sparsity.
+
+---
+
+# Fourth pass (2026-08-22): the Third Audit checked against the real result JSONs
+
+The Third Audit above reasoned largely from the code. This pass re-derived its
+claims from the **actual output files** —
+`~/.claude/jobs/7ae0bd7c/tmp/{neural_efficiency_baseline_vs_proxy_mtmf,neural_efficiency_attention_pair,gate_suppression_mtmf,compare_baseline_vs_attention_mtmf}.json`
+— plus a numerical bias check at the trial counts and PR values those files
+actually contain. Three of its claims were overstated; three new issues surfaced.
+
+## Confirmed as written
+
+- **Fano ↑ is a genuine contradiction of Ref 2, and understated.** Higher in
+  18/18 cells. Scale-correcting by the magnitude ratio strengthens it in every
+  cell (CV²-equivalent ratio 1.08–7.16), because the quieter proxy condition
+  should have driven `Var/Mean` *down*.
+- **PR should not be graded against Ref 2** — for the construct reason
+  (population dimensionality ≠ single-unit tuning), not because the effect is
+  suspect. See correction 2.
+- **Level 3 pooled all epochs.** `epoch_a: null, epoch_b: null` confirmed in the
+  JSON. ~45 checkpoints per condition (12150 trials / 270 per epoch).
+- **Level 1 ran unfiltered.** No epoch field, `"task": null`. Chance for identity
+  is 1/72 = **1.39%**, unreported in the deck.
+- Magnitude lower in 18/18 cells; every deck number for Level 3 matches the JSON
+  exactly (A −0.171→+0.070, B −0.520→−0.333, corr 0.09–0.24 vs 0.45–0.72, 9/9).
+
+## Corrections to the Third Audit
+
+1. **The `ddof=0` bias is ~3% here, not 33%.** The 33% figure is the worst case
+   at the `min_group_size=3` floor. Real group sizes are 9–13 trials
+   (`n_trials / n_groups`), and the *between-condition differential* — the only
+   part that can distort a comparison — is 0.97–1.03 across all 18 cells. The
+   `ddof=1` fix is still correct; it just does not change any conclusion.
+   *Exception:* identity cells have mean group size 1.7–1.8, so most groups fall
+   below the floor and are dropped. Those Fano values rest on a selected minority
+   of groups and cannot be assessed without the raw payloads.
+2. **The sample-size bias does not threaten the PR result.** Measured on
+   synthetic data at the PR values and trial counts actually present
+   (PR 1.2–9.8, N 204–324), N-induced drift is **0–2%** for PR and 2–4% for
+   sparsity — against observed effects of +2.6% to +605%. The Third Audit's
+   "+44%" came from a regime (true PR ≈ 20, N = 50) that does not occur in this
+   data. Independently: in **11/18 cells the proxy condition has *fewer* trials
+   yet higher PR**, and one cell with exactly equal N (258 vs 258) shows +76%.
+   Keep the `trial_count_warning`, but the PR effect is real.
+   Sparsity is weaker — its three smallest cells (−5.3%, +11.7%, +14.8%) are
+   within a few multiples of the drift.
+3. **Level 3's confound is maturity, not checkpoint count.** The audit says
+   condition B "contributes only already-converged" checkpoints. Both conditions
+   pool ~45 epochs. The confound is that A trains from scratch (its pool includes
+   near-initialization checkpoints) while B fine-tunes from a pretrained model and
+   is converged by epoch 1. Same conclusion, different mechanism.
+
+## New issues
+
+4. **The swap-test row is not an identity measurement.** `swap_hypothesis_test`
+   hardcodes `swap_property = "location"` — deliberately and correctly, since
+   identity labels are unique per trial and cannot be aligned across the two
+   disjoint stimulus groups. But `compare_models.py::compare_swap_test` reports
+   `'property': property_name` (i.e. `"identity"`) and drops the function's own
+   `verdict` / `note` fields, so the deck presented a **location**-decoding number
+   as identity-suppression evidence. Row struck from the Level 1 slide.
+5. **`p<0.0001` is unattainable at `n_boot=1000`.** `bootstrap_difference` computes
+   `p = 2·min(prop_below_zero, 1−prop_below_zero)`, so the finest resolvable value
+   is 2/1000. A stored `0.0` means "no resample crossed zero" → report **p < 0.002**.
+   Deck corrected.
+6. **The Level 2 "matched" pair is epoch 43 vs epoch 1** — condition B is one epoch
+   into fine-tuning, so the two conditions differ in training maturity even where
+   accuracy matches. Separately, `select_matched_epoch` defaults to
+   `metric_key="val_novel_angle_acc"` while the runs used `--split val_novel_identity`;
+   if the default was used, the accuracy match is on a different split than the
+   hidden states analyzed. Worth pinning explicitly on any re-run.
+
+## Not verifiable locally
+
+The accuracy figures themselves (93.43/93.51, 82.7/92.7) live in `training_log.json`
+on the GPU server; the relevant `experiments/` directories are not on this machine.
+Also note the baseline-vs-proxy pair's location cells have PR_a ≈ 1.19–1.41 (near
+rank-1), so that pair's 5–6× ratios come from a degenerate condition-A
+representation, not a strong proxy effect — quote the attention pair instead.

@@ -919,10 +919,43 @@ You cannot read "activity went down" as "got more efficient" — not without fir
 Every comparison in our method also reports the **accuracy gap** between the two conditions, so an activity/decodability difference can't be waved away as "just being more accurate." We specifically re-ran our Level 2 comparison at a **near-zero accuracy gap**, instead of trusting only the first pair, where the two models also differed a lot in accuracy.
 
 ### The prediction it makes
-It predicts our Fano-factor analogue should move **down** (less variable) under familiarity — the one prediction the review cleanly licenses, and the one our Level 2 results go *against*, which we report rather than hide. It makes **no** prediction for the participation ratio: its tuning claim is about *single-unit* selectivity (which it says gets **broader**), while PR measures *population* effective dimensionality — a different quantity.
+This review licenses exactly **one** directional prediction for us: the Fano-factor analogue should move **down** (less variable) under familiarity. That is the prediction our Level 2 result goes *against*, and we report it rather than hide it. It does **not** predict lower magnitude (§4 reports firing rate going *up* after training — that prediction comes from Ref 1), and it does **not** predict a participation-ratio direction at all: PR is a *population* dimensionality measure, while the review's tuning result is a *single-unit* property.
 
 </div>
 
+</div>
+
+---
+transition: fade-out
+---
+
+# The Grading Contract
+
+<div class="text-sm text-gray-400 mb-3">Fixing this explicitly, because an earlier version of this chapter graded three of four metrics against the wrong reference.</div>
+
+<div class="flex justify-center text-sm">
+
+| Our metric | Graded against | Why |
+|---|---|---|
+| Activation magnitude ↓ | **Reference 1** | Prior knowledge suppresses processing activity. Ref 2 predicts the *opposite* — its §4 has firing rate going **up** after training |
+| Fano analogue ↓ | **Reference 2** | The one clean directional prediction the review licenses |
+| Participation ratio | **Nothing — ungraded** | PR is a *population* dimensionality measure; Ref 2's tuning result is a *single-unit* property, and it reports tuning getting **broader** |
+| Population sparsity ↑ | **Our own assumption** | Neither paper predicts sparsity. Ref 2's "more neurons recruited" arguably argues for *less* sparse |
+| Gate-suppression index | **Nothing needed** | The gates *are* a literal suppression signal — read off directly, not argued by analogy |
+
+</div>
+
+<div class="mt-6 grid grid-cols-2 gap-6 text-sm">
+<div class="p-3 bg-blue-500/10 rounded-lg">
+
+**Why state this before the results:** a metric can only confirm or contradict a prediction that was actually made. Deciding the grading *first* is what stops a result from being retro-fitted to whichever reference it happens to match.
+
+</div>
+<div class="p-3 bg-purple-500/10 rounded-lg">
+
+**Two references, five metrics.** Only **one** metric is graded against Reference 2 — and that is the one our results contradict. We report it rather than quietly regrade it.
+
+</div>
 </div>
 
 ---
@@ -931,25 +964,30 @@ transition: fade-out
 
 # Results — Level 1: Representational Content
 
+<div class="text-xs mb-2"><span class="px-2 py-1 bg-green-500/20 rounded">RE-RUN</span> <span class="text-gray-400">best epoch, single split, task contexts separated</span></div>
+
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
 ### Comparing
-`wm_mtmf_20260520_140601` (baseline) vs. `wm_attention_mtmf_20260520_203605` (attention) — property `identity`
+`wm_mtmf_20260520_140601` (baseline, ep17) vs. `wm_attention_mtmf_20260520_203605` (attention, ep25) — decoding `identity`, `val_novel_identity`
+
+Run separately for the two task contexts where identity is genuinely **irrelevant**. Pooling them (the earlier run) mixes in identity trials, where identity is the *task-relevant* feature.
 
 </div>
 
 <div>
 
-### Mixed, leaning supportive (weakest of the three levels)
+### The effect is real — but only in one task context
 
 | Sub-metric | Baseline | Attention | Read |
 |---|---:|---:|---|
-| Identity decodability, t=3/4/5 | 14.6/12.0/10.1% | 7.2/6.5/5.9% | ✅ roughly halved |
-| Orthogonalization index | 0.936 | 0.933 | Flat, ceiling |
-| Procrustes reconstruction | 32.3% | 31.7% | Flat |
-| Swap-test "correct" acc | 22.9% | 30.0% | ✅ +7pp |
+| **task=location** decodability t=3/4/5 | 28.5/18.0/15.3% | **5.3/2.3/5.3%** | ✅ collapses to ~chance (**3.2%**) |
+| **task=category** decodability t=3/4/5 | 20.5/15.9/15.9% | 15.4/19.2/16.5% | ❌ no suppression |
+| Orthogonalization index (loc / cat) | 0.939 / 0.944 | 0.946 / 0.944 | Flat, ceiling |
+| Procrustes reconstruction (loc / cat) | 92.7% / 100% | 83.0% / 93.5% | Lower under attention |
+| ~~Swap test~~ | — | — | ⚠️ decodes **location**, not identity — withdrawn |
 
 </div>
 
@@ -957,13 +995,13 @@ transition: fade-out
 
 <div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-sm">
 
-**In plain terms:** "Decodability" = if you tried to guess the object's identity just from the model's hidden state using a simple classifier, how often would you succeed? Lower is better here — it means identity (irrelevant to the task) is harder to read out, i.e. more hidden/suppressed. The other three sub-metrics probe the same idea from different angles (how separated, how similarly-shaped, how robust the encoding is) — two move the same direction, two don't move at all.
+**In plain terms:** "Decodability" = if you tried to guess the object's identity from the hidden state with a simple classifier, how often would you succeed? Lower is better here — identity is irrelevant in both contexts shown, so harder to read out means more suppressed. Chance is ~3% (31–32 identity classes survive the split/task filter). In the **location** context attention drives identity decodability essentially to chance; in the **category** context it does not move at all.
 
 </div>
 
 <div class="mt-4 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
 
-2 of 4 sub-metrics clearly support suppression, 2 are flat (ceiling-limited by this MTMF config, not contradictory).
+**Task-dependent, not uniform.** Attention suppresses irrelevant identity almost completely when the task is *location*, and not at all when it is *category* — a sharper and more interesting result than the pooled run's uniform "roughly halved". The swap test is withdrawn: `swap_hypothesis_test` decodes **location** by design (identity labels are unique per trial and cannot be aligned across stimulus groups), so it says nothing about identity suppression. The analysis code now records `decoded_property` so this cannot be misread again.
 
 </div>
 
@@ -972,6 +1010,8 @@ transition: fade-out
 ---
 
 # Results — Level 2: Population Activity
+
+<div class="text-xs mb-2"><span class="px-2 py-1 bg-green-500/20 rounded">SOLID</span> <span class="text-gray-400">accuracy-matched, replicated across two independent pairs</span></div>
 
 <div class="grid grid-cols-2 gap-8">
 
@@ -989,10 +1029,11 @@ transition: fade-out
 
 | Metric | Under proxy pretraining | Graded against |
 |---|---|---|
-| Activation magnitude | **Lower**, p<0.0001 | ✅ **Ref. 1** (Poppenk) — Ref. 2 reports firing *up* |
-| Population sparsity | **Higher**, most cells | ⚪ **our own assumption** — neither ref. predicts it |
-| Participation ratio | **Higher**, every cell | ⚪ **ungraded** — Ref. 2's claim is per-unit tuning |
-| Fano-factor analogue | **Higher**, every cell | ❌ **Ref. 2** — the one genuine contradiction |
+| Activation magnitude | **Lower**, 18/18 cells, p<0.002 | ✅ **Ref 1** (Poppenk) — Ref 2 predicts the *opposite* |
+| Population sparsity | **Higher**, 17/18 cells, small | ➖ **our own assumption** — neither ref predicts it |
+| Participation ratio | **Higher**, 18/18 cells | ➖ **ungraded** — Ref 2 licenses no PR direction |
+| Fano-factor analogue | **Higher**, 18/18 cells | ❌ **Ref 2** — genuinely opposite |
+| CV² (scale-invariant) | **Higher**, 18/18 cells | ❌ confirms the Fano result is not a scale artifact |
 
 </div>
 
@@ -1004,10 +1045,17 @@ transition: fade-out
 
 </div>
 
-<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
+<div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+<div class="p-3 bg-green-500/10 rounded-lg">
 
-Magnitude/sparsity effect **replicates at near-zero accuracy gap** — survives the Box 2 confound check, not just "the proxy model is more accurate." Only the Fano row genuinely contradicts a reference: PR measures *population* dimensionality, which Ref. 2 makes no prediction about."
+**What survives the checks:** the magnitude effect **replicates at near-zero accuracy gap** (Box 2 confound check). The PR effect is not a sample-size artifact — in 11/18 cells the proxy condition has *fewer* trials yet higher PR, and one cell with exactly equal N (258 vs 258) still shows +76%.
 
+</div>
+<div class="p-3 bg-red-500/10 rounded-lg">
+
+**The one real contradiction, now confirmed directly:** `Var/Mean` scales with activity, and the proxy condition is *quieter*, so a pure scale effect would push Fano **down**. It rises anyway — and the scale-invariant **CV² also rises in all 18 cells**, so this is a genuine increase in relative variability, not an artifact of the magnitude difference.
+
+</div>
 </div>
 
 ---
@@ -1016,25 +1064,34 @@ transition: fade-out
 
 # Results — Level 3: Explicit Gating (Headline)
 
+<div class="text-xs mb-2"><span class="px-2 py-1 bg-red-500/20 rounded">CORRECTED</span> <span class="text-gray-400">the epoch-pooled version of this result did not survive — see below</span></div>
+
 <div class="grid grid-cols-2 gap-8">
 
 <div>
 
 ### Comparing
-`wm_attention_mtmf_20260726_161735` (attention-only) vs. `finetune_proxy_wm_attention_mtmf_20260726_201707` (attention+proxy) — near-matched accuracy: **93.43% vs. 93.51%**
+`wm_attention_mtmf_20260726_161735` (attention-only) vs. `finetune_proxy_wm_attention_mtmf_20260726_201707` (attention+proxy), epochs **43 vs. 1**, `val_novel_identity`
 
-Never run anywhere before this pass — directly answers "can attention-containing models be used in proxy pretraining, and does it help?"
+<div class="mt-3 p-2 bg-red-500/10 rounded text-xs">
+
+⚠️ **The earlier "9/9 cells, large effect" was a confound.** That run pooled ~45 checkpoints per condition; condition A trains from scratch, so its pool held near-initialisation checkpoints. Pinning the accuracy-matched epochs removes the effect.
+
+</div>
 
 </div>
 
 <div>
 
-### 9/9 cells sharper under proxy pretraining
+### With epochs pinned: 6/9, and small
 
-| | Attention-only | Attention+proxy |
+| Suppression index | Attention-only | Attention+proxy |
 |---|---:|---:|
-| Suppression index | −0.17 to **+0.07** (wrong-signed 2/9) | **−0.33 to −0.52** |
-| Gate-relevance correlation | 0.09–0.24 (weak) | 0.45–0.72 (strong) |
+| location (n=1/2/3) | −0.48 / −0.43 / −0.52 | −0.51 / −0.49 / −0.49 |
+| category (n=1/2/3) | −0.48 / −0.45 / −0.42 | −0.48 / −0.53 / −0.48 |
+| identity (n=1/2/3) | **+0.07 / +0.13 / +0.03** | **−0.10 / +0.11 / +0.18** |
+
+Gate-relevance correlation: 0.66–0.73 vs. 0.84–0.85 (location), 0.46–0.50 vs. 0.54–0.58 (category), ≈0 in both (identity).
 
 </div>
 
@@ -1048,7 +1105,7 @@ Never run anywhere before this pass — directly answers "can attention-containi
 
 <div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center text-sm">
 
-For **category**, attention-only barely gates at all (index ≈0, sometimes wrong-signed); attention+proxy fixes this completely. Accuracy-matched, large effect, and a signature a plain RNN baseline structurally cannot produce. Unlike Levels 1–2, this level needs no external reference to interpret: the gates are a **literal, built-in** suppression signal, not something we infer indirectly.
+**What actually holds:** attention-only already gates strongly on location and category (−0.42 to −0.52) — the earlier claim that it "barely gates" was an artifact of averaging in its untrained checkpoints. Proxy pretraining adds a consistent but **small** sharpening (6/9 cells) and a clear gain in gate-relevance correlation. Neither model gates on **identity**, where both are near zero or wrong-signed. This level still needs no external reference: the gates are a **literal, built-in** suppression signal — and that is exactly why the confound was detectable.
 
 </div>
 
@@ -1066,9 +1123,9 @@ transition: fade-out
 
 | Level | vs. reference prediction |
 |---|---|
-| 3. Explicit gating | **Strongest support** — accuracy-matched, 9/9 cells, large effect |
-| 2. Population activity | **Partial support** — magnitude matches Ref. 1 and replicates at matched accuracy; Fano is a genuine contradiction of Ref. 2; PR/sparsity are ungraded (no reference prediction) |
-| 1. Representational content | **Weakest, not contradictory** — 2/4 sub-metrics support, 2/4 flat at ceiling |
+| 2. Population activity | **Now the strongest leg** — magnitude matches Ref. 1 and replicates at matched accuracy across 2 pairs; **Fano/CV² genuinely contradict** Ref. 2; PR ungraded |
+| 1. Representational content | **Task-dependent** — identity suppressed to chance under `task=location`, untouched under `task=category` |
+| 3. Explicit gating | **Downgraded** — the 9/9 headline was epoch-pooling; pinned, it is 6/9 and small. Attention-only already gates well |
 
 </div>
 
@@ -1076,7 +1133,7 @@ transition: fade-out
 
 ### The claim we can defend
 
-Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional and more variable** population code, and dramatically **sharpens explicit gating** — both at matched accuracy, so neither is just "the model got better." This is a genuine, observable WM phenomenon in its own right, distinct from (and not reducible to) the accuracy/performance gain already in the deck — directly answering the ask for a new finding.
+Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional and more variable** population code — at matched accuracy, in all 18 cells, across two independent model pairs. That is the finding this chapter can defend: an observable, mechanistic phenomenon distinct from the accuracy gain already in the deck. Attention additionally suppresses irrelevant identity **in the location task context**, to near chance.
 
 </div>
 
@@ -1084,7 +1141,7 @@ Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional 
 
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
-We report this honestly graded, not as a uniform win — Level 3 is the strongest and most novel result; Level 2 confirms the literature on magnitude and contradicts it on Fano; Level 1 is supporting, not central, evidence. Where a metric has no reference prediction, we say so rather than manufacture one.
+We report this honestly graded, not as a uniform win. **The re-run changed the story:** with epochs pinned, Level 3's headline dropped from 9/9 cells to 6/9 and lost most of its effect size — that result was largely a training-maturity confound, and we retract it rather than quote it. Level 2 survived unchanged and is now the chapter's centre of gravity; Level 1 became *sharper* under filtering, not weaker. Finding this cost us the headline, which is the point of running the check.
 
 </div>
 

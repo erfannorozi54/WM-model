@@ -1,5 +1,12 @@
 # Future Research Direction: Neural-Efficiency Signatures of Feature Familiarity
 
+> **SUPERSEDED — historical record.** This was a *planning* document; its plan has
+> been executed and several of its statements were later corrected. The current,
+> authoritative account of the neural-efficiency chapter — references, method,
+> results, confidence levels, and reproduction steps — is
+> [`docs/NEURAL_EFFICIENCY.md`](../NEURAL_EFFICIENCY.md). Read that first; consult
+> this only for how the work got here.
+
 **Status:** the RNN-hidden-state metrics (§4.3) and the gate-suppression index (§4.8.1) are implemented and have now been run on real GPU experiment data (see `docs/EXECUTION_PLAN_NEURAL_EFFICIENCY.md` §7 for the real results).
 **Correction:** an earlier version of this document, and `slidev-presentation/proxy_training_comparison.md`, described the existing proxy-pretraining accuracy gain as a **capacity** effect (citing Chung, Brady & Störmer, 2024). That's an over-claim: capacity specifically means holding *more items* (succeeding at higher N, or a higher K in span tasks); our result is accuracy improvement *at the same N-back levels*, i.e. a **performance/accuracy** effect, not a demonstrated capacity increase. `proxy_training_comparison.md` still needs a matching correction (flagged, not yet done). This document's own target — familiarity **reducing neural activity**, plus the gate-suppression signature — is not affected by that correction; if anything it becomes more important, since it's now the *only* genuinely new, literature-grounded WM phenomenon this thesis demonstrates, rather than one of two.
 
