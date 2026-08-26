@@ -1205,11 +1205,11 @@ transition: fade-out
 <v-clicks>
 
 7. ✅ **Two audits, 9 bugs fixed** — the second found a **class-index misalignment** that had faked two "divergences from the paper" (see next slide)
-8. ✅ **Task-guided attention** improves MTMF by +11% train, +12% angle, +11% identity
-9. ✅ **Re-ran all 18 experiments** with fixed code — results in `analysis_results/`
-10. ✅ **Open-sourced** the audit findings (`docs/ANALYSIS_AUDIT_FINDINGS.md`)
-11. 🔬 **Neural efficiency** (new): three-level suppression story — representational content, population activity, explicit gating — see previous section
-12. 🔬 **Attention + proxy pretraining** (new): first combined run of attention-gated architecture with structured-feature pretraining — direct extension of both prior contributions
+8. ✅ **Task-guided attention** — +11pp on STMF and MTMF, and a measured scope boundary: it **costs** 11pp on STSF (32pp at h=128), because with one task there is no ambiguity for the gate to resolve
+9. ✅ **Proxy pretraining** — +14.8pp novel angle, +12.2pp novel identity, at unchanged N-back levels; passes the baseline's final accuracy at epoch 1
+10. ✅ **Re-ran all 18 experiments** with fixed code, and open-sourced the audit findings (`docs/ANALYSIS_AUDIT_FINDINGS.md`)
+11. 🔬 **Neural efficiency**: a three-level suppression result — representational content, population activity, explicit gating — measured at matched accuracy
+12. 🔬 **Attention combined with proxy pretraining**: the two modifications run together, which is what makes the Level 3 comparison possible
 
 </v-clicks>
 

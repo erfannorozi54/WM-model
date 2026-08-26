@@ -1,32 +1,80 @@
-# Speaker Notes: Neural Efficiency Through End
+# Speaker Notes: Proxy Pretraining Through End
 
-These notes cover every slide from the **"Neural Efficiency"** section title through the **"Thank You"** slide. For each slide: what to say, what to emphasize, and what to be careful about.
+These notes cover every slide from the **"Proxy Pre-training"** section title through the **"Thank You"** slide. For each slide: what to say, what to emphasize, and what to be careful about.
+
+---
+
+## Slide: Proxy Pre-training — Section Title
+
+> *"The Second Modification"*
+
+**Say:**
+> "The attention mechanism changed the architecture. The second modification changes the training regimen instead, and leaves the architecture completely untouched."
+
+**Emphasize:** That distinction is doing work later. Because nothing about the network changes, anything we observe downstream is attributable to what the model learned, not to added capacity.
+
+---
+
+## Slide: Two-Stage Training
+
+**Say:**
+> "N-back gives a sparse training signal. Three classes, and most timesteps are no-action — so most of the sequence teaches the model nothing. The proxy task fixes that: same stimuli, same task vectors, but at every step the model predicts the actual feature value N steps back. Location, identity, or category. Every step from t equals N onward carries a target."
+
+> "Then we load those weights, swap in the three-class N-back head, and fine-tune on the real task."
+
+**Emphasize:** Same ResNet50, same RNN, same classifier. Only the curriculum changed.
+
+**Be careful about:** Someone will ask whether this is just more training. Say plainly that the volume control has not been run — see the caveats slide — and that we do not claim to have excluded it.
+
+---
+
+## Slide: Results — Proxy vs. Baseline
+
+**Say:**
+> "Fourteen point eight points on novel angle, twelve point two on novel identity. And the convergence story is sharper than the endpoint: the proxy model passes the baseline's *final* accuracy at epoch one."
+
+**Emphasize:** The amber box. This is a performance result at unchanged N-back levels. We never tested whether the model can hold more items or succeed at higher N, so "capacity" is not available to us as a word.
+
+**Be careful about:** Do not say "the model got more efficient" here. That is the next section, and it is a separate measurement.
+
+---
+
+## Slide: Alignment With Human Working Memory
+
+**Say:**
+> "Two findings from human work bear on this. Chung and colleagues show visual WM capacity expands when stimuli connect to preexisting semantic knowledge — and their EEG rules out the compression explanation, because delay activity goes *up*, not down. Mercer shows that repeating a meaningless non-word makes interference worse, while repeating a meaningful word changes nothing at all — structure had already done the protective work."
+
+> "Mercer is the one that constrains us. It means 'proxy pretraining is just more training' is not the reading this literature supports."
+
+**Emphasize:** We present only the portions of these two papers that bear on our alignment check. This is not a literature review.
+
+**Be careful about:** The three orange boxes are not decoration. Read at least the first one aloud — the structure-versus-volume control has not been run in our model, and saying so before someone asks is much stronger than saying it after.
 
 ---
 
 ## Slide: Neural Efficiency — Section Title
 
-> *"A Second, Independent Finding"*
+> *"What the Two Modifications Do to the Population Code"*
 
 **Say:**
-> "So far we've covered the paper's five analyses and our attention-mechanism contribution. Now I want to present something entirely separate — a second, independent finding that grew out of a question our professor asked us: beyond just showing better accuracy, can we point to an observable working-memory *phenomenon* in these models? That question led us down a path that connects our work directly to the human neuroscience of neural efficiency."
+> "Both modifications raise accuracy. But accuracy alone doesn't identify a working-memory phenomenon — it says the model got better, not that it got better in the way working memory does. This section measures something else."
 
-**Emphasize:** This is a *new finding*, not a restatement of anything earlier in the talk. Signal the transition clearly.
+**Emphasize:** Signal the transition clearly. This is a different kind of measurement, not a further accuracy number.
 
 ---
 
 ## Slide: The Claim We're Testing
 
 **Say:**
-> "Let me be precise about what we already showed. Proxy pretraining raises accuracy — novel angle from 83 to 98 percent, novel identity from 81 to 93 percent. But that's a *performance* result at the same N-back levels. We never tested whether the model can hold more items or succeed at higher N. So calling it a 'capacity increase' would be an over-claim."
+> "Both modifications land in the same place on accuracy — attention takes novel identity from 81 to 92, proxy pretraining from 81 to 93. Both at unchanged N-back levels. Neither tells us whether the model can hold more items, so 'capacity' is not a word available to us."
 
-> "Human working-memory research distinguishes capacity from efficiency. Capacity means holding more items. Efficiency means doing the same or better work with *suppressed* neural response — the same signature seen for stimulus repetition, now also shown for prior knowledge."
+> "Human working-memory research separates two things that raw accuracy conflates. Capacity means holding more items. Efficiency means doing the same or better work with a *suppressed* neural response — the signature seen for stimulus repetition, and also for prior knowledge."
 
-> "Our claim under test is: familiarity and structure — from proxy pretraining — and explicit gating — from attention — both suppress task-irrelevant processing. And we test this at three independent levels of the model, using real prior findings from human WM research as the standard to compare against."
+> "Our claim under test is: familiarity and structure — from proxy pretraining — and explicit gating — from attention — both suppress task-irrelevant processing. We measure that at three independent levels of the model, graded against findings from human WM research."
 
 **Emphasize:**
 - The distinction between performance (accuracy) and efficiency (suppressed activity). This is the conceptual pivot of the entire section.
-- That this answers a specific ask — not just "did better," but "show me an observable phenomenon."
+- Three levels rather than one because each is independently falsifiable.
 
 **Be careful about:** Do not let the audience conflate the accuracy gain with the efficiency finding. They are separate claims. Say so explicitly.
 
@@ -176,87 +224,6 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 **Emphasize:**
 - Items 11 and 12 — the neural-efficiency findings — are the capstone. Give them the most time.
 - The implication about stimulus-specific versus shared encoding is the thesis-level takeaway.
-
----
-
-## Slide: Meta-Learning Experiments — Section Title
-
-> *"Rapid Task Adaptation with Attention"*
-
-**Say:**
-> "The last set of experiments asks a different question entirely: can the attention mechanism enable rapid adaptation to a *novel* task?"
-
-**Emphasize:** This is a clean topic shift. Signal it.
-
----
-
-## Slide: Meta-Learning Setup
-
-**Say:**
-> "The research question: can task-guided attention enable few-shot learning of a novel WM task? Our hypothesis was that attention separates task-agnostic temporal processing in the RNN from task-specific feature selection in the attention gates — so only the attention gates need updating for new tasks."
-
-> "The novel task is Three-in-a-Row: detect when the same stimulus appears three consecutive times. This was never seen during training — the model was trained on N-back. It tests pattern recognition versus temporal distance."
-
-> "We gave each model 50 examples and 20 epochs of fine-tuning. We tested six adaptation strategies: training from scratch, full fine-tuning, cognitive-only (RNN only), attention-only (freeze RNN, update gates), classifier-only, and attention-plus-classifier."
-
-**Emphasize:**
-- The hypothesis that *only attention needs updating*. This is what we're testing.
-- That Three-in-a-Row is genuinely novel — never seen during training.
-
----
-
-## Slide: Meta-Learning Results: Three-in-a-Row
-
-**Say:**
-> "The plot shows learning curves for all six strategies across the three architectures. The table gives the final numbers."
-
-> "The headline: Base Cognitive-Only and Classifier-Only both win at 69.1 percent. Attention models are competitive at 65 to 68 percent. And training from scratch lands at chance — 50 percent."
-
-> "A few things to notice. The Base model has no attention mechanism, so Attention-Only and Attention-Plus-Classifier are zero for it. For the attention and dual-attention models, Attention-Only actually works — 67 and 66 percent — which partially supports our hypothesis that the gates can adapt independently."
-
-**Emphasize:**
-- That scratch is at chance. Pre-training is doing the heavy lifting, not architecture.
-- The table is the detail; the plot is the story. Point to the plot first.
-
----
-
-## Slide: Key Findings
-
-**Say:**
-> "Four main results. First, Base Cognitive-Only and Classifier-Only win at 69 percent — simple task benefits from focused updates. Second, attention models are competitive — 65 to 68 percent — with Attention-Plus-Classifier best for attention at 69 percent. Third, Cognitive-Only is strong across the board — the RNN learns pattern matching well. Fourth, scratch is at chance — pre-training is essential."
-
-> "Three interpretations. Task type matters: Three-in-a-Row is simpler than N-back — it's pattern matching versus temporal distance — so all models converge to similar performance. Architecture impact is minimal: Base 69, Attention 69, Dual 68 — all pretrained models learn effectively, and attention provides flexibility without penalty. And practically, pre-training is critical: scratch at 50 percent versus pretrained at 65 to 69 percent."
-
-**Emphasize:**
-- Pre-training matters more than architecture. This is the practical takeaway.
-- That attention doesn't *hurt* — it provides flexibility without a performance penalty.
-
----
-
-## Slide: Improvement Analysis
-
-**Say:**
-> "This plot visualizes the improvement over the scratch baseline. All pretrained methods show 13 to 19 percentage points of improvement over the 50 percent scratch baseline. All architectures converge to similar performance — 65 to 69 percent — showing that pre-training matters more than architecture choice for this task."
-
-**Emphasize:**
-- The visual is the point. Let the plot speak. The key insight is in the callout box.
-
----
-
-## Slide: Thesis Contribution Context
-
-**Say:**
-> "Let me close by contrasting what we expected versus what we found."
-
-> "Our original hypothesis: attention enables rapid few-shot adaptation, only the attention gates need updating, the RNN provides stable temporal processing, and attention models should outperform base."
-
-> "What actually happened: all models perform similarly — 65 to 69 percent. Base 69, Attention 69, Dual 68. Classifier-Only and Cognitive-Only are the most efficient strategies. Reality: pre-training matters more than architecture choice."
-
-> "Four key lessons. Task complexity determines architecture — simple tasks don't require attention. Architecture choice matters less — all pretrained models converge. Focused updates work — classifier and cognitive-only are the most efficient. And pre-training is critical — pretrained at 68 percent versus scratch at 50 percent is an 18-point gap."
-
-**Emphasize:**
-- The honesty of reporting a hypothesis that didn't pan out as expected. The audience will respect this.
-- That the lesson is *positive*: pre-training works, attention doesn't hurt, and simple adaptation strategies are sufficient. This is useful information, not a failure.
 
 ---
 
