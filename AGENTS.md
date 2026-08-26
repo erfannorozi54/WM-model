@@ -147,10 +147,23 @@ python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 ```
 
 ### Batch scripts
-- `run_all_experiments.sh` — 9 base experiments (uses `~/.virtualenvs/WM-model`)
-- `run_all_experiments_h128.sh` — 9 h128 experiments
-- `run_all_analysis.sh` — comprehensive analysis on all `experiments/wm_*/`
-- `run_h128_analysis.sh` — comprehensive analysis on all `experiments/wm_h128_*/`
+
+All of them source `run_common.sh`, which resolves the venv (probing
+`~/.venv/WM-model`, then `~/.virtualenvs/WM-model`, then `./venv`), sets
+`PYTHONPATH`/`MPLCONFIGDIR`, and opens a `logs/<stage>_<UTC ts>/` directory whose
+`00_provenance.log` records the commit, branch, interpreter and host. Never
+hand-assemble these CLIs — the neural-efficiency chapter had to be re-run twice
+because omitted `--epoch_*`/`--split`/`--task` flags confounded the results.
+
+| Script | What it does |
+|---|---|
+| `run_training.sh [h256\|h128\|all] [scenario...]` | Trains the 9 configs per hidden size |
+| `run_proxy_pipeline.sh [baseline\|attention\|dual_attention]` | Both proxy stages; captures stage 1's timestamped dir for stage 2 |
+| `run_analysis.sh [all\|h256\|h128\|proxy\|<exp>...]` | The 5 paper analyses; `EPOCHS=`, `PROPERTY=`, `ANALYSIS=` override |
+| `run_neural_efficiency.sh [level1 level2 level3]` | The three efficiency levels, with accuracy-matched epochs pinned in-script |
+
+A failed step is logged with its `rc` and does not abort the rest of the batch;
+`finish_provenance` warns at the end if any step exited non-zero.
 
 ### Known gotchas
 

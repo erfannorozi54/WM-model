@@ -15,22 +15,13 @@
 # Writes results into analysis_results/<per-run dirs> and logs into
 # logs/neural_efficiency_rerun_<timestamp>/.
 
-set -u
-
-cd "$(dirname "$0")"
-export PYTHONPATH="${PWD}/src:${PYTHONPATH:-}"
+source "$(dirname "$0")/run_common.sh"
 
 LEVELS="${*:-level1 level2 level3}"
 want () { [[ " $LEVELS " == *" $1 "* ]]; }
 
-LOGDIR="logs/neural_efficiency_rerun_$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$LOGDIR"
-PROV="$LOGDIR/00_provenance.log"
-{
-  echo "commit:  $(git rev-parse --short HEAD)  branch: $(git rev-parse --abbrev-ref HEAD)"
-  echo "levels:  $LEVELS"
-  echo "started: $(date -u)"
-} | tee "$PROV"
+start_provenance "neural_efficiency"
+echo "levels:  $LEVELS" | tee -a "$PROV"
 
 SPLIT=val_novel_identity
 EXP=experiments
@@ -46,14 +37,6 @@ ATTENTION_PROXY=$EXP/finetune_proxy_wm_attention_mtmf_20260726_201707
 EP_BASELINE_A=12; EP_BASELINE_B=1     # 82.7% vs 92.7% (10pp gap)
 EP_ATTN_A=43;     EP_ATTN_B=1         # 93.43% vs 93.51% (0.08pp gap)
 
-run () {
-  local name="$1"; shift
-  echo "=== [$(date -u +%H:%M:%S)] START $name ===" | tee -a "$PROV"
-  "$@" > "$LOGDIR/${name}.log" 2>&1
-  local rc=$?
-  echo "=== [$(date -u +%H:%M:%S)] END $name rc=$rc ===" | tee -a "$PROV"
-}
-
 # --- Level 3 (headline): epochs MUST be pinned ---------------------------------
 # Without --epoch_a/--epoch_b, load_payloads pools every saved checkpoint.
 # Condition A trains from scratch and contributes near-initialisation
@@ -61,7 +44,7 @@ run () {
 # the gap becomes a statement about training maturity. That confound produced
 # the original "9/9 cells, large effect" result; pinned, it is 6/9 and small.
 if want level3; then
-  run level3_gate_suppression \
+  run_step level3_gate_suppression \
     python -m src.analysis.gate_suppression \
       --root_a $ATTENTION/hidden_states \
       --root_b $ATTENTION_PROXY/hidden_states \
@@ -73,7 +56,7 @@ fi
 
 # --- Level 2: population activity, two pairs -----------------------------------
 if want level2; then
-  run level2_baseline_vs_proxy \
+  run_step level2_baseline_vs_proxy \
     python -m src.analysis.neural_efficiency \
       --root_a $BASELINE/hidden_states \
       --root_b $BASELINE_PROXY/hidden_states \
@@ -82,7 +65,7 @@ if want level2; then
       --split $SPLIT \
       --output_dir analysis_results/neural_efficiency_baseline_vs_proxy_mtmf
 
-  run level2_attention_vs_attention_proxy \
+  run_step level2_attention_vs_attention_proxy \
     python -m src.analysis.neural_efficiency \
       --root_a $ATTENTION/hidden_states \
       --root_b $ATTENTION_PROXY/hidden_states \
@@ -100,7 +83,7 @@ fi
 #               task contexts where identity is genuinely irrelevant.
 if want level1; then
   for TASK in location category; do
-    run "level1_compare_task_${TASK}" \
+    run_step "level1_compare_task_${TASK}" \
       python -m src.analysis.compare_models \
         --baseline $BASELINE/hidden_states \
         --attention $ATTENTION_L1/hidden_states \
@@ -112,9 +95,7 @@ if want level1; then
   done
 fi
 
-echo "ALL DONE $(date -u)" | tee -a "$PROV"
-echo
-echo "Logs: $LOGDIR"
+finish_provenance
 echo "Before quoting any number, check in each JSON:"
 echo "  - epoch_a / epoch_b are NOT null, and epochs_pooled is false"
 echo "  - split is '$SPLIT'"

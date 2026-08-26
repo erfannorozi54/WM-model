@@ -38,9 +38,9 @@ python -m src.train --config configs/stsf.yaml
 # Background training on GPU server
 nohup python -m src.train_with_generalization --config configs/mtmf.yaml > train.log 2>&1 &
 
-# Proxy pre-training, then fine-tune on real N-back
-python -m src.train_proxy --config configs/proxy/proxy_mtmf.yaml
-python -m src.finetune_from_proxy --proxy_exp_dir experiments/proxy_mtmf_<timestamp> --config configs/mtmf.yaml
+# Proxy pre-training, then fine-tune on real N-back (prefer the script -- it
+# captures the timestamped directory stage 1 creates and stage 2 requires)
+./run_proxy_pipeline.sh baseline
 
 # Comprehensive analysis (all 5 paper analyses) on a finished experiment
 python -m src.analysis.comprehensive_analysis --analysis all \
@@ -55,7 +55,7 @@ python -m src.scripts.verify_analysis_setup
 python -m src.data.test_validation_splits
 ```
 
-Batch scripts: `run_all_experiments.sh` / `run_all_experiments_h128.sh` (9 experiments each), `run_all_analysis.sh` / `run_h128_analysis.sh` (comprehensive analysis over all matching `experiments/` dirs).
+Batch scripts (all source `run_common.sh`, which resolves the venv and writes a provenance log): `run_training.sh`, `run_proxy_pipeline.sh`, `run_analysis.sh`, `run_neural_efficiency.sh`. See the table in `AGENTS.md`.
 
 ## Architecture
 
