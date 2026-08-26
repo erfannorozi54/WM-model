@@ -31,7 +31,6 @@ src/
 ├── train.py                       # Basic training (no novel-angle/novel-identity splits)
 ├── train_proxy.py                 # Proxy task pre-training (feature recall N-back)
 ├── finetune_from_proxy.py         # Fine-tune proxy-pretrained model on real N-back
-├── meta_learning.py               # Meta-learning experiments
 ├── models/
 │   ├── model_factory.py           # create_model() + create_proxy_model()
 │   ├── wm_model.py                # WorkingMemoryModel (baseline)
@@ -56,7 +55,6 @@ src/
 │   └── proxy_dataset.py           # Proxy task dataset and data module
 ├── scripts/
 │   ├── plot_experiments.py         # Training metric plots across experiments
-│   ├── plot_meta_learning.py       # Meta-learning result plots
 │   └── verify_analysis_setup.py    # Pre-flight check (5/5 tests)
 ├── utils/
 │   └── proxy_visualization.py     # Proxy task visualization utilities
@@ -190,20 +188,6 @@ python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 
 See `docs/ANALYSIS_AUDIT_FINDINGS.md` for the full audit of the 5 analyses against the paper.
 
-## Meta-Learning
-
-```bash
-python -m src.meta_learning --help
-python -m src.meta_learning --list-models
-python -m src.meta_learning --exp-dir experiments/<pretrained> --task <task> \
-  --shots 50 --epochs 20 --output-dir experiments/meta_learning_<name>
-```
-
-- **Tasks**: `nback_4`, `nback_5`, `three_in_a_row`, `alternating` (defined in `src/meta/tasks.py`)
-- **Methods**: `attention_only`, `full_finetune`, etc. (`--help` to list)
-- **Plot**: `python -m src.scripts.plot_meta_learning`
-- **Naming**: `meta_learning_<arch>_<config>_<task>`
-
 ## Proxy Task Pre-training
 
 Two-stage training: (1) pre-train on proxy task (feature recall), (2) fine-tune on real N-back.
@@ -255,7 +239,6 @@ experiments/finetune_proxy_<exp>_<timestamp>/
 - **Identity mapping**: Proxy training builds a mapping from identity names to indices. This mapping is saved in the checkpoint and must be consistent.
 - **Balanced training**: Proxy data is generated with equal samples per task vector (3 features x 3 N-values = 9 groups).
 - **Loss**: Per-sample cross-entropy with the appropriate head selected by task vector. Groups by task feature for batched computation.
-- **Novel task vectors**: Proxy generator supports novel tasks (nback_4, nback_5, three_in_a_row, alternating) with appropriate proxy targets.
 
 ## Data Pipeline
 

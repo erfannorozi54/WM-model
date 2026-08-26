@@ -53,10 +53,6 @@ python -m src.scripts.verify_analysis_setup
 
 # Single manual test (no pytest suite in this repo)
 python -m src.data.test_validation_splits
-
-# Meta-learning
-python -m src.meta_learning --exp-dir experiments/<pretrained> --task <task> \
-  --shots 50 --epochs 20 --output-dir experiments/meta_learning_<name>
 ```
 
 Batch scripts: `run_all_experiments.sh` / `run_all_experiments_h128.sh` (9 experiments each), `run_all_analysis.sh` / `run_h128_analysis.sh` (comprehensive analysis over all matching `experiments/` dirs).
@@ -76,7 +72,6 @@ src/
 ├── train_with_generalization.py   # Main training entry (prefer over train.py)
 ├── train.py                       # Basic training, no novel-angle/novel-identity splits
 ├── train_proxy.py / finetune_from_proxy.py   # Two-stage proxy pre-training pipeline
-├── meta_learning.py
 ├── models/
 │   ├── model_factory.py           # create_model() + create_proxy_model()
 │   ├── wm_model.py                # WorkingMemoryModel (baseline)
@@ -93,8 +88,7 @@ src/
 │   ├── gate_suppression.py        # Attention-gate suppression index (ranks relevance in CNN-activation space, not RNN space — see module docstring)
 │   └── activations.py             # load_payloads(), build_matrix()
 ├── data/                          # dataset, renderer, validation_splits, nback_generator, proxy_generator/dataset
-├── scripts/                       # plot_experiments.py, plot_meta_learning.py, verify_analysis_setup.py
-└── meta/                          # novel task definitions for meta-learning
+└── scripts/                       # plot_experiments.py, verify_analysis_setup.py
 ```
 
 **`model_type` in config controls architecture** (`model_factory.py`):

@@ -909,11 +909,8 @@ See [Section 7.2](#72-individual-analysis-commands) for reproducible commands.
 - `src/train_with_generalization.py` - Training with validation splits
 
 **For usage guides**:
-- `COMPREHENSIVE_ANALYSIS_READY.md` - Quick start guide
-- `ANALYSIS_CHECKLIST.md` - Detailed task checklist
-- `QUICKSTART.md` - Complete workflow from setup to analysis
-
-**Old version**: `ANALYSIS_METHODOLOGY_OLD.md` (backup of previous version)
+- `AGENTS.md` - Commands, config gotchas, and the running list of analysis-pipeline pitfalls
+- `docs/RESULTS.md` - Which claim rests on which artifact
 
 ---
 
