@@ -5,8 +5,8 @@ PyTorch implementation of a two-stage neural network for N-back working memory t
 ## Quick Start
 
 ```bash
-# 1. Activate environment
-source venv/bin/activate
+# 1. Activate environment (see AGENTS.md for the per-machine table)
+source ~/.virtualenvs/WM-model/bin/activate
 export PYTHONPATH="${PWD}/src:${PYTHONPATH}"
 
 # 2. Train a model (stimuli already generated)

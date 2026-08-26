@@ -164,7 +164,7 @@ python -m src.scripts.plot_experiments --exp_dir experiments --output_dir plots
 
 1b. **`attention_mode: "task_only"` gates are a pure function of the task vector.** Every trial in a `(task_index, n)` cell from one checkpoint carries an identical gate vector, so a trial-level bootstrap over gates has nothing to resample and returns a zero-width CI that looks precise and means nothing. `gate_suppression.py` reports `n_distinct_gate_vectors` and `ci_degenerate`; treat a degenerate interval as absent, not as tight. Real uncertainty there lives across channels, checkpoints and seeds. (`"dual"` mode gates do vary per input.)
 
-2. **Dual-attention model loading**: In `causal_perturbation.py`, `model_type="dual_attention"` maps to `attention_{rnn_type}` with `attention_mode="dual"`. This must match how the model was trained (via `dual_attention_*.yaml` configs).
+2. **Dual-attention model loading**: `causal_perturbation.py` rebuilds the model from the *checkpoint's saved config*, reading `attention_mode` from it (`cfg.get("attention_mode", "task_only")`). It does **not** force `"dual"`. The `model_arch in ("attention", "dual_attention")` branch is dead: no config in this repo writes `model_type: "dual_attention"` — `dual_attention_*.yaml` sets `model_type: "attention"` + `attention_mode: "dual"`, and all three trainers test `if model_arch == "attention":` exactly. If the literal ever did leak through unmapped, `create_model` would raise `ValueError: Unknown RNN type: dual_attention`.
 
 3. **STSF single-task**: STSF experiments have only 1 task, so cross-task analyses (Analysis 2b) skip with "Only 1 task(s) available". This is expected.
 

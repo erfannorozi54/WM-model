@@ -655,20 +655,26 @@ transition: fade-out
 
 <v-click>
 
-<div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+<div class="mt-3 p-3 bg-amber-500/10 rounded-lg text-sm">
+
+**The scope boundary is the result.** Attention buys +11pp on STMF and MTMF and **costs 11pp on STSF** (novel identity 99.76% → 88.22%). It is not a free addition: gating helps exactly when there is task ambiguity to resolve, and hurts when there is none.
+
+</div>
+
+<div class="mt-3 grid grid-cols-3 gap-3 text-sm">
 <div class="p-3 bg-blue-500/10 rounded-lg text-center">
 
-**Insight 1**: Attention helps most for multi-feature tasks (STMF, MTMF gain +11% over baseline)
+**1 · Where it works** — multi-feature scenarios gain ~+11pp on both generalization splits
+
+</div>
+<div class="p-3 bg-red-500/10 rounded-lg text-center">
+
+**2 · Where it fails** — one task, one feature: the baseline is already at 99.8% and gating only adds optimization difficulty. Replicated at h=128 (`wm_h128_attention_stsf_20260603_053139`: **99.96% → 67.79%**)
 
 </div>
 <div class="p-3 bg-purple-500/10 rounded-lg text-center">
 
-**Insight 2**: Dual attention provides marginal gains over task-only attention for MTMF
-
-</div>
-<div class="p-3 bg-green-500/10 rounded-lg text-center">
-
-**Insight 3**: STSF baseline is already at ceiling (≈100%); attention gains manifest in val_novel_identity
+**3 · Dual vs. task-only** — no consistent advantage. h=256 MTMF: dual wins on angle (93.79 vs 93.27), loses on identity (90.91 vs 92.15). h=128 MTMF: dual loses on both (89.3/88.2 vs 92.9/91.1)
 
 </div>
 </div>

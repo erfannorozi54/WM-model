@@ -94,7 +94,7 @@ src/
 **`model_type` in config controls architecture** (`model_factory.py`):
 - `"gru"` / `"rnn"` / `"lstm"` → baseline `WorkingMemoryModel`
 - `"attention"` → `AttentionWorkingMemoryModel(attention_mode="task_only")`
-- Dual attention = `model_type: "attention"` + `attention_mode: "dual"`. The string `"dual_attention"` only ever appears in experiment/config *names*, never as a `model_type` value — except inside `causal_perturbation.py`, which maps a literal `model_type="dual_attention"` argument to `attention_{rnn_type}` + `attention_mode="dual"`.
+- Dual attention = `model_type: "attention"` + `attention_mode: "dual"`. The string `"dual_attention"` only ever appears in experiment/config *names*, never as a `model_type` value. (`causal_perturbation.py` has a branch that looks like an exception; it is dead code — the mode is read from the checkpoint's saved config. See `AGENTS.md` gotcha 2.)
 
 ## Configs
 
