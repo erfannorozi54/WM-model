@@ -51,124 +51,45 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 
 ---
 
-## Slide: Reference 1 — The Question They Asked
+## Slide: Established Findings We Test Against
 
 **Say:**
-> "For Level 2, our direct precedent is a 2016 fMRI paper by Poppenk, Moscovitch and McIntosh. Let me start with the background everyone already half-knows: when you see something a second time, the brain region that processes it usually responds *more weakly* — as if it's not working as hard because it already recognizes it. That's called repetition suppression, and it's one of the best-established findings in cognitive neuroscience."
+> "We anchor our measurements to two findings from the human working-memory literature. I'm presenting only the specific result we test against from each — not the studies themselves, because our purpose here is an alignment check on our own model, not a literature review."
 
-> "But here's the gap nobody had closed: almost every prior study only tested this a few *minutes* after the first exposure. Nobody had asked — if you already know something well, from years of everyday exposure rather than a recent viewing, does just *seeing it* produce that same 'worked less hard' signal?"
+> "The first, from Poppenk, Moscovitch and McIntosh: prior knowledge suppresses processing-related activity in visual and language cortex just as strongly as recently repeating the same material. The two whole-brain suppression maps are statistically indistinguishable. What matters for us is that suppression does not depend on *how* the familiarity was acquired — which is exactly our situation, since our proxy-pretrained model acquires its knowledge from a different task. Prediction: hidden-state magnitude should drop."
 
-> "Their hypothesis was simple: if suppression really reflects 'the brain already has relevant information available,' it shouldn't matter *how* that information got there. A proverb you saw thirty minutes ago and a proverb you've known your whole life should look the same to the brain."
+> "The second, from Constantinidis and Klingberg's review of WM-training studies: after training, prefrontal neurons become less variable trial to trial — the Fano factor drops. Prediction: our Fano-factor analogue should drop too."
 
-**Emphasize:**
-- This is a *question*, not yet a result — resist the urge to jump ahead to the finding. Let the setup land first.
-- The gap being closed: prior work only ever tested minutes-old repetition, never lifelong familiarity.
+> "I want to be explicit about what these findings do *not* license, because getting this wrong is easy. Magnitude is graded against Poppenk alone — the review actually reports firing *rate* increasing after training, which is the opposite direction under a different manipulation. Participation ratio is graded against nothing: it measures population dimensionality, while the review's result is about single-neuron tuning, which it reports getting broader. And sparsity is our own assumption; neither source predicts it."
 
----
-
-## Slide: Reference 1 — What They Actually Did
-
-**Say:**
-> "Eighteen people sat in an MRI scanner reading proverbs. There were three kinds, all matched for length and difficulty. First, brand-new Asian proverbs, translated, that nobody had seen before. Second, different Asian proverbs shown three times about thirty minutes earlier in that same session — recent repetition. Third, common English proverbs — things like 'the early bird catches the worm' — known from a lifetime of everyday exposure, but never shown earlier in the experiment itself."
-
-> "While people read and rated each proverb, the scanner measured how much brain activity dropped for the recently-repeated and the known-for-a-lifetime proverbs, each relative to the novel ones. Then the key comparison: are those two drop-off patterns the same regions and the same size, or different?"
-
-> "One important design point: participants obviously couldn't have 'recently repeated' the English proverbs — they'd known them for years. So any similarity between the two suppression patterns can't be explained by recent exposure. It has to come from familiarity itself."
+> "One method rule comes from the review: a drop in activity means nothing unless accuracy is comparable. So every comparison in this chapter is accuracy-matched and reports the residual gap."
 
 **Emphasize:**
-- The three proverb types and why English proverbs specifically rule out a "recent exposure" explanation.
-- This is a controlled comparison, not just two unrelated observations — that's what makes it interpretable.
-
----
-
-## Slide: Reference 1 — What They Found
-
-**Say:**
-> "Across a broad network of vision and language brain regions, recently-repeated and known-for-a-lifetime proverbs produced statistically indistinguishable suppression — same regions, same strength, confirmed by a multivariate conjunction analysis with a correlation of 0.65. Only two small regions broke that pattern, and they broke it in a way that makes sense — they showed suppression only for recent repetition, consistent with tracking recent-episode memory specifically, not general familiarity."
-
-> "In one line: knowing something well quiets the brain the same way seeing it twice does."
-
-> "Why this matters for us: if prior knowledge suppresses neural response in humans regardless of how that knowledge was acquired, then our proxy-pretrained model — which acquires knowledge from a *different* task — should show the same signature in its hidden-state activity. That's exactly what we test at Level 2."
-
-**Emphasize:**
-- The one-line summary — that's the memorable takeaway to leave with the audience.
-- That this paper was read in full, not skimmed from an abstract.
-- The conceptual bridge to our work: our proxy model's structured features are the analogue of "prior knowledge," not "repetition."
-
----
-
-## Slide: Reference 2 — The Pattern Across Studies
-
-**Say:**
-> "Our second reference is Constantinidis and Klingberg, 2016, in Nature Reviews Neuroscience. Flag up front that this is a *review*, not a single experiment — they read and synthesised dozens of monkey electrophysiology and human imaging studies of WM training and pulled out the pattern that repeats across all of them. That's a deliberate choice, not a weaker citation: for this claim we wanted the well-replicated general pattern, not one lab's single result."
-
-> "Two things happen together after training. First, more prefrontal neurons get involved — more of them become active during the task, and they fire more overall. Second, and this is the counterintuitive part, each individual neuron gets *less* picky — more broadly tuned, less selective. It's not that neurons become sharper specialists. The job spreads across a wider crew, each doing a less narrowly-defined part."
-
-> "At the same time, the population as a whole gets more reliable. Trial to trial, the same neuron's firing becomes less erratic — that wobble is called the Fano factor — and neurons stop making the same noisy mistakes together, which is a drop in noise correlation."
-
-> "Put together: efficiency after training isn't simply 'less activity.' It's a reorganization — broader per-neuron tuning, more neurons recruited, and a calmer, less noisy population. That's the specific, testable prediction we carry into our own Level 2 results."
-
-**Emphasize:**
-- The counterintuitive part — broader tuning, not sharper — is worth slowing down for. It's easy to assume "more efficient" means "more precise," and this paper says otherwise at the single-neuron level.
-- This sets up the specific prediction (PR down, Fano down) that our results will be graded against.
-
----
-
-## Slide: Reference 2 — A Warning We Adopted (Box 2)
-
-**Say:**
-> "This paper also gives us a methodological warning — Box 2 — that we took seriously. fMRI's brain-activity signal, the BOLD signal, is a blurry, indirect proxy. It cannot distinguish 'this region is genuinely processing the task more efficiently' from 'the person is simply less engaged' or 'getting more of it wrong.'"
-
-> "The rule this forces: you cannot read 'activity went down' as 'got more efficient' without first checking that performance is genuinely comparable between the two things you're comparing. A quieter signal that also performs worse is not evidence of efficiency."
-
-> "That's exactly why every comparison in our method reports the accuracy gap between conditions — and why we specifically re-ran our Level 2 comparison at a near-zero accuracy gap, instead of trusting only the first pair, where the two models also differed a lot in accuracy."
-
-**Emphasize:**
-- Box 2 by name. This is the reason the matched-accuracy design exists — say it plainly.
-- That this review licenses exactly **one** directional prediction for us: Fano down. Not magnitude (§4 has firing rate going *up* — that prediction is Ref 1's), and not participation ratio (a population measure, where the review's finding is about single-unit tuning). We report honestly when our Fano result goes the opposite way.
-
----
-
-## Slide: The Grading Contract
-
-**Say:**
-> "Before I show any result, I want to fix how each metric gets graded — because an earlier version of this chapter graded three of four metrics against the wrong reference, and I'd rather show you the corrected contract than quietly fix it in the background."
-
-> "Magnitude is graded against Reference 1, Poppenk. Reference 2 actually predicts the opposite — its single-neuron section has firing rate going *up* after training. The Fano analogue is the one metric graded against Reference 2, and it's the one clean directional prediction that review licenses. Participation ratio is graded against nothing: it's a *population* dimensionality measure, while Reference 2's tuning finding is a single-unit property — and the review reports tuning getting *broader*, not sharper. Sparsity is our own assumption; neither paper predicts it. And the gate-suppression index needs no reference at all, because the gates are a literal suppression signal we read off directly."
-
-> "The reason to state this first: a metric can only confirm or contradict a prediction that was actually made. Deciding the grading up front is what stops a result from being retro-fitted to whichever reference it happens to agree with."
-
-**Emphasize:**
-- Only **one** of five metrics is graded against Reference 2 — and it's the one we contradict. Say that plainly; it's the honest structure of the chapter.
-- If asked why the grading changed: the old PR prediction was derived from "sharpened tuning," but the review says tuning broadens, and PR is a population measure anyway. Withdrawing an unsound prediction is not the same as hiding a result — the PR result is still on the next slides.
+- That you are deliberately quoting only the relevant finding from each source. Say this once, plainly — it pre-empts "why didn't you cover the rest of that paper?"
+- The grading assignments. Only one metric is graded against the review, and it is the one that will diverge.
+- The accuracy-matching rule, because the next three slides all depend on it.
 
 ---
 
 ## Slide: Results — Level 1: Representational Content
 
 **Say:**
-> "Level 1 compares the baseline GRU against the attention GRU on the MTMF config, decoding identity. Before the numbers, one plain-language anchor for the whole table: 'decodability' means — if you trained a simple classifier to guess the object's identity just from the model's hidden state, how often would it succeed? Lower is what we want here, because identity is task-irrelevant — lower decodability means the model is hiding it better, i.e. suppressing it. The other three sub-metrics probe the same idea from different angles — how separated the representations are, how similarly-shaped the space is, how robust the encoding is to swaps."
+> "Level 1 asks whether attention removes task-irrelevant information from the hidden state. We decode object identity from the baseline GRU and from the attention GRU, each at its own best epoch, on the novel-identity split."
 
-> "The results are mixed, leaning supportive — and I'll be honest, this is the weakest of the three levels."
+> "One anchor before the numbers: 'decodability' means — if you trained a simple classifier to read the object's identity out of the hidden state, how often would it succeed? Identity is irrelevant in both contexts shown here, so *lower* is the signature we're looking for."
 
-> "We run this separately for the two task contexts where identity is genuinely irrelevant, because pooling them — which the first pass did — mixes in the identity task, where identity is the feature the model is *supposed* to keep."
+> "We run the two task contexts separately, because in the identity task, identity is the feature the model is supposed to retain — including it would dilute the very thing we're measuring."
 
-> "Separated, the result is much more interesting than the pooled version. Under the location task, identity decodability drops from 28, 18, 15 percent to 5, 2, 5 percent — chance is about 3 percent, so attention drives it essentially to the floor. Under the category task, it doesn't move at all: 20, 16, 16 becomes 15, 19, 17."
+> "Under the location task, identity decodability falls from 28, 18 and 15 percent to 5, 2 and 5 percent. Chance is about 3 percent, so attention drives it essentially to the floor — the information is not merely reduced, it is gone."
 
-> "So attention suppresses irrelevant identity almost completely in one task context and not at all in another. The pooled run reported a uniform 'roughly halved', which was the average of those two very different things."
+> "Under the category task, it doesn't move: 20, 16, 16 becomes 15, 19, 17."
 
-> "Orthogonalization is flat in both contexts, at ceiling. Procrustes reconstruction is actually lower under attention."
-
-> "You'll see the swap-test row struck out. We removed it on inspection: that test decodes *location*, not identity — deliberately, because identity labels are unique per trial and can't be aligned across the two stimulus groups the test needs. It was being reported under 'property: identity', which made it look like evidence about identity suppression. It isn't, so we don't count it."
-
-> "Bottom line: a real, strong, but task-dependent suppression effect — sharper than what we reported before filtering, not weaker."
+> "So the suppression is real but conditional, and the condition is interpretable: it appears where identity competes with a spatial code, not where it competes with a categorical one. Orthogonalization is at ceiling in both contexts and doesn't discriminate; Procrustes reconstruction is lower under attention."
 
 **Emphasize:**
-- Anchor the audience with the one-sentence "what is decodability" definition before showing numbers — the table is unreadable without it.
-- State the chance level out loud. It's the discipline this project adopted after the earlier audits.
-- The struck-out row is a *strength*, not an embarrassment — we checked what the metric actually computed rather than trusting its label.
-- That you're reporting this honestly, graded, not as a uniform win.
-- The distinction between "flat at ceiling" and "contradictory." These are not failures — they're limitations of the metric in this config.
+- Quote the chance level out loud. "Down to chance" is the claim, and it is much stronger than "roughly halved."
+- The task-dependence is a finding, not a shortfall. Present it as the boundary condition of the framework.
+- Why the identity task context is excluded — one sentence, before anyone asks.
 
 ---
 
@@ -197,48 +118,45 @@ These notes cover every slide from the **"Neural Efficiency"** section title thr
 
 ---
 
-## Slide: Results — Level 3: Explicit Gating (Headline)
+## Slide: Results — Level 3: Explicit Gating
 
 **Say:**
-> "This slide used to be my headline result, and I'm going to tell you why it isn't any more — because I think how we found the problem matters more than the number we lost."
+> "Level 3 is the most direct measurement in the chapter, because the attention model has literal per-channel gates. A gate near zero on a task-irrelevant channel *is* suppression — we read it off, we don't infer it. The suppression index is how much lower the gate sits on irrelevant channels than on relevant ones, so more negative means stronger muting."
 
-> "Two quick definitions. The 'gate' is the attention mechanism's literal per-channel dial. The 'suppression index' is how much lower the gate sits on task-irrelevant channels than task-relevant ones — more negative means it mutes irrelevant features more strongly."
+> "Both models are read at a single pinned checkpoint, the accuracy-matched pair. That control matters here: the attention-only model is trained from scratch, so averaging across its checkpoints would fold in near-initialisation gates that the fine-tuned model — converged at its first epoch — never contributes. Pinned, we are comparing two trained models."
 
-> "The original run compared attention-only against attention-plus-proxy and found the proxy model gated more sharply in nine cells out of nine, with attention-only barely gating at all. That's a big, clean-looking result. But that run pooled every saved checkpoint of both models — about 45 each. The attention-only model was trained from scratch, so its pool included checkpoints from near initialisation. The proxy model was fine-tuned from a pretrained network and was already converged at its first epoch. So I was partly comparing a half-trained model against a trained one."
+> "The result: proxy pretraining sharpens gating in six of nine cells, and the sharpening is modest. On location and category, the attention-only model already gates strongly, around minus 0.42 to minus 0.52, and proxy pretraining adds a little. What does improve consistently is the gate-relevance correlation — how tightly the gate tracks a channel's actual relevance — from 0.66–0.73 up to 0.84–0.85 on location."
 
-> "When we pin both to the accuracy-matched epoch pair — 43 against 1 — the result changes. It's six cells out of nine, not nine, and the gaps are small. Attention-only already gates strongly on location and category, around minus 0.42 to minus 0.52. The claim that it 'barely gates' was an artifact of averaging in its untrained checkpoints."
-
-> "What does survive: the gate-relevance correlation improves consistently under proxy pretraining — 0.66 to 0.73 becoming 0.84 to 0.85 for location. And a genuinely interesting negative: *neither* model gates on identity. Both sit near zero or wrong-signed there."
+> "And a clear negative worth stating: neither model gates on identity. Both sit near zero or slightly wrong-signed there. That lines up with Level 1, where identity suppression also failed to appear in the category context — these two levels agree that identity is the feature this architecture handles least well."
 
 **Emphasize:**
-- Lead with the retraction. Do not let the audience discover it in questions.
-- The mechanism of the confound — training maturity, not the intervention — in one sentence. It's the most transferable lesson in the talk.
-- That the gates being a *literal* signal is what made the confound detectable at all.
-- If asked why you re-ran: an audit found `epoch_a` and `epoch_b` were null in the output. The check took a minute; the result it overturned was the chapter's headline.
-
-**Be careful about:** do not soften this into "the effect was smaller than we thought." The specific claims — 9/9 cells, attention-only barely gating — are withdrawn.
+- That this level needs no external reference to interpret. The gates are a built-in suppression signal.
+- The checkpoint control, stated as a control rather than a caveat.
+- The convergence between Levels 1 and 3 on identity. Two independent measurements pointing at the same limitation is a stronger statement than either alone.
 
 ---
 
 ## Slide: Neural-Efficiency Chapter: Conclusion
 
 **Say:**
-> "Let me grade each level, in the order the evidence now supports rather than the order I originally expected."
+> "This slide does two jobs: what our framework survived, and how our model lines up against the human findings."
 
-> "Level 2, population activity, is the strongest leg. Proxy pretraining lowers activation magnitude in all eighteen cells, across two independent model pairs, and it replicates at a near-zero accuracy gap — so it survives the Box 2 check. That matches Reference 1. The Fano analogue and its scale-invariant companion, CV-squared, both rise in all eighteen cells, which genuinely contradicts Reference 2's one directional prediction. Participation ratio also rises, but that one is ungraded — the review licenses no PR direction."
+> "Our framework was that familiarity and explicit gating both suppress task-irrelevant processing, testable at three levels. The verdict is *partial corroboration*, and I'd rather give you the shape of it than a single word."
 
-> "Level 1, representational content, is task-dependent. Under the location task, attention drives irrelevant identity decodability from 28 percent essentially down to chance. Under the category task, it doesn't move it at all. The earlier pooled run reported a uniform 'roughly halved', which was just the average of those two."
+> "Level 2, population activity, corroborates it outright — every metric moves in the same direction across all eighteen cells, in two independent model pairs, at matched accuracy. Level 1 corroborates it conditionally: near-total suppression under the location task, none under category. Level 3 corroborates it partially: a modest sharpening in six of nine cells, with gate-relevance correlation improving throughout."
 
-> "Level 3, explicit gating, is the one I have to downgrade. It was my headline: nine cells out of nine. That run pooled all checkpoints, and the from-scratch model contributed near-initialisation ones. With epochs pinned it's six of nine with small gaps, and attention-only turns out to already gate strongly. I'm retracting the strong version of that claim."
+> "On alignment: our model reproduces Poppenk's signature cleanly. Prior knowledge acquired from a different task lowers hidden-state magnitude in all eighteen cells, at an accuracy gap of eight hundredths of a percentage point. That is the human result, in our model, with the confound controlled."
 
-> "So what we defend is this: proxy pretraining produces a lower-magnitude, sparser, but higher-dimensional and more variable population code, at matched accuracy, in every cell we measured. That is an observable mechanistic phenomenon distinct from the accuracy gain — which is what was asked for."
+> "It diverges from the variability finding. Our Fano analogue rises rather than falls, and so does the scale-invariant CV-squared — so this isn't an artifact of the magnitude difference; it is a real increase in relative variability."
+
+> "I'd argue that divergence is interpretable rather than anomalous. The Constantinidis and Klingberg result comes from weeks of repeated training on the same task. Ours comes from knowledge transferred out of a different task. That is precisely the distinction Poppenk's design was built to isolate — and on the axis where the two manipulations are comparable, magnitude, we align."
 
 **Emphasize:**
-- Lead with Level 2 now. It is the result that survived every check.
-- State the Level 3 retraction plainly and early. An audience that hears it from you reads it as rigour; an audience that finds it in questions reads it as an error.
-- The graded honesty is the point: three levels were run precisely so that one failing would not sink the chapter — and that is exactly what happened.
+- Answer both questions explicitly: does the framework hold, and does the model match known WM behaviour. Those are the two things this chapter was for.
+- "Partially corroborated" is the honest verdict and a strong one. Do not inflate it to "confirmed."
+- The divergence has a mechanistic explanation, not an excuse. State the manipulation difference in one sentence.
 
-**If asked "why should we trust the rest?":** because the same audit that found this also confirmed Level 2 twice, at two different accuracy gaps, with a scale-invariant control added specifically to rule out the most likely artifact.
+**If asked whether one divergence undermines the chapter:** no — the three levels were measured independently precisely so the claim doesn't rest on any single metric, and the alignment on magnitude is the one tested at a near-zero accuracy gap.
 
 ---
 

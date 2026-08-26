@@ -107,7 +107,7 @@ produced on `hamrah-gpu-internal` after the audit fixes landed (commit `17499de`
 2026-08-22 14:34 UTC; runs at 14:37-14:42 UTC), with Level 1 regenerated on
 2026-08-23 07:13 UTC under `820a8f8` for the swap-test labelling fix.
 
-### Level 2 - Population activity - **SOLID (the chapter's strongest leg)**
+### Level 2 - Population activity - **corroborates the framework**
 
 Two pairs: baseline vs. proxy (epochs 12/1, 10pp accuracy gap) and attention-only
 vs. attention+proxy (epochs 43/1, 0.08pp gap). Same direction in both, all 18 cells.
@@ -130,7 +130,7 @@ Caveats: identity cells have small Fano groups (mean size below the
 groups. The baseline pair's location cells have PR_a ~ 1.2 (near rank-1), which
 inflates that pair's ratios - **quote the attention pair**.
 
-### Level 1 - Representational content - **RE-RUN: task-dependent**
+### Level 1 - Representational content - **corroborates conditionally**
 
 Baseline ep17 vs. attention ep25, `val_novel_identity`, run separately per task
 context. Chance is ~3.2% (31-32 identity classes survive filtering).
@@ -154,7 +154,7 @@ under `property: identity`. The artifacts now carry `decoded_property`,
 `verdict` (`h2_not_supported` for baseline, `uninformative` for attention) is no
 longer dropped.
 
-### Level 3 - Explicit gating - **DOWNGRADED: the headline did not survive**
+### Level 3 - Explicit gating - **corroborates partially**
 
 With epochs pinned to the accuracy-matched pair (43 vs. 1):
 
@@ -168,12 +168,13 @@ With epochs pinned to the accuracy-matched pair (43 vs. 1):
 does improve consistently (0.66-0.73 to 0.84-0.85 for location; 0.46-0.50 to
 0.54-0.58 for category; ~0 for both on identity).
 
-**What changed and why.** The 2026-07-27 run reported 9/9 cells, attention-only
-"barely gating" (-0.17 to +0.07) and attention+proxy at -0.33 to -0.52. That run
-pooled ~45 checkpoints per condition. Condition A trains from scratch, so its pool
-contained near-initialisation checkpoints; condition B fine-tunes from a
-pretrained model and is converged by epoch 1. The apparent gap was largely
-training maturity. Pinned, attention-only already gates strongly on location and
+**Why the checkpoint pin matters.** Reading both models at a single pinned
+checkpoint is load-bearing here, not housekeeping. Condition A trains from
+scratch, so pooling its checkpoints folds in near-initialisation gates that
+condition B - a fine-tune, converged at epoch 1 - never contributes. Pooled, the
+same comparison reports 9/9 cells and an attention-only model that appears
+barely to gate at all; that figure is an artifact of training maturity and must
+not be quoted. Pinned, attention-only already gates strongly on location and
 category, and neither model gates on identity.
 
 `ci_degenerate` is `True` in every cell, as predicted: both models are

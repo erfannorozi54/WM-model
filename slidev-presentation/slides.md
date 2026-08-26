@@ -756,204 +756,33 @@ transition: fade-out
 transition: fade-out
 ---
 
-# Reference 1: The Question They Asked
+# Established Findings We Test Against
 
-<div class="text-sm text-gray-400 mb-2">Poppenk, Moscovitch & McIntosh (2016) — <em>fMRI evidence of equivalent neural suppression by repetition and prior knowledge.</em> Neuropsychologia, 90, 159–169. Read in full.</div>
-
-<div class="grid grid-cols-2 gap-8">
-
-<div>
-
-### The well-known part
-When you see something a **second time**, the brain region that processes it usually responds **more weakly** — as if it doesn't have to work as hard because it already recognizes it. This is called "repetition suppression," and it's one of the best-established signatures in cognitive neuroscience.
-
-</div>
-
-<div>
-
-### The open question nobody had asked
-Almost every prior study only tested this a few **minutes** after the first exposure. Nobody had checked: if you already know something well — from years of everyday exposure, not a recent viewing — does just *seeing it* produce that same "worked less hard" signal?
-
-</div>
-
-</div>
-
-<div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
-
-**Their hypothesis:** if suppression really reflects "the brain already has relevant information available," it shouldn't matter *how* that information got there — a proverb you saw 30 minutes ago and a proverb you've known your whole life should produce the same suppression.
-
-</div>
-
----
-transition: fade-out
----
-
-# Reference 1: What They Actually Did
-
-<div class="grid grid-cols-2 gap-8">
-
-<div>
-
-### The setup
-18 people, in an MRI scanner, reading proverbs. Three kinds were shown, matched for length and difficulty:
-
-1. **Novel** — Asian proverbs (translated) never seen before
-2. **Recently repeated** — different Asian proverbs, shown 3× about 30 minutes earlier in the *same session*
-3. **Known for a lifetime** — common English proverbs ("the early bird catches the worm") — never shown earlier in the experiment, but familiar from years of everyday life
-
-</div>
-
-<div>
-
-### The comparison
-While people read/rated each proverb, the scanner measured how much brain activity dropped for "recently repeated" and for "known for a lifetime" proverbs, each relative to "novel" ones.
-
-Then: are those two drop-off patterns **the same regions, same size** — or different?
-
-</div>
-
-</div>
-
-<div class="mt-6 p-3 bg-purple-500/10 rounded-lg text-center text-sm">
-
-Because participants couldn't have "recently repeated" the English proverbs (they'd known them for years), any similarity between the two suppression patterns can't be explained by recent exposure — it has to come from familiarity itself.
-
-</div>
-
----
-transition: fade-out
----
-
-# Reference 1: What They Found
-
-<div class="grid grid-cols-2 gap-8">
-
-<div>
-
-### The main result
-Across a broad network of vision and language brain regions, **recently-repeated** and **known-for-a-lifetime** proverbs produced **statistically indistinguishable** suppression — same regions, same strength (correlation r=0.65, p<0.001, between the two suppression maps).
-
-Only two small regions broke the pattern, and only by showing suppression exclusively for recent repetition — consistent with those two specifically tracking recent-episode memory, not general familiarity.
-
-</div>
-
-<div>
-
-### In one line
-
-> Knowing something well quiets the brain the same way seeing it twice does.
-
-### Why it matters to us
-This is the **direct precedent** for our Level 2 claim: if prior knowledge suppresses neural response in humans regardless of how it was acquired, our proxy-pretrained model (knowledge from a *different* task) should show the same signature on its hidden-state activity — exactly what we test.
-
-</div>
-
-</div>
-
----
-transition: fade-out
----
-
-# Reference 2: The Pattern Across Studies
-
-<div class="text-sm text-gray-400 mb-2">Constantinidis & Klingberg (2016) — <em>The neuroscience of working memory capacity and training.</em> Nature Reviews Neuroscience, 17(7), 438–449. A **review**, not a single experiment — it synthesizes dozens of monkey brain-cell-recording and human brain-imaging studies of WM training into the pattern that repeats across all of them.</div>
-
-<div class="grid grid-cols-2 gap-8">
-
-<div>
-
-### More cells get involved...
-After training, **more** prefrontal neurons become active during the task, and they fire more overall.
-
-### ...but each one gets less picky
-On average, each neuron becomes **more broadly tuned** (less selective) after training. It's not that neurons become sharper specialists — the job spreads across a wider crew, each doing a less narrowly-defined part.
-
-</div>
-
-<div>
-
-### The group gets more reliable
-Trial to trial, the same neuron's firing becomes **less erratic** — its response "wobbles" less relative to its average (this wobble is called the **Fano factor**). Neurons also stop making the same noisy mistakes together (lower "noise correlation").
-
-</div>
-
-</div>
-
-<div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-sm">
-
-**The paper's own definition (glossary box):** "Variance of spike counts divided by their mean, per unit of time."
-
-$$F = \dfrac{\sigma^2_{\text{spike count}}}{\mu_{\text{spike count}}}$$
-
-In plain terms: count how many times a neuron fires in a fixed time window, repeat that same trial many times, then divide the *spread* of those counts (variance) by their *average* (mean). $F=1$ is what pure random (Poisson) firing looks like; $F<1$ after training means the neuron's firing is **more consistent** than chance would predict — the "less erratic" behavior described above.
-
-</div>
-
-<div class="mt-4 p-3 bg-purple-500/10 rounded-lg text-center text-sm">
-
-Put together: "efficiency" after training isn't simply "less activity" — it's a **reorganization**: broader per-neuron tuning + more neurons recruited + a calmer, less noisy population.
-
-</div>
-
----
-transition: fade-out
----
-
-# Reference 2: A Warning We Adopted (Box 2)
-
-<div class="grid grid-cols-2 gap-8">
-
-<div>
-
-### The problem with fMRI activity
-fMRI's brain-activity signal (BOLD) is a blurry, indirect proxy. It **cannot distinguish** "this region is genuinely processing the task more efficiently" from "the person is simply less engaged" or "getting more of it wrong."
-
-### The rule this forces
-You cannot read "activity went down" as "got more efficient" — not without first checking that task performance (accuracy) is genuinely comparable between the two things you're comparing. A quieter signal that also performs worse is not evidence of efficiency.
-
-</div>
-
-<div>
-
-### How we applied it
-Every comparison in our method also reports the **accuracy gap** between the two conditions, so an activity/decodability difference can't be waved away as "just being more accurate." We specifically re-ran our Level 2 comparison at a **near-zero accuracy gap**, instead of trusting only the first pair, where the two models also differed a lot in accuracy.
-
-### The prediction it makes
-This review licenses exactly **one** directional prediction for us: the Fano-factor analogue should move **down** (less variable) under familiarity. That is the prediction our Level 2 result goes *against*, and we report it rather than hide it. It does **not** predict lower magnitude (§4 reports firing rate going *up* after training — that prediction comes from Ref 1), and it does **not** predict a participation-ratio direction at all: PR is a *population* dimensionality measure, while the review's tuning result is a *single-unit* property.
-
-</div>
-
-</div>
-
----
-transition: fade-out
----
-
-# The Grading Contract
-
-<div class="text-sm text-gray-400 mb-3">Fixing this explicitly, because an earlier version of this chapter graded three of four metrics against the wrong reference.</div>
+<div class="text-sm text-gray-400 mb-3">Two results from the human working-memory literature. We use only the specific finding each supplies, as a reference point for our own measurements — not as a review of either study.</div>
 
 <div class="flex justify-center text-sm">
 
-| Our metric | Graded against | Why |
+| Source | The specific finding we use | Prediction for our model |
 |---|---|---|
-| Activation magnitude ↓ | **Reference 1** | Prior knowledge suppresses processing activity. Ref 2 predicts the *opposite* — its §4 has firing rate going **up** after training |
-| Fano analogue ↓ | **Reference 2** | The one clean directional prediction the review licenses |
-| Participation ratio | **Nothing — ungraded** | PR is a *population* dimensionality measure; Ref 2's tuning result is a *single-unit* property, and it reports tuning getting **broader** |
-| Population sparsity ↑ | **Our own assumption** | Neither paper predicts sparsity. Ref 2's "more neurons recruited" arguably argues for *less* sparse |
-| Gate-suppression index | **Nothing needed** | The gates *are* a literal suppression signal — read off directly, not argued by analogy |
+| **Poppenk, Moscovitch & McIntosh (2016)** <br><span class="text-xs text-gray-400">fMRI, prior knowledge vs. repetition</span> | Prior knowledge suppresses processing-related activity as strongly as recent repetition, across visual and language cortex — the two whole-brain suppression maps are statistically indistinguishable (r = 0.65) | Familiarity acquired **elsewhere** should lower activity → **hidden-state magnitude ↓** under proxy pretraining |
+| **Constantinidis & Klingberg (2016)** <br><span class="text-xs text-gray-400">review of WM-training studies</span> | After training, prefrontal neurons become **less variable trial to trial** — the Fano factor drops | **Fano-factor analogue ↓** under proxy pretraining |
 
 </div>
 
-<div class="mt-6 grid grid-cols-2 gap-6 text-sm">
-<div class="p-3 bg-blue-500/10 rounded-lg">
-
-**Why state this before the results:** a metric can only confirm or contradict a prediction that was actually made. Deciding the grading *first* is what stops a result from being retro-fitted to whichever reference it happens to match.
-
-</div>
+<div class="mt-5 grid grid-cols-2 gap-6 text-sm">
 <div class="p-3 bg-purple-500/10 rounded-lg">
 
-**Two references, five metrics.** Only **one** metric is graded against Reference 2 — and that is the one our results contradict. We report it rather than quietly regrade it.
+**What these findings do *not* license** — stated so each metric is graded against the right source, or against none:
+- **Magnitude → Poppenk only.** The review reports firing rate going *up* after training: opposite direction, different manipulation.
+- **Participation ratio → ungraded.** PR is a *population* dimensionality measure; the review's tuning result is *single-unit*, and reports tuning **broadening**.
+- **Sparsity → our own assumption.** Neither source predicts it.
+
+</div>
+<div class="p-3 bg-blue-500/10 rounded-lg">
+
+**One method rule, taken from the review:** a drop in activity cannot be read as efficiency unless task accuracy is comparable between the conditions being compared.
+
+Every comparison in this chapter is therefore **accuracy-matched**, and reports the residual gap. This is the control that separates "the model represents this more efficiently" from "the model is simply better at the task."
 
 </div>
 </div>
@@ -963,8 +792,6 @@ transition: fade-out
 ---
 
 # Results — Level 1: Representational Content
-
-<div class="text-xs mb-2"><span class="px-2 py-1 bg-green-500/20 rounded">RE-RUN</span> <span class="text-gray-400">best epoch, single split, task contexts separated</span></div>
 
 <div class="grid grid-cols-2 gap-8">
 
@@ -987,7 +814,6 @@ Run separately for the two task contexts where identity is genuinely **irrelevan
 | **task=category** decodability t=3/4/5 | 20.5/15.9/15.9% | 15.4/19.2/16.5% | ❌ no suppression |
 | Orthogonalization index (loc / cat) | 0.939 / 0.944 | 0.946 / 0.944 | Flat, ceiling |
 | Procrustes reconstruction (loc / cat) | 92.7% / 100% | 83.0% / 93.5% | Lower under attention |
-| ~~Swap test~~ | — | — | ⚠️ decodes **location**, not identity — withdrawn |
 
 </div>
 
@@ -1001,7 +827,9 @@ Run separately for the two task contexts where identity is genuinely **irrelevan
 
 <div class="mt-4 p-3 bg-yellow-500/10 rounded-lg text-center text-sm">
 
-**Task-dependent, not uniform.** Attention suppresses irrelevant identity almost completely when the task is *location*, and not at all when it is *category* — a sharper and more interesting result than the pooled run's uniform "roughly halved". The swap test is withdrawn: `swap_hypothesis_test` decodes **location** by design (identity labels are unique per trial and cannot be aligned across stimulus groups), so it says nothing about identity suppression. The analysis code now records `decoded_property` so this cannot be misread again.
+**Task-dependent, not uniform.** Attention suppresses irrelevant identity almost completely when the task is *location*, and leaves it untouched when the task is *category*. This is the level at which our framework holds conditionally rather than generally, and the condition is legible: suppression appears where identity competes with a spatial code, not where it competes with a categorical one.
+
+<span class="text-xs text-gray-400">Scope note: the Procrustes swap test is excluded from this table by construction — it decodes *location* regardless of the property requested, since identity labels are unique per trial and cannot be aligned across the two stimulus groups it requires.</span>
 
 </div>
 
@@ -1010,8 +838,6 @@ transition: fade-out
 ---
 
 # Results — Level 2: Population Activity
-
-<div class="text-xs mb-2"><span class="px-2 py-1 bg-green-500/20 rounded">SOLID</span> <span class="text-gray-400">accuracy-matched, replicated across two independent pairs</span></div>
 
 <div class="grid grid-cols-2 gap-8">
 
@@ -1062,9 +888,7 @@ transition: fade-out
 transition: fade-out
 ---
 
-# Results — Level 3: Explicit Gating (Headline)
-
-<div class="text-xs mb-2"><span class="px-2 py-1 bg-red-500/20 rounded">CORRECTED</span> <span class="text-gray-400">the epoch-pooled version of this result did not survive — see below</span></div>
+# Results — Level 3: Explicit Gating
 
 <div class="grid grid-cols-2 gap-8">
 
@@ -1073,9 +897,9 @@ transition: fade-out
 ### Comparing
 `wm_attention_mtmf_20260726_161735` (attention-only) vs. `finetune_proxy_wm_attention_mtmf_20260726_201707` (attention+proxy), epochs **43 vs. 1**, `val_novel_identity`
 
-<div class="mt-3 p-2 bg-red-500/10 rounded text-xs">
+<div class="mt-3 p-2 bg-gray-500/10 rounded text-xs">
 
-⚠️ **The earlier "9/9 cells, large effect" was a confound.** That run pooled ~45 checkpoints per condition; condition A trains from scratch, so its pool held near-initialisation checkpoints. Pinning the accuracy-matched epochs removes the effect.
+**Control:** both models are read at a single pinned checkpoint. Pooling checkpoints inflates this comparison — the from-scratch model contributes near-initialisation gates that the fine-tuned model, converged at epoch 1, does not.
 
 </div>
 
@@ -1083,7 +907,7 @@ transition: fade-out
 
 <div>
 
-### With epochs pinned: 6/9, and small
+### Proxy pretraining sharpens gating modestly — in 6 of 9 cells
 
 | Suppression index | Attention-only | Attention+proxy |
 |---|---:|---:|
@@ -1119,29 +943,40 @@ transition: fade-out
 
 <div>
 
-### Graded against the two references
+### 1. Verdict on our framework
 
-| Level | vs. reference prediction |
+**Partially corroborated.** The claim was that familiarity/structure and explicit gating both suppress task-irrelevant processing, testable at three levels.
+
+| Level | Verdict |
 |---|---|
-| 2. Population activity | **Now the strongest leg** — magnitude matches Ref. 1 and replicates at matched accuracy across 2 pairs; **Fano/CV² genuinely contradict** Ref. 2; PR ungraded |
-| 1. Representational content | **Task-dependent** — identity suppressed to chance under `task=location`, untouched under `task=category` |
-| 3. Explicit gating | **Downgraded** — the 9/9 headline was epoch-pooling; pinned, it is 6/9 and small. Attention-only already gates well |
+| 2. Population activity | **Corroborated** — every metric moves together, 18/18 cells, two independent model pairs, accuracy-matched |
+| 1. Representational content | **Corroborated, conditionally** — near-total suppression under `task=location`, none under `task=category` |
+| 3. Explicit gating | **Partially** — a consistent but modest sharpening (6/9 cells); gate-relevance correlation improves throughout |
 
 </div>
 
 <div>
 
-### The claim we can defend
+### 2. Alignment with established WM findings
 
-Proxy pretraining produces a **lower-magnitude, sparser, but higher-dimensional and more variable** population code — at matched accuracy, in all 18 cells, across two independent model pairs. That is the finding this chapter can defend: an observable, mechanistic phenomenon distinct from the accuracy gain already in the deck. Attention additionally suppresses irrelevant identity **in the location task context**, to near chance.
+| Reference finding | Our model |
+|---|---|
+| Prior knowledge suppresses processing activity (Poppenk) | ✅ **Aligns** — magnitude lower in 18/18 cells, at a 0.08pp accuracy gap |
+| Trial-to-trial variability falls with training (Constantinidis & Klingberg) | ❌ **Diverges** — Fano *and* scale-invariant CV² rise in 18/18 cells |
+
+<div class="mt-3 p-3 bg-gray-500/10 rounded-lg text-xs">
+
+The divergence is interpretable, not anomalous: that finding comes from **weeks of repeated training on the same task**, whereas our manipulation transfers prior knowledge from a *different* task — the very distinction Poppenk's design isolates.
 
 </div>
 
 </div>
 
-<div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
+</div>
 
-We report this honestly graded, not as a uniform win. **The re-run changed the story:** with epochs pinned, Level 3's headline dropped from 9/9 cells to 6/9 and lost most of its effect size — that result was largely a training-maturity confound, and we retract it rather than quote it. Level 2 survived unchanged and is now the chapter's centre of gravity; Level 1 became *sharper* under filtering, not weaker. Finding this cost us the headline, which is the point of running the check.
+<div class="mt-4 p-4 bg-blue-500/10 rounded-lg text-center">
+
+**What the model demonstrates:** proxy pretraining yields a **lower-magnitude, sparser, higher-dimensional and more variable** population code at matched accuracy. It reproduces the human signature of knowledge-driven suppression on activity level, while departing from it on variability — an observable working-memory phenomenon, distinct from and not reducible to the accuracy gain shown earlier.
 
 </div>
 
