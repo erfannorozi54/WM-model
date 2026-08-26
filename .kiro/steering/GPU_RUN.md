@@ -3,46 +3,66 @@
 ## Connect & Setup
 
 ```bash
-ssh hamrah-gpu-internal
+ssh hamrah-gpu-internal          # VPN must be up; the alias resolves to an internal IP
 cd ~/Projects/WM-model
 git pull
-conda deactivate
+conda deactivate                 # only if conda base is active
 source ~/.venv/WM-model/bin/activate
 export PYTHONPATH="${PWD}/src:${PYTHONPATH}"
 ```
 
-## Run Training
+Before launching anything: `nvidia-smi` to confirm both RTX 3090s are free, and
+`uptime` to check the load average — a busy box makes jobs run far longer than
+expected (see the BLAS-threading gotcha in `AGENTS.md`).
+
+## Run
+
+Prefer the batch scripts. They resolve the venv themselves, set `PYTHONPATH`, and
+write `logs/<stage>_<UTC ts>/00_provenance.log` recording the commit each run
+used. Hand-assembled CLIs are how the neural-efficiency results got confounded
+twice.
 
 ```bash
-# With generalization validation (recommended)
-nohup python -m src.train_with_generalization --config configs/stsf.yaml > train.log 2>&1 &
+nohup ./run_training.sh h256            > train.log    2>&1 & disown
+nohup ./run_proxy_pipeline.sh baseline  > proxy.log    2>&1 & disown
+nohup ./run_analysis.sh h256            > analysis.log 2>&1 & disown
+nohup ./run_neural_efficiency.sh        > ne.log       2>&1 & disown
+```
 
-# Check progress
-tail -f train.log
+`disown` matters — without it the job dies when the SSH session ends.
 
-# Or check if running
-ps aux | grep python
+Single run, no batch:
+
+```bash
+nohup python -m src.train_with_generalization --config configs/stsf.yaml > train.log 2>&1 & disown
 ```
 
 ## Configs
 
-| Config | Description |
-|--------|-------------|
-| `stsf.yaml` | 2-back, category only (fastest) |
-| `stmf.yaml` | 2-back, all tasks |
-| `mtmf.yaml` | 1,2,3-back, all tasks (full) |
-| `attention_*.yaml` | With attention |
+| Config | N-values | task_features |
+|--------|----------|---------------|
+| `stsf.yaml` | `[2]` | `["location"]` — fastest |
+| `stmf.yaml` | `[2]` | all three |
+| `mtmf.yaml` | `[1, 2, 3]` | all three — the full paper config |
+| `attention_*.yaml` / `dual_attention_*.yaml` | same | plus the attention gate |
 
-## Monitor & Results
+`configs_128/` mirrors `configs/` with `hidden_size: 128`.
+`save_hidden: true` must be set or the analysis pipeline has nothing to read.
+
+## Monitor
 
 ```bash
-# Watch training
 tail -f train.log
-
-# Check GPU usage
+tail -f logs/<stage>_<ts>/00_provenance.log    # per-step start/end and rc
 nvidia-smi
-
-# Results location
+ps aux | grep python
 ls experiments/
 ```
-Consider you can run the codes in my PC and the python  virtual env is in ~/.virtualenvs/WM-model dir.
+
+## Notes
+
+- Local PC venv is `~/.virtualenvs/WM-model`; the server's is `~/.venv/WM-model`.
+  `run_common.sh` probes for whichever exists, so the scripts work on both.
+- The server runs **UTC**. Comparing its file mtimes against local git timestamps
+  without accounting for that has already caused one wrong conclusion.
+- SSH to GitHub is blocked from the server; `origin` must be the HTTPS URL.
