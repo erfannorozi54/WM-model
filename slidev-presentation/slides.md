@@ -686,8 +686,188 @@ layout: section
 transition: fade
 ---
 
+# Proxy Pre-training
+## The Second Modification
+
+---
+transition: fade-out
+---
+
+# Two-Stage Training
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### The problem it targets
+
+N-back gives a **sparse** training signal — three classes, and most timesteps carry `no_action`, so most of the sequence teaches the model nothing.
+
+### Stage 1 — Proxy pre-training
+
+Same stimuli, same task vectors, **denser** target: at each step predict the *feature value* N steps back.
+
+- Location (4 classes), identity (20), category (4)
+- Every step from `t ≥ N` carries a target
+- 45 epochs, 30,000 sequences, all 9 task vectors
+
+### Stage 2 — Fine-tune
+
+Load the pre-trained weights, swap in the 3-class N-back head, train on the real task.
+
+</div>
+
+<div>
+
+```
+Standard N-back (N=2):
+t=0: [stim] → no_action
+t=1: [stim] → no_action
+t=2: [stim] → match / non_match
+t=3: [stim] → match / non_match
+
+Proxy task (N=2):
+t=0: [stim] → (no target)
+t=1: [stim] → (no target)
+t=2: [stim] → recall feature at t=0
+t=3: [stim] → recall feature at t=1
+```
+
+<div class="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
+
+The modification is to the **training regimen**, not the architecture — same ResNet50, same RNN, same classifier. Anything it changes downstream is attributable to what the model learned, not to added capacity.
+
+</div>
+
+<div class="mt-3 text-xs opacity-70">
+
+Reproduce: <code>./run_proxy_pipeline.sh baseline</code>
+
+</div>
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Results: Proxy vs. Baseline (MTMF)
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+| Metric | Baseline | Proxy pre-trained | Δ |
+|--------|---------:|------------------:|---:|
+| Best val (novel angle) | 82.69% | **97.52%** | **+14.83** |
+| Final val (novel angle) | 81.5% | **97.5%** | **+16.0** |
+| Final val (novel identity) | 80.6% | **92.8%** | **+12.2** |
+| Final train accuracy | 88.3% | **100.0%** | **+11.7** |
+| Final train loss | 0.2654 | **0.0012** | −99.5% |
+
+<div class="mt-4 p-3 bg-green-500/10 rounded-lg text-center font-bold">
+
++14.8pp novel angle · +12.2pp novel identity
+
+</div>
+
+</div>
+
+<div>
+
+### Convergence
+
+```
+Baseline:
+  epoch 1   → val_angle ≈ 60%
+  epoch 10  → val_angle ≈ 75%
+  epoch 45  → val_angle ≈ 82%
+
+Proxy fine-tuning:
+  epoch 1   → val_angle ≈ 93%   ← already above
+                                   baseline's final
+  epoch 10  → val_angle ≈ 97%
+  epoch 45  → val_angle ≈ 97.5%
+```
+
+<div class="mt-4 p-3 bg-amber-500/10 rounded-lg text-sm">
+
+**This is a performance result, not a capacity result.** N-back level is unchanged; only accuracy moves. Whether the model can hold *more* items, or succeed at higher N, was not tested and is not claimed.
+
+</div>
+
+</div>
+
+</div>
+
+---
+layout: two-cols-header
+transition: fade-out
+---
+
+# Alignment With Human Working Memory
+
+::left::
+
+<div class="text-sm">
+
+### Chung, Brady & Störmer (2024) — the relevant portion
+
+Visual WM capacity is **not a fixed pool**: it expands when stimuli connect to preexisting semantic knowledge, which acts as a scaffold that raises distinctiveness between items.
+
+Their EEG contralateral delay activity is *higher*, not lower, for meaningful stimuli — so the benefit is **more active maintenance**, not compression into less space.
+
+**Our parallel**: proxy pre-training builds the feature-space scaffold *before* the delay-dependent task needs it. 82.7% → 97.5% novel angle.
+
+### Mercer (2025) — the relevant portion
+
+Repeating a meaningless non-word made proactive interference **worse**. Repeating a meaningful word changed **nothing** — pre-existing structure had already done the protective work.
+
+**Why it matters here**: it rules out the easy reading. "Proxy pre-training is just more training" is not what this literature supports; the benefit has to trace to *structure*.
+
+</div>
+
+::right::
+
+<div class="ml-4 text-sm">
+
+### What this comparison does not establish
+
+<div class="p-3 bg-orange-500/10 rounded-lg">
+
+**The structure-vs-volume distinction is untested in our model.** Mercer shows it matters in humans. The model-side control — pre-train on the same number of gradient steps with *scrambled* feature labels — has not been run. Until it is, the volume explanation is not excluded.
+
+</div>
+
+<div class="mt-3 p-3 bg-orange-500/10 rounded-lg">
+
+**Behavioural convergence is not mechanistic convergence.** Matching an accuracy and convergence pattern does not establish that the RNN uses the computations human WM uses.
+
+</div>
+
+<div class="mt-3 p-3 bg-orange-500/10 rounded-lg">
+
+**Timescales differ.** Both human effects are measured within single sessions; "familiarity" here is 45 epochs of supervised training. The mapping is an analogy, not an identity.
+
+</div>
+
+<div class="mt-4 text-xs opacity-70">
+
+Both references were read in full from source. Only the portions bearing on our alignment check are presented.
+
+</div>
+
+</div>
+
+---
+layout: section
+transition: fade
+---
+
 # Neural Efficiency
-## A Second, Independent Finding
+## What the Two Modifications Do to the Population Code
 
 ---
 transition: fade-out
@@ -699,23 +879,27 @@ transition: fade-out
 
 <div>
 
-### What the deck already shows (Performance)
+### What the two modifications established
 
-Proxy pretraining raises accuracy on the real N-back task, at the **same** N-back levels — task difficulty is unchanged, only accuracy improves:
-- Novel angle: 82.7% → 97.5%
-- Novel identity: 80.6% → 92.8%
+Both raise accuracy on the real N-back task at **unchanged** N-back levels:
 
-This is a **performance/accuracy** improvement, not a demonstrated capacity increase — we never tested whether the model can now hold more items or succeed at higher N. Our professor's ask: show an observable WM *phenomenon*, not just better accuracy.
+| | Novel angle | Novel identity |
+|---|---:|---:|
+| Attention (MTMF) | 81.5 → 93.3% | 80.6 → 92.2% |
+| Proxy pretraining | 82.7 → 97.5% | 80.6 → 92.8% |
+
+Accuracy alone does not identify a working-memory phenomenon. It says the model got better; it does not say the model got better *in the way working memory does*.
 
 </div>
 
 <div>
 
-### Our goal: an efficiency finding
+### What this section adds
 
-Human WM research documents several distinct, independently-measured phenomena beyond raw accuracy:
-- **Capacity**: familiar stimuli → more items held in mind (not what we test — would require testing higher N or more simultaneous features)
-- **Efficiency**: prior knowledge → same/better work with **suppressed** neural response (what we test below)
+Human WM research separates two phenomena that raw accuracy conflates:
+
+- **Capacity** — familiar stimuli let more items be held. **Not tested here**: that requires higher N or more simultaneous features, neither of which we varied.
+- **Efficiency** — prior knowledge yields the same or better performance with a **suppressed** neural response. This is what the three levels below measure.
 
 </div>
 
@@ -726,7 +910,7 @@ Human WM research documents several distinct, independently-measured phenomena b
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
 ### The claim under test
-Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both **suppress task-irrelevant processing** — testable at three independent levels of the model, using real prior findings from human WM research as the standard to test against. This, not the accuracy gain above, is the observable phenomenon that answers the professor's ask.
+Familiarity/structure (from proxy pretraining) and explicit gating (from attention) both **suppress task-irrelevant processing** — measured at three independent levels of the model, graded against findings from human WM research. This, not the accuracy gain, is the observable phenomenon.
 
 </div>
 

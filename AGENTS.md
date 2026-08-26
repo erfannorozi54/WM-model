@@ -165,6 +165,18 @@ because omitted `--epoch_*`/`--split`/`--task` flags confounded the results.
 A failed step is logged with its `rc` and does not abort the rest of the batch;
 `finish_provenance` warns at the end if any step exited non-zero.
 
+### Documentation map
+
+| Document | What it is |
+|---|---|
+| `docs/RESULTS.md` | **Index of every claim → artifact → slide.** Start here. |
+| `docs/NEURAL_EFFICIENCY.md` | The efficiency chapter in full, with per-level confidence |
+| `docs/ATTENTION.md` | Attention architecture; reports no results by design |
+| `docs/ANALYSIS_METHODOLOGY.md` | How the five analyses are computed |
+| `docs/PAPER_EXPLAINED_*.md` | The two human-WM references, read in full from source |
+| `docs/ANALYSIS_AUDIT_FINDINGS.md` | Chronological audit log — history, not current state |
+| `docs/archive/` | Superseded planning documents |
+
 ### Known gotchas
 
 0. **Class indices must come from `make_label2idx` (value-sorted), never from order of appearance.** `build_matrix*` numbers classes by sorted raw value precisely so that a decoder/rotation built from one matrix can be scored against another matrix's labels (other split, other timestep, other stimulus group). Any new cross-matrix comparison must either pass `label2idx=` to share one class space explicitly, or map raw values through `_align_test_labels`. This was the root cause of the 2026-08-16 audit: the H2 cross-stimulus test and the Procrustes swap test were reporting label permutations as "our models are stimulus-specific (H3), unlike the paper". Tell-tale sign: an accuracy *below* chance (a failed 4-class decoder floors at 0.25, it does not reach 0.000). See the second-audit section of `docs/ANALYSIS_AUDIT_FINDINGS.md`.
