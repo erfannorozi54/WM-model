@@ -15,7 +15,7 @@
 #
 # Per-experiment epoch pinning (matched-accuracy comparisons, see
 # docs/RESULTS.md) is passed through with EPOCHS:
-#   EPOCHS=1 ./run_analysis.sh finetune_proxy_wm_mtmf_20260705_164908
+#   EPOCHS=1 OUT_SUFFIX=_ep1 ./run_analysis.sh finetune_proxy_wm_mtmf_20260705_164908
 #
 # Long runs: nohup ./run_analysis.sh > analysis.log 2>&1 & disown
 
@@ -24,6 +24,9 @@ source "$(dirname "$0")/run_common.sh"
 PROPERTY="${PROPERTY:-identity}"
 ANALYSIS="${ANALYSIS:-all}"
 EPOCHS="${EPOCHS:-}"
+# Suffix the output directory so a pinned-epoch run does not overwrite the
+# best-epoch run of the same experiment.
+OUT_SUFFIX="${OUT_SUFFIX:-}"
 
 collect_by_glob () {
   find "${REPO_ROOT}/experiments" -maxdepth 1 -type d -name "$1" -printf '%P\n' 2>/dev/null | sort
@@ -77,12 +80,12 @@ for exp in "${TARGETS[@]}"; do
   cmd=(python -m src.analysis.comprehensive_analysis
        --analysis "$ANALYSIS"
        --hidden_root "${exp_dir}/hidden_states"
-       --output_dir "${REPO_ROOT}/analysis_results/${exp}"
+       --output_dir "${REPO_ROOT}/analysis_results/${exp}${OUT_SUFFIX}"
        --property "$PROPERTY"
        --model "${exp_dir}/best_model.pt")
   [[ -n "$EPOCHS" ]] && cmd+=(--epochs $EPOCHS)
 
-  run_step "$exp" "${cmd[@]}"
+  run_step "${exp}${OUT_SUFFIX}" "${cmd[@]}"
 done
 
 finish_provenance
