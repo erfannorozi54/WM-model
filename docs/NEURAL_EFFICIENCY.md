@@ -6,7 +6,7 @@ Where it disagrees with `docs/archive/FUTURE_WORK_NEURAL_EFFICIENCY.md`,
 `docs/ANALYSIS_AUDIT_FINDINGS.md`, this document wins — those are historical
 records of how the work got here, not statements of what is currently true.
 
-Last verified against the real result artifacts: **2026-08-23**.
+Last verified against the real result artifacts: **2026-08-26**.
 
 ---
 
@@ -109,12 +109,24 @@ produced on `hamrah-gpu-internal` after the audit fixes landed (commit `17499de`
 
 ### Level 2 - Population activity - **corroborates the framework**
 
-Two pairs: baseline vs. proxy (epochs 12/1, 10pp accuracy gap) and attention-only
-vs. attention+proxy (epochs 43/1, 0.08pp gap). Same direction in both, all 18 cells.
+Two pairs: baseline vs. proxy (epochs 12/1) and attention-only
+vs. attention+proxy (epochs 43/1). Same direction in both, all 18 cells. The
+epoch pairs were selected by closest *novel-angle* accuracy — the figures the
+script comments once quoted as "10pp" and "0.08pp". On the split actually
+analysed (`val_novel_identity`) the same checkpoints sit **8.9pp** (baseline:
+81.17 vs 90.10) and **0.84pp** (attention: 91.75 vs 92.59) apart.
+
+The baseline gap is **irreducible**: proxy epoch 1 already exceeds every
+baseline checkpoint's identity accuracy (ceiling 82.53% at ep17), so no
+accuracy-matched baseline pair exists on the analysed split. This is a property
+of the manipulation, not a pinning error — and it is one more reason the
+attention pair is the primary evidence. A strict identity-matched attention
+pair would be 18/8 (0.44pp); re-pinning would invalidate every published
+artifact below and is left as a deliberate decision, not taken silently.
 
 | Metric | Result | Graded against | Confidence |
 |---|---|---|---|
-| Activation magnitude | **Lower**, 18/18 | Ref 1 | Solid - replicates at near-zero accuracy gap |
+| Activation magnitude | **Lower**, 18/18 | Ref 1 | Solid - replicates at a sub-1pp accuracy gap |
 | Fano analogue | **Higher**, 18/18 | Ref 2 - genuine contradiction | Solid |
 | CV-squared (scale-invariant) | **Higher**, 18/18 | confirms Fano | Solid - rules out the magnitude-scaling artifact |
 | Participation ratio | **Higher**, 18/18 | ungraded | Solid as a result |
@@ -198,7 +210,9 @@ epoch pooling; pinned it is 6/9 and small); that attention-only "barely gates"
 Reference 2; that the magnitude result confirms Reference 2; that either
 reference predicts sparsity; that attention suppresses identity in general
 (it does not do so under `task=category`); that any p-value is below 0.002
-(the bootstrap floor at `n_boot=1000`).
+(the bootstrap floor at `n_boot=1000`); that the pairs were matched at 10pp /
+0.08pp or on the analysed split — they were matched on novel-angle, and the
+analysed-split gaps are 8.9pp (baseline, irreducible) and 0.84pp (attention).
 
 ---
 
@@ -222,6 +236,8 @@ Before quoting any number from a new run, check in each JSON:
 - `split` is the one you intended, and the accuracy match was made on that same split
 - `cv_squared` is present alongside `fano_factor_analogue`
 - the swap-test block reports `decoded_property`, not a bare `property`
+- any accuracy-gap figure you quote comes from `val_novel_identity` — the split
+  analysed — not from the novel-angle figures the epoch pairs were selected on
 
 Logs and provenance land in `logs/neural_efficiency_rerun_<timestamp>/`.
 

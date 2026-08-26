@@ -65,7 +65,7 @@ This is the single most important part of the paper for our purposes, so it dese
 
 **The rule this forces:** you should never read "activity went down" as "got more efficient" without first independently confirming that task performance (accuracy, and ideally the demands placed on the person) is genuinely comparable between the two things you're comparing.
 
-**How we applied this rule directly:** every comparison in our own neural-efficiency chapter also reports the accuracy gap between the two conditions being compared, precisely so that an activity or decodability difference can't be dismissed as "well, that model was just more accurate." We specifically re-ran our own Level 2 comparison at a near-zero accuracy gap (rather than relying only on a first pair of models that also happened to differ substantially in accuracy) — a direct, practical application of this warning.
+**How we applied this rule directly:** every comparison in our own neural-efficiency chapter also reports the accuracy gap between the two conditions being compared, precisely so that an activity or decodability difference can't be dismissed as "well, that model was just more accurate." We specifically re-ran our own Level 2 comparison at a sub-one-point accuracy gap (rather than relying only on a first pair of models that also happened to differ substantially in accuracy) — a direct, practical application of this warning.
 
 ---
 

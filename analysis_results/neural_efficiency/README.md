@@ -16,8 +16,8 @@ are unchanged by that commit, only the reported field names.
 
 | File | Level | Provenance |
 |---|---|---|
-| `neural_efficiency_attention_pair.json` | 2 | **Best evidence in the chapter** — epochs 43/1, 0.08pp accuracy gap |
-| `neural_efficiency_baseline_pair.json` | 2 | Epochs 12/1, 10pp gap; its `location` cells have a near-rank-1 condition A (PR ≈ 1.2) that inflates ratios — prefer the attention pair |
+| `neural_efficiency_attention_pair.json` | 2 | **Best evidence in the chapter** — epochs 43/1; 0.84pp accuracy gap on the analysed split (the pair was *selected* on novel-angle, where the gap is 0.08pp) |
+| `neural_efficiency_baseline_pair.json` | 2 | Epochs 12/1, 8.9pp gap on the analysed split — **irreducible**: proxy ep1 exceeds every baseline checkpoint's identity accuracy. Its `location` cells also have a near-rank-1 condition A (PR ≈ 1.2) that inflates ratios — prefer the attention pair |
 | `gate_suppression.json` | 3 | Epochs 43/1, `epochs_pooled: false` — the run that **overturned** the earlier 9/9 headline |
 | `comparison_task_location.json` | 1 | Best epoch, single split, `task=location` — identity decodability collapses to ~chance |
 | `comparison_task_category.json` | 1 | Same, `task=category` — no suppression |

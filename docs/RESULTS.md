@@ -161,8 +161,8 @@ our own modified model through the battery our own baseline already went through
 
 | Condition A | Condition B | Matched epochs |
 |---|---|---|
-| `wm_mtmf_20260520_140601` | `finetune_proxy_wm_mtmf_20260705_164908` | 12 / 1 (10pp gap) |
-| `wm_attention_mtmf_20260726_161735` | `finetune_proxy_wm_attention_mtmf_20260726_201707` | 43 / 1 (0.08pp gap) |
+| `wm_mtmf_20260520_140601` | `finetune_proxy_wm_mtmf_20260705_164908` | 12 / 1 — selected on novel-angle; **8.9pp on the analysed split, and irreducible** (proxy ep1 exceeds the baseline's identity ceiling) |
+| `wm_attention_mtmf_20260726_161735` | `finetune_proxy_wm_attention_mtmf_20260726_201707` | 43 / 1 — selected on novel-angle; **0.84pp on the analysed split** (a strict match, 18 / 8 at 0.44pp, would require re-running the chapter) |
 
 Each pair runs twice: with `--epochs` pinned to the accuracy-matched pair
 (primary, carrying the matched-accuracy discipline from §4), and at the

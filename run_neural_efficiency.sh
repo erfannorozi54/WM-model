@@ -31,11 +31,22 @@ ATTENTION_L1=$EXP/wm_attention_mtmf_20260520_203605
 ATTENTION=$EXP/wm_attention_mtmf_20260726_161735
 ATTENTION_PROXY=$EXP/finetune_proxy_wm_attention_mtmf_20260726_201707
 
-# Accuracy-matched epoch pairs, resolved once and pinned here rather than
-# re-derived per run. Auto-selection via --training_log_a/--training_log_b picks
-# whichever pair is closest at the time and would silently change these results.
-EP_BASELINE_A=12; EP_BASELINE_B=1     # 82.7% vs 92.7% (10pp gap)
-EP_ATTN_A=43;     EP_ATTN_B=1         # 93.43% vs 93.51% (0.08pp gap)
+# Epoch pairs, resolved once and pinned here rather than re-derived per run.
+# Auto-selection via --training_log_a/--training_log_b picks whichever pair is
+# closest at the time and would silently change these results.
+#
+# SPLIT CAVEAT (measured from training_log.json, 2026-08-26): these pairs were
+# selected by closest val_novel_ANGLE accuracy -- 82.69 vs 92.67 (10.0pp) and
+# 93.43 vs 93.51 (0.08pp). The analyses below run --split val_novel_identity,
+# where the same checkpoints sit 8.9pp (81.17 vs 90.10) and 0.84pp (91.75 vs
+# 92.59) apart. The baseline gap is irreducible on the analysed split: proxy
+# epoch 1 already exceeds every baseline checkpoint (identity ceiling 82.53% at
+# ep17), so no accuracy-matched baseline pair exists. A strict identity-matched
+# attention pair would be 18 vs 8 (0.44pp); re-pinning would invalidate the
+# published artifacts and is a deliberate re-run decision, not taken here.
+# Quote 8.9pp / 0.84pp, never 10pp / 0.08pp, as the accuracy match.
+EP_BASELINE_A=12; EP_BASELINE_B=1
+EP_ATTN_A=43;     EP_ATTN_B=1
 
 # --- Level 3 (headline): epochs MUST be pinned ---------------------------------
 # Without --epoch_a/--epoch_b, load_payloads pools every saved checkpoint.
@@ -101,3 +112,4 @@ echo "  - epoch_a / epoch_b are NOT null, and epochs_pooled is false"
 echo "  - split is '$SPLIT'"
 echo "  - cv_squared present alongside fano_factor_analogue"
 echo "  - swap_test reports decoded_property, not a bare 'property'"
+echo "  - any accuracy-gap quote names the analysed split (see SPLIT CAVEAT above)"

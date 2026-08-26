@@ -146,7 +146,7 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 **Say:**
 > "Level 2 is where things get interesting, and also where we have to be the most careful. Quick definitions before the table, because otherwise the four metric names are just jargon: 'magnitude' is how loud the hidden-state signal is on average. 'Sparsity' is what fraction of hidden units are actually doing something for a given input — higher means fewer units firing at once. 'Participation ratio' is roughly how many independent patterns the population is using — higher means information is spread across more directions instead of squeezed into a few. And 'Fano-factor analogue' is the same trial-to-trial wobble idea from Reference 2, just computed on our model's units instead of real neurons."
 
-> "We ran two independent pairs. Pair 1 is baseline versus proxy-finetuned with a 10-percentage-point accuracy gap — that's the unmatched comparison. Pair 2 is attention-only versus attention-plus-proxy with a *0.08-percentage-point* accuracy gap — that's our clean, matched-accuracy replication."
+> "We ran two independent pairs. Pair 1 is baseline versus proxy-finetuned — nine points apart on the split we analyse, and no closer pair exists, because the proxy model's first epoch already beats everything the baseline ever reaches. Pair 2 is attention-only versus attention-plus-proxy at *0.84 percentage points* — under one point — and that's our clean, matched-accuracy replication."
 
 > "Same direction in both pairs, in all eighteen cells. Activation magnitude is lower under proxy pretraining — that matches *Reference 1*, Poppenk. I want to be precise about the attribution: Reference 2 actually reports the opposite for single neurons, more cells recruited and firing rate going up, so it would be wrong to put the magnitude result in a 'versus Reference 2' column. Population sparsity is higher in 17 of 18 cells, but neither paper predicts sparsity — that one is our own assumption, and I'm labelling it as such."
 
@@ -156,7 +156,7 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 
 > "That leaves one genuine contradiction: the Fano-factor analogue is higher in every cell, and Reference 2 cleanly predicts lower. It's actually understated. Var-over-mean scales with activity level, and the proxy condition is *quieter* — so a pure scale effect would have pushed this metric *down*. It went up anyway, which means the scale-invariant version of the same measure moves further still."
 
-> "The critical control: the magnitude effect *replicates at near-zero accuracy gap* in Pair 2. It survives the Box 2 confound check. It's not just 'the proxy model is more accurate.'"
+> "The critical control: the magnitude effect *replicates at a sub-one-point accuracy gap* in Pair 2. It survives the Box 2 confound check. It's not just 'the proxy model is more accurate.'"
 
 **Emphasize:**
 - The two-pair design. Pair 1 is the unmatched comparison, Pair 2 is the confound check. Say this clearly.
@@ -193,7 +193,7 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 
 > "Level 2, population activity, corroborates it outright — every metric moves in the same direction across all eighteen cells, in two independent model pairs, at matched accuracy. Level 1 corroborates it conditionally: near-total suppression under the location task, none under category. Level 3 corroborates it partially: a modest sharpening in six of nine cells, with gate-relevance correlation improving throughout."
 
-> "On alignment: our model reproduces Poppenk's signature cleanly. Prior knowledge acquired from a different task lowers hidden-state magnitude in all eighteen cells, at an accuracy gap of eight hundredths of a percentage point. That is the human result, in our model, with the confound controlled."
+> "On alignment: our model reproduces Poppenk's signature cleanly. Prior knowledge acquired from a different task lowers hidden-state magnitude in all eighteen cells, at an accuracy gap of eight tenths of a percentage point. That is the human result, in our model, with the confound controlled."
 
 > "It diverges from the variability finding. Our Fano analogue rises rather than falls, and so does the scale-invariant CV-squared — so this isn't an artifact of the magnitude difference; it is a real increase in relative variability."
 
@@ -204,7 +204,7 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 - "Partially corroborated" is the honest verdict and a strong one. Do not inflate it to "confirmed."
 - The divergence has a mechanistic explanation, not an excuse. State the manipulation difference in one sentence.
 
-**If asked whether one divergence undermines the chapter:** no — the three levels were measured independently precisely so the claim doesn't rest on any single metric, and the alignment on magnitude is the one tested at a near-zero accuracy gap.
+**If asked whether one divergence undermines the chapter:** no — the three levels were measured independently precisely so the claim doesn't rest on any single metric, and the alignment on magnitude is the one tested at a sub-one-point accuracy gap.
 
 ---
 

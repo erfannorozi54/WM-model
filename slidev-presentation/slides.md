@@ -1036,8 +1036,8 @@ transition: fade-out
 <div>
 
 ### Comparing (two independent pairs)
-- **Pair 1**: baseline vs. proxy-finetuned — 10pp accuracy gap (82.7%→92.7%)
-- **Pair 2**: attention-only vs. attention+proxy — **0.08pp accuracy gap** (93.43%→93.51%), a clean replication
+- **Pair 1**: baseline vs. proxy-finetuned — 8.9pp accuracy gap on the analysed split (81.2%→90.1%), irreducibly unmatched
+- **Pair 2**: attention-only vs. attention+proxy — **0.84pp accuracy gap** on the analysed split (91.75%→92.59%), a clean replication
 
 </div>
 
@@ -1066,7 +1066,7 @@ transition: fade-out
 <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
 <div class="p-3 bg-green-500/10 rounded-lg">
 
-**What survives the checks:** the magnitude effect **replicates at near-zero accuracy gap** (Box 2 confound check). The PR effect is not a sample-size artifact — in 11/18 cells the proxy condition has *fewer* trials yet higher PR, and one cell with exactly equal N (258 vs 258) still shows +76%.
+**What survives the checks:** the magnitude effect **replicates at a sub-1pp accuracy gap** on the analysed split (Box 2 confound check). The PR effect is not a sample-size artifact — in 11/18 cells the proxy condition has *fewer* trials yet higher PR, and one cell with exactly equal N (258 vs 258) still shows +76%.
 
 </div>
 <div class="p-3 bg-red-500/10 rounded-lg">
@@ -1153,7 +1153,7 @@ transition: fade-out
 
 | Reference finding | Our model |
 |---|---|
-| Prior knowledge suppresses processing activity (Poppenk) | ✅ **Aligns** — magnitude lower in 18/18 cells, at a 0.08pp accuracy gap |
+| Prior knowledge suppresses processing activity (Poppenk) | ✅ **Aligns** — magnitude lower in 18/18 cells, at a 0.84pp accuracy gap on the analysed split |
 | Trial-to-trial variability falls with training (Constantinidis & Klingberg) | ❌ **Diverges** — Fano *and* scale-invariant CV² rise in 18/18 cells |
 
 <div class="mt-3 p-3 bg-gray-500/10 rounded-lg text-xs">

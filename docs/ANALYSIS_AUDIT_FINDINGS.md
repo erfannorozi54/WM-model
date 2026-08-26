@@ -455,3 +455,43 @@ on the GPU server; the relevant `experiments/` directories are not on this machi
 Also note the baseline-vs-proxy pair's location cells have PR_a ≈ 1.19–1.41 (near
 rank-1), so that pair's 5–6× ratios come from a degenerate condition-A
 representation, not a strong proxy effect — quote the attention pair instead.
+
+---
+
+# Fifth pass (2026-08-26): the Fourth pass's "worth pinning explicitly" is now measured
+
+## Issue 6's second half confirmed: the epoch pairs were matched on the wrong split
+
+The Fourth pass suspected that `select_matched_epoch`'s default
+(`metric_key="val_novel_angle_acc"`) meant the accuracy match happened on a
+different split than the one analysed. The GPU server became reachable and the
+`training_log.json` figures are now measured directly:
+
+| Pair | Checkpoints | Novel-angle gap (what the pins were selected on) | Identity gap (the analysed split) |
+|---|---|---|---|
+| baseline vs. proxy | ep12 vs ep1 | 10.0pp (82.69 / 92.67) | **8.9pp** (81.17 / 90.10) |
+| attention-only vs. attention+proxy | ep43 vs ep1 | 0.08pp (93.43 / 93.51) | **0.84pp** (91.75 / 92.59) |
+
+Every document quoting "10pp" or "0.08pp" as the accuracy match of these runs
+was wrong; all have been corrected (`run_neural_efficiency.sh`,
+`docs/NEURAL_EFFICIENCY.md`, `docs/RESULTS.md`, the deck, its speaker notes,
+and this directory's README).
+
+Two structural facts established in the same pass:
+
+1. **The baseline pair cannot be fixed by re-pinning.** Proxy epoch 1 already
+   exceeds every baseline checkpoint on the analysed split (baseline identity
+   ceiling: 82.53% at ep17). No accuracy-matched baseline pair exists; the
+   8.9pp figure is the best possible. This strengthens the existing guidance to
+   quote the attention pair.
+2. **A strict identity-matched attention pair exists**: ep18 vs ep8, 0.44pp
+   (91.91 / 92.35). Adopting it would invalidate every published Level 2/3
+   artifact (all rest on 43/1) and requires a full chapter re-run — a deliberate
+   decision, recorded here as open rather than taken silently.
+
+## Disposition
+
+Pins unchanged (12/1, 43/1); the record now states which split each number comes
+from. The Box-2 control stands on the attention pair (sub-1pp on the analysed
+split); the baseline pair must be presented as structurally unmatched, not as a
+10pp match.
