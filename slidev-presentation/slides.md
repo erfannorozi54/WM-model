@@ -105,11 +105,11 @@ transition: fade-out
 
 <v-clicks>
 
-5. **Task-Guided Attention**: Can explicit attention improve feature selection?
+5. **Modification 1 — Architecture**: can an explicit task-guided gate improve feature selection, and where does it stop helping?
 
-6. **Generalization**: Does attention help with novel objects?
+6. **Modification 2 — Training regimen**: does pre-training on dense feature recall transfer to the sparse N-back task?
 
-7. **Multi-Task Learning**: How does attention affect MTMF scenarios?
+7. **Beyond accuracy**: do the modified models show an observable working-memory *phenomenon* — neural efficiency — and does it match human findings?
 
 </v-clicks>
 
@@ -576,15 +576,14 @@ layout: section
 transition: fade
 ---
 
-# Our Innovation
-
-Task-Guided Attention Models
+# Task-Guided Attention
+## Modification 1 — Architecture
 
 ---
 transition: fade-out
 ---
 
-# Task-Guided Attention
+# The Gate, and What It Buys
 
 <div class="grid grid-cols-2 gap-8">
 
@@ -687,7 +686,7 @@ transition: fade
 ---
 
 # Proxy Pre-training
-## The Second Modification
+## Modification 2 — Training Regimen
 
 ---
 transition: fade-out

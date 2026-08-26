@@ -6,7 +6,7 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 
 ## Slide: Proxy Pre-training — Section Title
 
-> *"The Second Modification"*
+> *"Modification 2 — Training Regimen"*
 
 **Say:**
 > "The attention mechanism changed the architecture. The second modification changes the training regimen instead, and leaves the architecture completely untouched."
@@ -28,7 +28,7 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 
 ---
 
-## Slide: Results — Proxy vs. Baseline
+## Slide: Results: Proxy vs. Baseline (MTMF)
 
 **Say:**
 > "Fourteen point eight points on novel angle, twelve point two on novel identity. And the convergence story is sharper than the endpoint: the proxy model passes the baseline's *final* accuracy at epoch one."
