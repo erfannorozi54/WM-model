@@ -284,9 +284,9 @@ transition: fade-out
 **Question (Figure 2b)**: Does the network only encode task-relevant information?
 
 **Method**: Train linear decoder per (task, property) pair from MTMF hidden states at t=0.
-Each cell = test accuracy on held-out 20%. n=51-56 test samples per cell.
+Each cell = test accuracy on held-out 20%, at each model's best epoch.
 
-<span class="text-red-500">⚠ Numbers below predate the class-index fix and are pending regeneration — with n_test≈51 these cells carry ±10pp of split noise, so small differences are not interpretable.</span>
+<span class="text-amber-500">Sampling: these h=256 runs give **n_test ≈ 52** per cell. Location and category have 4 classes; identity has ~69 — fewer test samples than classes, so the identity column is reported but carries no weight.</span>
 
 </div>
 
@@ -296,9 +296,9 @@ Each cell = test accuracy on held-out 20%. n=51-56 test samples per cell.
 
 | Task \ Property | Location | Identity | Category |
 |-----------------|---------:|---------:|---------:|
-| **Location** | 47.5% | 49.2% | **100.0%** |
-| **Identity** | 40.4% | 26.9% | **94.2%** |
-| **Category** | 41.2% | 37.3% | 90.2% |
+| **Location** | *61.5%* | 48.1% | **88.5%** |
+| **Identity** | 30.4% | *37.5%* | **89.3%** |
+| **Category** | 47.2% | 28.3% | ***96.2%*** |
 
 </div>
 
@@ -308,9 +308,9 @@ Each cell = test accuracy on held-out 20%. n=51-56 test samples per cell.
 
 | Task \ Property | Location | Identity | Category |
 |-----------------|---------:|---------:|---------:|
-| **Location** | 100.0% | 21.4% | 60.7% |
-| **Identity** | 30.8% | 38.5% | **96.2%** |
-| **Category** | 56.6% | 45.3% | 92.5% |
+| **Location** | ***100.0%*** | 19.6% | 57.1% |
+| **Identity** | 46.2% | *50.0%* | **100.0%** |
+| **Category** | 60.4% | 37.7% | ***90.6%*** |
 
 </div>
 
@@ -318,11 +318,12 @@ Each cell = test accuracy on held-out 20%. n=51-56 test samples per cell.
 
 <div class="mt-3 p-3 bg-yellow-500/10 rounded-lg text-xs">
 
-- ⚠️ **Reality**: Diagonal (task-relevant) cells are 88-100% — paper claim is **partially** supported
-- ⚠️ **Off-diagonal is NOT all >85%** — varies widely (14-60%), with **category** often the easiest to decode (94-100%)
-- ✅ **Category always decodable** regardless of task context (90-100% across all tasks)
-- ✅ **Identity is hardest** to decode across all task contexts (14-49%)
-- ⚠️ **Sample size warning**: n_test ≈ 50 vs n_classes = 70 for identity, so off-diagonal identity values are noisy
+<span class="text-xs text-gray-400">*italic* = task-relevant (diagonal) &nbsp;·&nbsp; **bold** = highest in row</span>
+
+- ⚠️ **The task-relevant cell is often not the best-decoded one.** Baseline diagonals span 37.5–96.2%, and in two of three task contexts *category* outscores the relevant property. The paper's "only task-relevant information is encoded" is **not** supported.
+- ✅ **Category is decodable from almost any task context** (57–100%) — the network retains it whether or not the task needs it.
+- ✅ **Attention sharpens the location code**: the location diagonal rises 61.5% → 100.0% with dual attention.
+- 🔍 **Identity stays low at h=256** (19.6–50.0%), but with n_test ≈ 52 against ~69 classes this column is under-sampled by construction; the h=128 runs on the next slide sample it 5× better.
 
 </div>
 
@@ -337,9 +338,9 @@ transition: fade-out
 <div class="text-sm mb-3">
 
 **Question (Figure 2a)**: Do representations transfer across tasks?
-**Method**: Train decoder on task A, test on task B (different property classes).
+**Method**: Train decoder on task A, test on task B, in one shared class space. Diagonal = train and test on the same task; off-diagonal = mean over the other two.
 
-<span class="text-red-500">⚠ h128 rows predate the class-index fix and are pending regeneration.</span>
+<span class="text-amber-500">The two hidden sizes are sampled differently — **h=256 gives n_test ≈ 52 per cell, h=128 gives ≈ 265** (`num_val` 400 vs 2000). Compare rows *within* a block, not across.</span>
 
 </div>
 
@@ -349,12 +350,14 @@ transition: fade-out
 
 | Model | Location diag/off | Identity diag/off | Category diag/off |
 |-------|------------------:|------------------:|------------------:|
-| wm_mtmf | 44.8 / 25.6 | 40.5 / 5.9 | 95.0 / 53.9 |
-| wm_h128_mtmf | 43.0 / 27.7 | 37.8 / 6.6 | 94.8 / 42.6 |
-| wm_attention_mtmf | 63.7 / 30.7 | 30.5 / 4.4 | 78.1 / 47.3 |
-| wm_dual_attention_mtmf | 62.5 / 38.7 | 35.1 / 3.7 | 83.1 / 52.8 |
-| wm_h128_attention_mtmf | 62.5 / 30.0 | 28.3 / 5.0 | 79.5 / 50.8 |
-| wm_h128_dual_attention_mtmf | 67.5 / 39.0 | 30.9 / 5.1 | 88.8 / 55.9 |
+| *h=256 — n_test ≈ 52* | | | |
+| wm_mtmf | 46.4 / 26.7 | 38.0 / 7.1 | 91.3 / 54.3 |
+| wm_attention_mtmf | 61.9 / 35.8 | 31.8 / 5.4 | 85.2 / 44.7 |
+| wm_dual_attention_mtmf | 68.8 / 39.9 | 35.8 / 3.8 | 82.6 / 51.6 |
+| *h=128 — n_test ≈ 265* | | | |
+| wm_h128_mtmf | 54.4 / 26.6 | **80.2** / 6.9 | 97.5 / 50.9 |
+| wm_h128_attention_mtmf | 76.9 / 35.7 | **65.6** / 5.5 | 89.1 / 49.6 |
+| wm_h128_dual_attention_mtmf | 44.2 / 24.7 | **70.8** / 5.3 | 95.3 / 43.9 |
 
 </div>
 
@@ -362,10 +365,10 @@ transition: fade-out
 
 <div class="mt-3 p-3 bg-orange-500/10 rounded-lg text-xs">
 
-- ✅ **Location & Identity**: Off-diagonal ≪ diagonal (3-39% vs 28-67%) — **task-specific subspaces** (paper claim supported)
-- ⚠️ **Category**: Off-diagonal reaches 42-56% — **partially transfers** across tasks (paper claim NOT fully supported)
-- 🔍 **Identity off-diagonal near chance (4-6%)** — strong task-specificity
-- 🔍 **Category off-diagonal near 50%** — high cross-task transferability
+- ✅ **Location & identity live in task-specific subspaces**: off-diagonal collapses far below diagonal in every one of the six models (identity 3.8–7.1% off vs 31.8–80.2% on) — the paper's claim holds.
+- ⚠️ **Category transfers**: off-diagonal 43.9–54.3% against diagonals of 82.6–97.5%. It is the one property that survives a change of task context, so the claim is **not** fully general.
+- 🔍 **Identity is decodable when it is actually sampled.** At h=128 the identity diagonal reaches 65.6–80.2%; at h=256, with ~52 test samples against 72 classes, the same quantity reads 31.8–38.0%. This gap is a **measurement** difference, not an architectural one.
+- 🔍 **Attention raises the location diagonal** in both blocks (46.4→68.8 at h=256; 54.4→76.9 for single attention at h=128).
 
 </div>
 
@@ -549,8 +552,8 @@ transition: slide-up
 | Analysis | Paper Claim | Our Result | Match? |
 |----------|-------------|------------|:------:|
 | **1. Behavioral** | Novel Identity < Novel Angle | Confirmed in 18/18 (gap 0-4pp) | ✅ |
-| **2A. Task-Relevance** | MTMF preserves all features | Diagonal high, off-diagonal varies | ⚠️ Partial |
-| **2B. Cross-Task** | GRU task-specific | Loc/Ident task-specific ✓, Category partial transfer | ⚠️ Partial |
+| **2A. Task-Relevance** | Only task-relevant info encoded | Task-relevant cell often *not* best decoded; category decodable everywhere | 🚫 Not supported |
+| **2B. Cross-Task** | GRU task-specific | Location/identity task-specific ✓ (6/6 models); category transfers | ⚠️ Partial |
 | **3. Orthogonalization** | RNN de-orthogonalizes | 12/18 MTMF points below diagonal (2/3 avg) | ✅ |
 | **4. H1 Slot-Based** | Disproved | 18/18: readable at encoding → **chance** by t≥1 | ✅ |
 | **4. H2 Shared Encoding** | Supported | Mean gen **0.23 → 0.60** after fixing class-index bug | ✅ |
@@ -997,7 +1000,7 @@ transition: fade-out
 1. ✅ **H1 Slot-based memory**: Disproved (18/18: readable at encoding → chance by t≥1)
 2. ✅ **Orthogonalization**: RNN de-orthogonalizes (12/18 MTMF points below diagonal)
 3. ✅ **Task-specific subspaces** (location, identity): Cross-task off-diagonal ≪ diagonal
-4. ⚠️ **MTMF preserves all features**: Diagonal high ✓, off-diagonal varies
+4. 🚫 **Task-relevance not supported**: the task-relevant cell is often out-decoded by category, which stays readable in every task context
 5. ✅ **H2 Cross-stimulus shared encoding**: Supported — mean gen 0.23 → **0.60** once the class-index bug was fixed
 6. ✅ **Causal perturbation No-Action rise**: 12/18 cross the boundary; P(No-Action) → **0.86-1.00** in 10
 
