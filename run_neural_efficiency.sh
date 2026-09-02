@@ -8,16 +8,17 @@
 #
 # Usage (GPU server, from ~/Projects/WM-model):
 #   source ~/.venv/WM-model/bin/activate    # conda deactivate first if base is active
-#   ./run_neural_efficiency.sh              # all three levels
+#   ./run_neural_efficiency.sh              # all levels
 #   ./run_neural_efficiency.sh level1       # one level only
 #   ./run_neural_efficiency.sh level2 level3
+#   ./run_neural_efficiency.sh level2x      # the architecture contrasts (2x2)
 #
 # Writes results into analysis_results/<per-run dirs> and logs into
 # logs/neural_efficiency_rerun_<timestamp>/.
 
 source "$(dirname "$0")/run_common.sh"
 
-LEVELS="${*:-level1 level2 level3}"
+LEVELS="${*:-level1 level2 level2x level3}"
 want () { [[ " $LEVELS " == *" $1 "* ]]; }
 
 start_provenance "neural_efficiency"
@@ -47,6 +48,19 @@ ATTENTION_PROXY=$EXP/finetune_proxy_wm_attention_mtmf_20260726_201707
 # Quote 8.9pp / 0.84pp, never 10pp / 0.08pp, as the accuracy match.
 EP_BASELINE_A=12; EP_BASELINE_B=1
 EP_ATTN_A=43;     EP_ATTN_B=1
+
+# The two columns of the 2x2 (level2x below). The pairs above vary the training
+# regimen within one architecture; these vary the architecture within one
+# regimen, which is what tells attention and proxy pretraining apart rather than
+# just measuring each against its own control.
+#
+# Both are anchored at the *higher-accuracy* model's ceiling on val_novel_identity
+# and matched to the nearest checkpoint of the other, so neither is read near
+# initialisation:
+#   scratch row: baseline@ep17 = 82.53% (its ceiling)  vs attention@ep9  = 81.65%  -> 0.88pp
+#   proxy   row: baseline_proxy@ep20 = 93.55% (its ceiling) vs attention_proxy@ep45 = 93.55% -> 0.00pp
+EP_SCRATCH_BASE=17; EP_SCRATCH_ATTN=9
+EP_PROXY_BASE=20;   EP_PROXY_ATTN=45
 
 # --- Level 3 (headline): epochs MUST be pinned ---------------------------------
 # Without --epoch_a/--epoch_b, load_payloads pools every saved checkpoint.
@@ -84,6 +98,51 @@ if want level2; then
       --epoch_a $EP_ATTN_A --epoch_b $EP_ATTN_B \
       --split $SPLIT \
       --output_dir analysis_results/neural_efficiency_attention_vs_attention_proxy_mtmf
+fi
+
+# --- Level 2x: the other two cells of the 2x2 ----------------------------------
+# The level2 pairs above answer "what does proxy pretraining do?" twice. These
+# two answer "what does attention do?" twice, over the same four models, and so
+# separate the two modifications instead of confirming each against its own
+# control.
+#
+# Result (2026-08-26, re-read against the artifacts 2026-09-02). Attention
+# reshapes the population code only when it is the ONLY modification:
+#   scratch row (no proxy):  magnitude lower 9/9 (CI excludes 0 in 8/9),
+#                            participation ratio lower 9/9 (8/9) -- and still
+#                            6/6 after dropping the three location cells, which
+#                            are near-rank-1 (PR 1.1-1.4) and inflate ratios.
+#   proxy row (both proxy):  magnitude lower 7/9 (6/9; the two identity nulls
+#                            sit at p=0.73 and p=0.61), PR 4/9 -- no effect --
+#                            and sparsity moves the other way, HIGHER in 8/9.
+# So attention's effect on the geometry is ABSORBED once proxy pretraining is
+# present, which is the population-code counterpart of the accuracy interaction.
+#
+# Do NOT read a Fano direction out of these two files. Fano falls 7/9 in the
+# scratch row, but cv_squared -- its scale-invariant companion, and the only
+# reason cv_squared exists -- is 5/9, a coin flip. Attention lowers magnitude,
+# Fano is scale-dependent, so that is exactly the artifact cv_squared was added
+# to catch. The Fano/CV2 rise stays attributed to PROXY PRETRAINING (18/18 in
+# the level2 pairs, both metrics), and these files do not license the claim that
+# the attention arm agrees with Constantinidis & Klingberg.
+if want level2x; then
+  run_step level2x_scratch_baseline_vs_attention \
+    python -m src.analysis.neural_efficiency \
+      --root_a $BASELINE/hidden_states \
+      --root_b $ATTENTION/hidden_states \
+      --label_a baseline_scratch --label_b attention_scratch \
+      --epoch_a $EP_SCRATCH_BASE --epoch_b $EP_SCRATCH_ATTN \
+      --split $SPLIT \
+      --output_dir analysis_results/neural_efficiency_2x2/scratch_baseline_vs_attention
+
+  run_step level2x_proxy_baseline_vs_attention \
+    python -m src.analysis.neural_efficiency \
+      --root_a $BASELINE_PROXY/hidden_states \
+      --root_b $ATTENTION_PROXY/hidden_states \
+      --label_a baseline_proxy --label_b attention_proxy \
+      --epoch_a $EP_PROXY_BASE --epoch_b $EP_PROXY_ATTN \
+      --split $SPLIT \
+      --output_dir analysis_results/neural_efficiency_2x2/proxy_baseline_vs_attention
 fi
 
 # --- Level 1: representational content -----------------------------------------

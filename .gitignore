@@ -2,7 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
-
+last_problems.txt
 # C extensions
 *.so
 

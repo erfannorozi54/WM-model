@@ -1,0 +1,781 @@
+{
+  "label_a": "baseline_scratch",
+  "label_b": "attention_scratch",
+  "hidden_root_a": "experiments/wm_mtmf_20260520_140601/hidden_states",
+  "hidden_root_b": "experiments/wm_attention_mtmf_20260726_161735/hidden_states",
+  "epoch_a": 17,
+  "epoch_b": 9,
+  "split": "val_novel_identity",
+  "caveats": {
+    "activation_magnitude": "RNN hidden-state L2 norm is not literally a BOLD or spike-rate signal; treat as a functional analogy (facilitated processing -> suppressed representational magnitude), not a claim of biophysical equivalence.",
+    "fano_factor_analogue": "Computed on |hidden_state| (rectified), not the literal spike-count Fano factor: GRU/LSTM/RNN hidden states are signed (tanh-bounded), so Var/Mean on the raw signed value is unstable whenever the mean crosses zero. Treat as a functional analogue only. It is also SCALE-DEPENDENT (unlike the count-based Fano factor, which is dimensionless): scaling all activity by c scales this by c, so it is not directly comparable between two conditions that differ in activation magnitude. Read 'cv_squared' alongside it.",
+    "participation_ratio": "participation_ratio measures the effective dimensionality of the POPULATION response; it is not a measure of single-unit tuning width. Constantinidis & Klingberg's training result is about per-neuron selectivity (which they report gets BROADER, alongside more neurons recruited) - that is a different quantity and does not translate into a directional prediction for PR. Do not grade PR as confirming or contradicting that review."
+  },
+  "cells": [
+    {
+      "task": "location",
+      "n": 1,
+      "n_trials_a": 228,
+      "n_trials_b": 270,
+      "activation_magnitude": {
+        "a": [
+          14.473146438598633,
+          14.260167813301086,
+          14.6695791721344
+        ],
+        "b": [
+          13.74086856842041,
+          13.497248673439026,
+          13.959906005859375
+        ],
+        "difference": {
+          "diff": 0.7322778701782227,
+          "ci_lo": 0.40498011112213145,
+          "ci_hi": 1.0171974897384644,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          1.1585365533828735,
+          1.1297997772693633,
+          1.200449323654175
+        ],
+        "b": [
+          1.1153093576431274,
+          1.0891411125659942,
+          1.1498900443315505
+        ],
+        "difference": {
+          "diff": 0.043227195739746094,
+          "ci_lo": -0.004629585146903922,
+          "ci_hi": 0.08729428052902222,
+          "p_value": 0.074
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.005328262061403508,
+          0.004385536595394737,
+          0.006253426535087719
+        ],
+        "b": [
+          0.00787037037037037,
+          0.006610966435185186,
+          0.009186921296296295
+        ],
+        "difference": {
+          "diff": -0.002542108308966861,
+          "ci_lo": -0.004095861126340157,
+          "ci_hi": -0.0009611145376461995,
+          "p_value": 0.0020000000000000018
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.008642810396850109,
+        "b": 0.0058601233176887035,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 9.5,
+        "mean_group_size_b": 11.25
+      },
+      "cv_squared": {
+        "a": 0.029297001659870148,
+        "b": 0.027637997642159462
+      },
+      "trial_count_warning": "Unequal trial counts (228 vs 270): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "location",
+      "n": 2,
+      "n_trials_a": 294,
+      "n_trials_b": 300,
+      "activation_magnitude": {
+        "a": [
+          13.95920181274414,
+          13.762202739715576,
+          14.145253443717957
+        ],
+        "b": [
+          13.227288246154785,
+          12.989942717552186,
+          13.443599510192872
+        ],
+        "difference": {
+          "diff": 0.7319135665893555,
+          "ci_lo": 0.43853483200073246,
+          "ci_hi": 1.0343260288238525,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          1.3424890041351318,
+          1.2874693810939788,
+          1.3913718730211257
+        ],
+        "b": [
+          1.1971285343170166,
+          1.1744629442691803,
+          1.2136746883392333
+        ],
+        "difference": {
+          "diff": 0.14536046981811523,
+          "ci_lo": 0.0836117833852768,
+          "ci_hi": 0.20097638070583343,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.0078390731292517,
+          0.006762861394557823,
+          0.008849516369047619
+        ],
+        "b": [
+          0.013671875,
+          0.0117314453125,
+          0.0156513671875
+        ],
+        "difference": {
+          "diff": -0.0058328018707483,
+          "ci_lo": -0.008002484587585033,
+          "ci_hi": -0.003750551392431973,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.013736025430262089,
+        "b": 0.006242724135518074,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 12.25,
+        "mean_group_size_b": 12.5
+      },
+      "cv_squared": {
+        "a": 0.04480946063995361,
+        "b": 0.034631501883268356
+      },
+      "trial_count_warning": "Unequal trial counts (294 vs 300): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "location",
+      "n": 3,
+      "n_trials_a": 294,
+      "n_trials_b": 270,
+      "activation_magnitude": {
+        "a": [
+          13.383068084716797,
+          13.184611988067626,
+          13.571269774436951
+        ],
+        "b": [
+          12.62488079071045,
+          12.406023836135864,
+          12.826684594154358
+        ],
+        "difference": {
+          "diff": 0.7581872940063477,
+          "ci_lo": 0.4597067594528199,
+          "ci_hi": 1.081905770301819,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          1.4186874628067017,
+          1.3603493571281433,
+          1.4817837744951248
+        ],
+        "b": [
+          1.249201774597168,
+          1.2122914701700211,
+          1.285175359249115
+        ],
+        "difference": {
+          "diff": 0.1694856882095337,
+          "ci_lo": 0.10396203994750977,
+          "ci_hi": 0.2448267638683319,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.009154443027210885,
+          0.008117426658163266,
+          0.01012436224489796
+        ],
+        "b": [
+          0.015364583333333333,
+          0.013657045717592594,
+          0.01731879340277778
+        ],
+        "difference": {
+          "diff": -0.006210140306122448,
+          "ci_lo": -0.008371982473544974,
+          "ci_hi": -0.004186463647959183,
+          "p_value": 0.0
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.016584360972046852,
+        "b": 0.007808329071849585,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 12.25,
+        "mean_group_size_b": 11.25
+      },
+      "cv_squared": {
+        "a": 0.05277840420603752,
+        "b": 0.03998081386089325
+      },
+      "trial_count_warning": "Unequal trial counts (294 vs 270): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "identity",
+      "n": 1,
+      "n_trials_a": 276,
+      "n_trials_b": 252,
+      "activation_magnitude": {
+        "a": [
+          12.959246635437012,
+          12.848297810554504,
+          13.077378511428833
+        ],
+        "b": [
+          12.732938766479492,
+          12.588577222824096,
+          12.87316370010376
+        ],
+        "difference": {
+          "diff": 0.22630786895751953,
+          "ci_lo": 0.04707245826721194,
+          "ci_hi": 0.40949580669403074,
+          "p_value": 0.016
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          5.365795135498047,
+          4.9474511504173275,
+          5.582204723358155
+        ],
+        "b": [
+          4.352410316467285,
+          3.9921522974967956,
+          4.584975242614746
+        ],
+        "difference": {
+          "diff": 1.0133848190307617,
+          "ci_lo": 0.528077805042267,
+          "ci_hi": 1.4007345795631407,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.018002717391304348,
+          0.016374759397644927,
+          0.019517096920289856
+        ],
+        "b": [
+          0.01734561011904762,
+          0.016244652157738095,
+          0.01849307105654762
+        ],
+        "difference": {
+          "diff": 0.0006571072722567281,
+          "ci_lo": -0.0013129003299689427,
+          "ci_hi": 0.0024975299506124933,
+          "p_value": 0.532
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.05627504736185074,
+        "b": 0.058951832354068756,
+        "n_groups_a": 150,
+        "n_groups_b": 140,
+        "n_groups_used_a": 30,
+        "n_groups_used_b": 31,
+        "mean_group_size_a": 3.566666666666667,
+        "mean_group_size_b": 3.3548387096774195
+      },
+      "cv_squared": {
+        "a": 0.13041454553604126,
+        "b": 0.1313246786594391
+      },
+      "trial_count_warning": "Unequal trial counts (276 vs 252): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "identity",
+      "n": 2,
+      "n_trials_a": 252,
+      "n_trials_b": 264,
+      "activation_magnitude": {
+        "a": [
+          12.590554237365723,
+          12.466303873062134,
+          12.710505962371826
+        ],
+        "b": [
+          12.384130477905273,
+          12.238019514083863,
+          12.538594484329224
+        ],
+        "difference": {
+          "diff": 0.20642375946044922,
+          "ci_lo": 0.00828275680542,
+          "ci_hi": 0.40357413291931143,
+          "p_value": 0.036
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.757963180541992,
+          6.238715946674347,
+          6.958599734306335
+        ],
+        "b": [
+          5.10063362121582,
+          4.683108675479889,
+          5.36039080619812
+        ],
+        "difference": {
+          "diff": 1.6573295593261719,
+          "ci_lo": 1.0464458465576172,
+          "ci_hi": 2.0681275367736816,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.0218718998015873,
+          0.02019779265873016,
+          0.023623899429563493
+        ],
+        "b": [
+          0.019886363636363636,
+          0.018362334280303032,
+          0.02120361328125
+        ],
+        "difference": {
+          "diff": 0.001985536165223664,
+          "ci_lo": -0.0002535292940566366,
+          "ci_hi": 0.004037074850063129,
+          "p_value": 0.082
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.08114694058895111,
+        "b": 0.06938449293375015,
+        "n_groups_a": 143,
+        "n_groups_b": 145,
+        "n_groups_used_a": 21,
+        "n_groups_used_b": 30,
+        "mean_group_size_a": 3.761904761904762,
+        "mean_group_size_b": 3.566666666666667
+      },
+      "cv_squared": {
+        "a": 0.1708182990550995,
+        "b": 0.15776970982551575
+      },
+      "trial_count_warning": "Unequal trial counts (252 vs 264): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "identity",
+      "n": 3,
+      "n_trials_a": 264,
+      "n_trials_b": 228,
+      "activation_magnitude": {
+        "a": [
+          12.279655456542969,
+          12.154042029380799,
+          12.403999996185302
+        ],
+        "b": [
+          11.892167091369629,
+          11.753359293937683,
+          12.0324862241745
+        ],
+        "difference": {
+          "diff": 0.38748836517333984,
+          "ci_lo": 0.1903449773788453,
+          "ci_hi": 0.5830545902252198,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.792263507843018,
+          6.211644876003265,
+          7.104210531711578
+        ],
+        "b": [
+          4.533754825592041,
+          4.038674032688141,
+          4.846988618373871
+        ],
+        "difference": {
+          "diff": 2.2585086822509766,
+          "ci_lo": 1.6132706165313722,
+          "ci_hi": 2.7668712019920347,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.023570667613636364,
+          0.021794729521780302,
+          0.025198271780303032
+        ],
+        "b": [
+          0.023660224780701754,
+          0.022015487938596492,
+          0.02528868558114035
+        ],
+        "difference": {
+          "diff": -8.955716706538983e-05,
+          "ci_lo": -0.002514181182715313,
+          "ci_hi": 0.0022689308276016723,
+          "p_value": 0.9199999999999999
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.07867789268493652,
+        "b": 0.07393494993448257,
+        "n_groups_a": 143,
+        "n_groups_b": 136,
+        "n_groups_used_a": 30,
+        "n_groups_used_b": 21,
+        "mean_group_size_a": 3.466666666666667,
+        "mean_group_size_b": 3.380952380952381
+      },
+      "cv_squared": {
+        "a": 0.16737088561058044,
+        "b": 0.16844956576824188
+      },
+      "trial_count_warning": "Unequal trial counts (264 vs 228): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "category",
+      "n": 1,
+      "n_trials_a": 324,
+      "n_trials_b": 258,
+      "activation_magnitude": {
+        "a": [
+          12.940057754516602,
+          12.843636465072631,
+          13.042182350158692
+        ],
+        "b": [
+          12.780364036560059,
+          12.63537802696228,
+          12.936413764953613
+        ],
+        "difference": {
+          "diff": 0.15969371795654297,
+          "ci_lo": -0.019500064849853484,
+          "ci_hi": 0.33803410530090333,
+          "p_value": 0.096
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          5.393022060394287,
+          5.063629639148712,
+          5.58028359413147
+        ],
+        "b": [
+          4.758147716522217,
+          4.430217969417572,
+          4.944549036026001
+        ],
+        "difference": {
+          "diff": 0.6348743438720703,
+          "ci_lo": 0.28287280797958375,
+          "ci_hi": 0.9868839979171753,
+          "p_value": 0.002
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.016649787808641976,
+          0.015444155092592593,
+          0.017843665605709876
+        ],
+        "b": [
+          0.01595809108527132,
+          0.014610586240310077,
+          0.01724541242732558
+        ],
+        "difference": {
+          "diff": 0.0006916967233706571,
+          "ci_lo": -0.0010449821566358016,
+          "ci_hi": 0.0025663083974842077,
+          "p_value": 0.42
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.05931709706783295,
+        "b": 0.059463921934366226,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 13.5,
+        "mean_group_size_b": 10.75
+      },
+      "cv_squared": {
+        "a": 0.11625778675079346,
+        "b": 0.11715277284383774
+      },
+      "trial_count_warning": "Unequal trial counts (324 vs 258): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "category",
+      "n": 2,
+      "n_trials_a": 264,
+      "n_trials_b": 324,
+      "activation_magnitude": {
+        "a": [
+          12.587240219116211,
+          12.475410318374633,
+          12.709631848335267
+        ],
+        "b": [
+          12.335577011108398,
+          12.201316452026367,
+          12.471368074417114
+        ],
+        "difference": {
+          "diff": 0.2516632080078125,
+          "ci_lo": 0.08172657489776612,
+          "ci_hi": 0.44141395092010494,
+          "p_value": 0.004
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.998839855194092,
+          6.473759973049164,
+          7.184282791614533
+        ],
+        "b": [
+          5.474477767944336,
+          5.098581898212433,
+          5.673398268222809
+        ],
+        "difference": {
+          "diff": 1.5243620872497559,
+          "ci_lo": 1.0000256299972534,
+          "ci_hi": 1.9066961526870727,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.02012310606060606,
+          0.01871707800662879,
+          0.021558357007575756
+        ],
+        "b": [
+          0.02027874228395062,
+          0.018927830825617283,
+          0.02158082561728395
+        ],
+        "difference": {
+          "diff": -0.0001556362233445588,
+          "ci_lo": -0.0021012260188692455,
+          "ci_hi": 0.0017383716724537045,
+          "p_value": 0.8560000000000001
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.07840319722890854,
+        "b": 0.07010083645582199,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 11.0,
+        "mean_group_size_b": 13.5
+      },
+      "cv_squared": {
+        "a": 0.149203360080719,
+        "b": 0.1393563598394394
+      },
+      "trial_count_warning": "Unequal trial counts (264 vs 324): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    },
+    {
+      "task": "category",
+      "n": 3,
+      "n_trials_a": 204,
+      "n_trials_b": 234,
+      "activation_magnitude": {
+        "a": [
+          12.255840301513672,
+          12.106473803520203,
+          12.398089289665222
+        ],
+        "b": [
+          11.785189628601074,
+          11.643391060829163,
+          11.927192401885986
+        ],
+        "difference": {
+          "diff": 0.47065067291259766,
+          "ci_lo": 0.2456448316574097,
+          "ci_hi": 0.6585150718688965,
+          "p_value": 0.0
+        }
+      },
+      "participation_ratio": {
+        "a": [
+          6.996476650238037,
+          6.309864974021912,
+          7.255092525482178
+        ],
+        "b": [
+          4.395806789398193,
+          3.970897740125656,
+          4.7093430519104
+        ],
+        "difference": {
+          "diff": 2.6006698608398438,
+          "ci_lo": 1.847659575939179,
+          "ci_hi": 3.039883816242218,
+          "p_value": 0.0
+        }
+      },
+      "population_sparsity": {
+        "a": [
+          0.021924785539215685,
+          0.0204312193627451,
+          0.0234375
+        ],
+        "b": [
+          0.024656116452991452,
+          0.022752236912393163,
+          0.026292901976495725
+        ],
+        "difference": {
+          "diff": -0.0027313309137757674,
+          "ci_lo": -0.0050986848565548,
+          "ci_hi": -0.00035285623664530185,
+          "p_value": 0.030000000000000027
+        }
+      },
+      "fano_factor_analogue": {
+        "a": 0.07522392272949219,
+        "b": 0.06887378543615341,
+        "n_groups_a": 24,
+        "n_groups_b": 24,
+        "n_groups_used_a": 24,
+        "n_groups_used_b": 24,
+        "mean_group_size_a": 8.5,
+        "mean_group_size_b": 9.75
+      },
+      "cv_squared": {
+        "a": 0.14686991274356842,
+        "b": 0.15199245512485504
+      },
+      "trial_count_warning": "Unequal trial counts (204 vs 234): participation_ratio and population_sparsity are both biased upward by sample size. Measured on synthetic data at this project's operating range (PR 1-10, N 200-330) the drift is only 0-2% for PR and 2-4% for sparsity, so it does not explain effects larger than that - but check the direction before quoting a small effect. activation_magnitude and cv_squared are unaffected."
+    }
+  ],
+  "magnitude_over_time": {
+    "a": [
+      {
+        "time": 0,
+        "mean": 10.608321189880371,
+        "ci_lo": 10.560695695877076,
+        "ci_hi": 10.658976507186889,
+        "n": 400
+      },
+      {
+        "time": 1,
+        "mean": 12.770939826965332,
+        "ci_lo": 12.690009450912475,
+        "ci_hi": 12.850971579551697,
+        "n": 400
+      },
+      {
+        "time": 2,
+        "mean": 13.494548797607422,
+        "ci_lo": 13.40443205833435,
+        "ci_hi": 13.58823459148407,
+        "n": 400
+      },
+      {
+        "time": 3,
+        "mean": 13.797893524169922,
+        "ci_lo": 13.70082323551178,
+        "ci_hi": 13.890450596809387,
+        "n": 400
+      },
+      {
+        "time": 4,
+        "mean": 13.859572410583496,
+        "ci_lo": 13.757329869270325,
+        "ci_hi": 13.948964881896973,
+        "n": 400
+      },
+      {
+        "time": 5,
+        "mean": 13.832991600036621,
+        "ci_lo": 13.731639194488526,
+        "ci_hi": 13.930640745162965,
+        "n": 400
+      }
+    ],
+    "b": [
+      {
+        "time": 0,
+        "mean": 9.906957626342773,
+        "ci_lo": 9.838826537132263,
+        "ci_hi": 9.969858407974243,
+        "n": 400
+      },
+      {
+        "time": 1,
+        "mean": 12.18197250366211,
+        "ci_lo": 12.092005944252014,
+        "ci_hi": 12.25709526538849,
+        "n": 400
+      },
+      {
+        "time": 2,
+        "mean": 13.108232498168945,
+        "ci_lo": 13.003505682945251,
+        "ci_hi": 13.211050343513488,
+        "n": 400
+      },
+      {
+        "time": 3,
+        "mean": 13.522017478942871,
+        "ci_lo": 13.422158479690552,
+        "ci_hi": 13.603222370147705,
+        "n": 400
+      },
+      {
+        "time": 4,
+        "mean": 13.592421531677246,
+        "ci_lo": 13.501906895637513,
+        "ci_hi": 13.670289349555969,
+        "n": 400
+      },
+      {
+        "time": 5,
+        "mean": 13.509045600891113,
+        "ci_lo": 13.40501778125763,
+        "ci_hi": 13.609737253189087,
+        "n": 400
+      }
+    ]
+  }
+}

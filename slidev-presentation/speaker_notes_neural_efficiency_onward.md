@@ -1,5 +1,7 @@
 # Speaker Notes: Proxy Pretraining Through End
 
+*Covers the proxy chapter, the neural-efficiency chapter, the two-modification comparison, limitations, future work and the conclusions. Last aligned with `slides.md` on 2026-09-02.*
+
 These notes cover every slide from the **"Proxy Pre-training"** section title through the **"Thank You"** slide. For each slide: what to say, what to emphasize, and what to be careful about.
 
 ---
@@ -208,22 +210,131 @@ These notes cover every slide from the **"Proxy Pre-training"** section title th
 
 ---
 
+## Slide: Telling the Two Modifications Apart — Section Title
+
+**Say:**
+> "One more section, and it is the one that ties the previous two together."
+
+> "Up to this point every comparison I have shown you measures one modification against the plain baseline. Attention against baseline. Proxy pretraining against baseline. Even the efficiency chapter runs proxy-versus-no-proxy twice — once inside each architecture. Not one of those contrasts can tell the two modifications apart."
+
+**Emphasize:**
+- Say plainly why this section exists. It is the section that keeps the attention chapter and the proxy chapter from being two unrelated successes.
+
+---
+
+## Slide: Why This Section Exists
+
+**Say:**
+> "Here is the problem stated precisely. Each modification is confirmed against its own control, so each one looks like an independent success — and either chapter could be deleted without the other noticing."
+
+> "But the four models I have already trained form a two-by-two: baseline or attention, crossed with from-scratch or proxy-pretrained. The chapters above read the rows. This section reads the columns — what does attention do, and does it still do it once proxy pretraining has run?"
+
+> "No new training. The same four models, re-read at pinned, accuracy-matched checkpoints."
+
+**Emphasize:**
+- "No new training" is worth saying out loud — it pre-empts "how much compute did this cost."
+
+**If asked why this wasn't the design from the start:** it was not framed as a factorial experiment; the two modifications were developed as separate chapters. Recognising the 2×2 was a re-reading of existing runs, and that is exactly why it was cheap.
+
+---
+
+## Slide: Result 1 — On Accuracy, They Are Redundant
+
+**Say:**
+> "Attention alone buys nine and a half points. Proxy pretraining alone buys eleven. Both together buy eleven point one — not twenty."
+
+> "That is an interaction of minus nine point three percentage points. Whichever modification arrives first captures nearly all of the gain that is available, and the second adds a rounding error. On novel angle it is worse: minus twelve point three, and attention stacked on proxy pretraining actually costs about half a point."
+
+> "I want to be careful about how I read that. This is not a null result and it is not a disappointment. It says the two modifications are solving the *same* problem — pulling the task-relevant feature out of a naturalistic embedding — by different routes. An architectural gate and a training regimen arrive at the same ceiling, which locates that ceiling in the task and the representation rather than in either mechanism."
+
+**Emphasize:**
+- Give the interpretation immediately after the number. A bare "−9.30pp" invites the reading "so your second contribution was pointless."
+- Say "redundant, not additive." That phrasing is precise and it is what the data shows.
+
+**If asked whether this makes the attention chapter unnecessary:** the opposite — before this comparison the two chapters were interchangeable and either could have been dropped. This is the result that gives each of them a distinct role, and the scope boundary on STSF shows they are not interchangeable in general.
+
+**Caveat to volunteer if pressed on statistics:** one seed per cell. The interaction is observed, not yet measured with an error bar. Three seeds × four cells is the fix and it is the cheapest run in the repo.
+
+---
+
+## Slide: Result 2 — The Population Code Says The Same Thing
+
+**Say:**
+> "The accuracy result has a counterpart inside the model, and this is the part I find most convincing."
+
+> "Reading the left column — attention with no proxy pretraining — attention lowers activation magnitude in all nine cells and lowers effective dimensionality in all nine, and these are not small moves: participation ratio drops from around seven to around four and a half."
+
+> "Reading the right column — attention on top of proxy pretraining, at an accuracy gap of exactly zero, the tightest match anywhere in this project — dimensionality does not move at all. Four cells of nine, which is a coin flip. And sparsity actually goes the other way."
+
+> "So attention reshapes the population code when it is the only modification, and that effect is absorbed once proxy pretraining has already shaped it. The geometry and the accuracy tell the same story."
+
+**Emphasize:**
+- The zero-point-zero-zero accuracy gap is your strongest methodological card in the whole talk. Say it explicitly.
+- Mention that excluding the three near-rank-1 location cells leaves the PR result at six of six — you are not leaning on degenerate cells.
+
+**On the guard box — say it, don't skip it:**
+> "One thing I deliberately do not claim here. The Fano analogue falls in seven of nine cells under attention, which would be a tidy agreement with Constantinidis and Klingberg. But the scale-invariant CV-squared is five of nine — a coin flip. Attention lowers magnitude, and the Fano analogue is scale-dependent, so that apparent drop is exactly the artifact CV-squared was added to catch. The variability rise stays attributed to proxy pretraining, where both metrics agree in all eighteen cells."
+
+**If asked why you show a result you then withdraw:** because the control worked. A scale-invariant companion metric was added specifically to catch this class of error, and here it caught one. Reporting the catch is the evidence that the other eighteen-of-eighteen results are not artifacts of the same kind.
+
+---
+
+## Slide: Limitations — What These Numbers Cannot Bear
+
+**Say:**
+> "I want to put the limits on the record myself rather than have them found for me."
+
+> "Statistically: one seed per cell, so the interaction has no error bar. The h-equals-256 sampling regime gives about fifty-two test samples against seventy identity classes, so only effects above roughly twenty-five points are measurable — and figures are never compared across hidden sizes. The bootstrap floor is a thousand resamples, so I quote no p-value below zero point zero zero two. And the H2 generalization trend is suggestive only: eighty validation trials, standard error five to six points, no pair separates."
+
+> "Structurally: efficiency is not capacity — higher N-back was never tested. The baseline-to-proxy accuracy gap of eight point nine points is irreducible, because proxy epoch one already beats every baseline checkpoint, which is why the attention pair is the primary evidence. Level 1 has not been run across the full square. And this audit found that the epochs flag in the comprehensive analysis script is a no-op, so that particular 2×2 is not yet accuracy-matched."
+
+**Emphasize:**
+- Deliver this slide at a steady pace, not apologetically. A limitations slide you wrote yourself is a strength; one the committee writes for you is not.
+- Item 8 — the `--epochs` no-op — is a bug you found in your own pipeline and disclosed. Frame it that way.
+
+**If asked "so which of your results survive all this?"** Two. The magnitude result, which replicates in four independent contrasts including one at a zero-point accuracy gap. And the accuracy interaction, which is large enough that a seed effect is unlikely to erase it — though it has not yet been measured.
+
+---
+
+## Slide: Future Work — In Priority Order
+
+**Say:**
+> "Five things, in the order I would actually do them."
+
+> "First, seeds on the interaction — the only task that upgrades my headline from observed to measured, and the cheapest run in the repo. Second, the STSF scope-boundary test: attention *costs* eleven points on STSF because a single task gives the gate no ambiguity to resolve, whereas proxy pretraining's mechanism, dense feature recall, has no reason to fail there. If proxy survives STSF while attention collapses, that is the cleanest mechanistic dissociation this thesis can offer — it turns the attention chapter's failure case into a positive result about why the two differ."
+
+> "Then three housekeeping items: fix the epochs flag and re-run the five-analysis 2×2 properly, complete Level 1 across the square against one consistent attention checkpoint, and add an h-equals-128 proxy arm where the sampling actually resolves small effects."
+
+> "Every one of these is a re-run or a re-reading of models that already exist. None needs a new task, a new dataset, or a new architecture."
+
+**Emphasize:**
+- Item 2 is the one to sell. It is the best remaining science in the project and it is cheap — STSF is the fastest config in the repo.
+- Closing on "no new architecture required" leaves the committee with a tractable project, not an open-ended one.
+
+---
+
 ## Slide: Conclusions
 
 **Say:**
 > "Let me pull everything together. On the left, the paper's six findings and our replication status. On the right, our contributions."
 
-> "The paper's claims: slot-based memory is disproved — information drops from t-zero to t-one by 76 to 96 percentage points. Orthogonalization: the RNN actually *de-orthogonalizes* over time, which is the opposite of what you might expect. Task-specific subspaces are confirmed. MTMF preserves all features on the diagonal but off-diagonal varies. Cross-stimulus shared encoding — Hypothesis 2 — is not supported. And the causal perturbation No-Action rise is confirmed."
+> "The paper's claims: slot-based memory is disproved — information is readable at encoding and at chance by t-plus-one. Orthogonalization: the RNN actually *de-orthogonalizes* over time, which is the opposite of what you might expect. Task-specific subspaces are confirmed — cross-task off-diagonal decoding is far below the diagonal. Task-relevance is the one claim we do *not* support: the task-relevant cell is often out-decoded by category, which stays readable in every task context. Cross-stimulus shared encoding — Hypothesis 2 — *is* supported, at mean generalization zero point six, once we fixed a class-index bug in our own pipeline. And the causal perturbation No-Action rise is confirmed in twelve of eighteen models."
 
-> "Our contributions: we audited and fixed four bugs in the analysis pipeline. We showed task-guided attention improves MTMF by 11 to 12 percent. We re-ran all 18 experiments with the fixed code. We open-sourced the audit findings."
+> "Our contributions: two audits, nine bugs fixed. Task-guided attention, plus eleven points on STMF and MTMF — and a measured scope boundary where it *costs* eleven points, because with a single task there is no ambiguity for the gate to resolve. Proxy pretraining, plus fourteen point eight on novel angle. All eighteen experiments re-run with the fixed code, and the audit findings open-sourced."
 
-> "And the two new contributions at the bottom — items 11 and 12 — are the neural-efficiency story I just walked you through, and the first combined run of attention gating with proxy pretraining. These are genuinely new findings, not restatements of what came before."
+> "Items eleven and twelve are the new work. Eleven is the three-level neural-efficiency result. Twelve is the two-by-two I just showed you: the two modifications are redundant, not additive — minus nine point three points of interaction, and attention's effect on the population code is absorbed once proxy pretraining is present."
 
-> "The overall implication: explicit attention complements RNN memory dynamics, but our models show more stimulus-specific encoding than the paper's claimed shared encoding. Attention improves task performance without changing the underlying representation strategy."
+> "The thesis-level takeaway is in the box. Two independent modifications — one architectural, one in the training regimen — each recover about ten points and each produce the lower-magnitude population code that Poppenk reports for prior knowledge in humans. But they are two routes to one ceiling, not two mechanisms that compose. That locates the ceiling in the task and the representation, not in either modification."
+
+> "And the methodological result is the one I would keep if I could keep only one. Three findings in this project reversed under epoch pinning, accuracy matching, and a scale-invariant control. Every time, the first and more attractive answer was the artifact."
 
 **Emphasize:**
-- Items 11 and 12 — the neural-efficiency findings — are the capstone. Give them the most time.
-- The implication about stimulus-specific versus shared encoding is the thesis-level takeaway.
+- Item 4 is the honest negative — the paper's task-relevance claim is the one we do not reproduce. State it without hedging; a replication that confirms everything is less credible, not more.
+- Item 5: H2 *is* supported. Earlier drafts of these notes said it was not; that was before the class-index fix. Do not say "not supported."
+- Items 11 and 12 are the capstone. Give them the most time.
+- The closing line about three reversed findings is the strongest sentence in the talk. Slow down for it.
+
+**If asked which contribution is the real one:** the comparison. The replication was the entry price and the two modifications are each a normal engineering result; the 2×2 is the part that says something about the problem rather than about the model.
 
 ---
 

@@ -1170,6 +1170,221 @@ The divergence is interpretable, not anomalous: that finding comes from **weeks 
 
 **What the model demonstrates:** proxy pretraining yields a **lower-magnitude, sparser, higher-dimensional and more variable** population code at matched accuracy. It reproduces the human signature of knowledge-driven suppression on activity level, while departing from it on variability — an observable working-memory phenomenon, distinct from and not reducible to the accuracy gain shown earlier.
 
+<span class="text-xs opacity-70">Both pairs above vary the *training regimen* inside one architecture. The next section reads the other two cells — what **attention** does to the same code — and finds the two modifications dissociate.</span>
+
+</div>
+
+---
+layout: section
+transition: fade
+---
+
+# Telling the Two Modifications Apart
+## The 2×2 — each measured against the other, not against its own control
+
+---
+transition: fade-out
+---
+
+# Why This Section Exists
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### The problem with everything so far
+
+Every contrast up to this point compares **one modification against the plain baseline**:
+
+- Attention vs. baseline → +11pp
+- Proxy pretraining vs. baseline → +12pp
+- Neural efficiency: proxy vs. no-proxy, run **twice** — once inside each architecture
+
+<div class="mt-4 p-3 bg-red-500/10 rounded-lg text-sm">
+
+None of these can tell the two modifications **apart**. Each is confirmed against its own control, so both look like independent successes — and either section could be deleted without the other noticing.
+
+</div>
+
+</div>
+
+<div>
+
+### The four models already form a 2×2
+
+|  | from scratch | + proxy |
+|---|---|---|
+| **baseline** | A | B |
+| **+ attention** | C | D |
+
+<div class="mt-3 text-sm">
+
+The chapters above read the **rows** (A→B, C→D). Reading the **columns** (A→C, B→D) asks a different question: *what does attention do, and does it still do it once proxy pretraining has run?*
+
+</div>
+
+<div class="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
+
+Same four models. No new training. One re-reading, at **pinned, accuracy-matched checkpoints**.
+
+</div>
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Result 1 — On Accuracy, They Are Redundant
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Best `val_novel_identity`, MTMF, h=256
+
+|  | from scratch | + proxy | Δ proxy |
+|---|---:|---:|---:|
+| **baseline** | 82.53% | 93.55% | **+11.02** |
+| **+ attention** | 91.91% | 93.63% | +1.72 |
+| **Δ attention** | **+9.38** | +0.08 | |
+
+<div class="mt-4 p-3 bg-amber-500/10 rounded-lg">
+
+### Interaction: **−9.30pp**
+
+Alone: **+9.38** (attention) and **+11.02** (proxy).
+Together: **+11.10** — not +20.
+
+</div>
+
+</div>
+
+<div>
+
+### What that means
+
+<v-clicks>
+
+- **Whichever modification arrives first captures nearly all of the available gain.** The second one adds a rounding error.
+
+- On novel *angle* the interaction is **−12.31pp** — attention stacked on proxy pretraining actually **costs** about half a point.
+
+- This is not a null result. It says the two modifications are solving **the same problem**, by different routes: pulling the task-relevant feature out of a naturalistic embedding.
+
+- An architectural gate and a training regimen reach the same ceiling — so the ceiling is a property of **the task and the representation**, not of either mechanism.
+
+</v-clicks>
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Result 2 — The Population Code Says The Same Thing
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### What attention does to the code
+
+Epochs pinned; `val_novel_identity`.
+
+| Metric | attention **alone**<br/>(A→C, 0.88pp gap) | attention **on top of proxy**<br/>(B→D, **0.00pp** gap) |
+|---|---|---|
+| Activation magnitude | lower **9/9**<br/><span class="text-xs opacity-70">CI excl. 0 in 8/9</span> | lower 7/9 <span class="text-xs opacity-70">(6/9)</span> |
+| Participation ratio | lower **9/9** <span class="text-xs opacity-70">(8/9)</span> | **4/9 — no effect** |
+| Population sparsity | mixed, 3/9 | *higher* 8/9 — **opposite** |
+
+<div class="text-xs mt-2 opacity-70">
+
+B→D is the tightest accuracy match in the whole project: **93.55% vs. 93.55%**.
+PR excluding the three near-rank-1 `location` cells: still **6/6**.
+
+</div>
+
+</div>
+
+<div>
+
+### The mechanism, not just the score
+
+<v-clicks>
+
+- Attention **reshapes** the population code — lower magnitude, markedly lower effective dimensionality (7.0 → 4.4) — **when it is the only modification**.
+
+- With proxy pretraining already in place, that effect is **absorbed**. Dimensionality does not move at all.
+
+- The accuracy interaction and the geometry agree: **proxy pretraining sets the code, and attention finds nothing left to do.**
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4 p-3 bg-gray-500/10 rounded-lg text-xs">
+
+**Guard — no variability claim here.** Fano falls 7/9 under attention-alone, but the scale-invariant `CV²` is 5/9, a coin flip. Attention lowers magnitude and the Fano analogue is scale-dependent — exactly the artifact `CV²` was added to catch. The Fano **rise** stays attributed to proxy pretraining (18/18, both metrics).
+
+</div>
+
+</v-click>
+
+</div>
+
+</div>
+
+---
+transition: fade-out
+---
+
+# Limitations — What These Numbers Cannot Bear
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Statistical
+
+<v-clicks>
+
+1. **One seed per cell.** The −9.30pp interaction rests on four single runs and has **no error bar**. Three seeds × four cells is the cheapest fix available.
+
+2. **h=256 sampling is thin.** `n_test ≈ 52` against ~70 identity classes. Effects above ~25pp survive; smaller ones are not measurable. **Never compare across hidden sizes** — h=128 gives ≈265.
+
+3. **Bootstrap floor.** `n_boot = 1000`, so **no p-value below 0.002** may be quoted from any analysis here.
+
+4. **H2 generalization gap is suggestive only.** The 10.7 → 5.8 → 1.3 → 0.3pp trend is attractive, but the validation leg is 80 trials, SE ≈ 5–6pp, and no pair separates.
+
+</v-clicks>
+
+</div>
+
+<div>
+
+### Structural
+
+<v-clicks>
+
+5. **Efficiency is not capacity.** Higher N-back and more simultaneous items were **never tested**. Nothing here claims the model holds more.
+
+6. **The baseline→proxy accuracy gap is irreducible** (8.9pp): proxy epoch 1 already beats every baseline checkpoint. The attention pair (0.84pp) is the primary evidence.
+
+7. **Level 1 is not yet run across the square** — only baseline vs. attention — and it reads a different attention checkpoint than Levels 2/3.
+
+8. **`--epochs` is a no-op** in `comprehensive_analysis.py`, so the five-analysis 2×2 is not yet accuracy-matched. Found by this audit; the affected directories are duplicates.
+
+9. **Crossing distances are in each model's own SD units** (0.616 / 0.408 / 0.276 / 0.617). "Attention never crosses" is partly a smaller raw push — quote the shrinking projection SD instead.
+
+</v-clicks>
+
+</div>
+
 </div>
 
 ---
@@ -1208,7 +1423,7 @@ transition: fade-out
 9. ✅ **Proxy pretraining** — +14.8pp novel angle, +12.2pp novel identity, at unchanged N-back levels; passes the baseline's final accuracy at epoch 1
 10. ✅ **Re-ran all 18 experiments** with fixed code, and open-sourced the audit findings (`docs/ANALYSIS_AUDIT_FINDINGS.md`)
 11. 🔬 **Neural efficiency**: a three-level suppression result — representational content, population activity, explicit gating — measured at matched accuracy
-12. 🔬 **Attention combined with proxy pretraining**: the two modifications run together, which is what makes the Level 3 comparison possible
+12. 🔬 **The two modifications compared head-to-head** — a 2×2 over the same four models shows they are **redundant, not additive**: interaction **−9.30pp**, and attention's effect on the population code is **absorbed** once proxy pretraining is present
 
 </v-clicks>
 
@@ -1220,12 +1435,64 @@ transition: fade-out
 
 <div class="mt-6 p-4 bg-blue-500/10 rounded-lg text-center">
 
-### Implication
-Explicit attention complements RNN memory dynamics **without changing the underlying representation strategy** — our models reproduce the paper's shared-encoding geometry (H2) once the analysis code is correct. The apparent divergence we first reported was a **class-index misalignment in our own pipeline**, and the discipline that caught it — an accuracy *below chance* is impossible, so suspect the code — is itself a transferable result.
+### What this thesis shows
+Two independent modifications — one **architectural** (a task-guided gate), one in the **training regimen** (proxy pretraining) — each recover ≈ +10pp on novel-identity generalization, and each produce a **lower-magnitude population code at matched accuracy**: the signature Poppenk et al. report for prior knowledge in humans. But the 2×2 shows they are **two routes to one ceiling, not two mechanisms that compose** — which locates that ceiling in the task and the representation rather than in either modification.
+
+The methodological result travels furthest: **three findings in this project reversed** under epoch pinning, accuracy matching and a scale-invariant control. Each time, the first and more attractive answer was the artifact.
 
 </div>
 
 </v-click>
+
+---
+transition: fade-out
+---
+
+# Future Work — In Priority Order
+
+<div class="grid grid-cols-2 gap-8">
+
+<div>
+
+### Closes an open claim
+
+<v-clicks>
+
+1. **Seeds on the interaction.** Three seeds × four cells on STSF or STMF. This is the only task that upgrades the −9.30pp interaction from *observed* to *measured*, and it is the cheapest run in the repo.
+
+2. **The STSF scope-boundary test.** Attention **costs** 11.5pp on STSF (32.2pp at h=128) because a single task gives the gate no ambiguity to resolve. Proxy pretraining's mechanism — dense feature recall — has no reason to fail there. If it survives STSF while attention collapses, that is the cleanest **mechanistic dissociation** this thesis can offer, and it converts the attention section's failure case into a positive result about *why* they differ.
+
+</v-clicks>
+
+</div>
+
+<div>
+
+### Completes the existing battery
+
+<v-clicks>
+
+3. **Fix `--epochs`**, then re-run the five-analysis 2×2 at the matched pins — the pinned runs currently duplicate the best-epoch runs.
+
+4. **Level 1 across the square** (B↔D, C↔D, A↔C) against one consistent attention checkpoint, turning today's decoding dissociation from point estimates into a full Level 1 result.
+
+5. **An h=128 proxy arm**, where `n_test ≈ 265` instead of ≈52 — the only way to resolve effects smaller than ~25pp.
+
+</v-clicks>
+
+<v-click>
+
+<div class="mt-4 p-3 bg-blue-500/10 rounded-lg text-sm">
+
+Every one of these is a **re-run or a re-reading of models that already exist** — none requires a new task, a new dataset, or a new architecture.
+
+</div>
+
+</v-click>
+
+</div>
+
+</div>
 
 ---
 layout: center

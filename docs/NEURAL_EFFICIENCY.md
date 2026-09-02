@@ -195,6 +195,69 @@ and every trial in a cell from one checkpoint carries an identical gate. Epoch
 pooling was the only thing that had been injecting variance into that CI - which
 was the confound itself. This is correct behaviour, not a bug.
 
+### Level 2, second reading - **the two modifications are not the same mechanism**
+
+Added 2026-09-02, from `analysis_results/neural_efficiency/2026-08-26_2x2/`.
+
+The two pairs above both vary the *training regimen* inside one architecture, so
+each modification is confirmed only against its own control and the chapter
+reads them as one framework. The same four models also form a 2x2, and its other
+two cells vary the *architecture* inside one regimen:
+
+| Row | A | B | Epochs | Accuracy gap (`val_novel_identity`) |
+|---|---|---|---|---|
+| scratch | baseline | attention | 17 / 9 | 0.88pp (82.53 vs 81.65) |
+| proxy | baseline+proxy | attention+proxy | 20 / 45 | **0.00pp** (93.55 vs 93.55) - the tightest match in the chapter |
+
+| Metric | scratch row (attention alone) | proxy row (attention on top of proxy) |
+|---|---|---|
+| Activation magnitude | **lower 9/9**, CI excludes 0 in 8/9 | lower 7/9 (6/9); two identity cells null at p=0.73, p=0.61 |
+| Participation ratio | **lower 9/9** (8/9); still 6/6 after dropping the three location cells, which are near-rank-1 (PR 1.1-1.4) and inflate ratios. Drops are large: 5.4->4.4, 6.8->5.1, 6.8->4.5, 5.4->4.8, 7.0->5.5, 7.0->4.4 | **4/9 - no effect** |
+| Population sparsity | mixed, 3/9 | *higher* in 8/9 (6/9) - the opposite direction |
+
+**The result: attention reshapes the population code only when it is the only
+modification, and that effect is absorbed once proxy pretraining is present.**
+This is the population-code counterpart of the accuracy interaction - attention
+alone and proxy alone each buy roughly +9 to +11pp on novel identity, and
+stacking them buys nothing further. Two different mechanisms are not being
+composed; the second one is arriving at a code the first has already produced.
+
+Trial-count guard: PR and sparsity are biased upward by sample size and the
+cells are unequal, but in the scratch row condition B has *more* trials in 5 of
+9 cells and still shows lower PR, so the bias runs **against** the observed
+effect. PR also grows with training epoch, so compare directions within a row
+only, never PR magnitudes across rows.
+
+**No Fano direction may be read from these two files.** Fano falls 7/9 in the
+scratch row, but `cv_squared` is 5/9 - a coin flip. Attention lowers magnitude
+and the Fano analogue is scale-dependent (see the caveat carried in the JSON),
+so a Fano drop with no CV-squared drop is precisely the scaling artifact
+`cv_squared` was added to catch. **The Fano/CV-squared rise, and therefore the
+contradiction with Reference 2, remains a property of proxy pretraining** -
+18/18 cells on both metrics in the two pairs above. The attention arm is not
+evidence for or against that review.
+
+### What this does to the chapter's claim
+
+Section 1 states the claim as "proxy pretraining **and** explicit attention
+gating both suppress task-irrelevant processing." The 2x2 sharpens it into
+something more specific and better supported:
+
+- **Magnitude suppression is common to both** - it is the one metric that falls
+  in all four contrasts, and it is the metric Reference 1 licenses. This is the
+  chapter's strongest result.
+- **Everything else is regimen-specific.** Higher dimensionality, higher
+  sparsity and higher variability belong to proxy pretraining; lower
+  dimensionality belongs to attention-alone; and where both are present, proxy
+  pretraining sets the geometry.
+
+So the two modifications are **redundant, not complementary**, and the chapter
+should say so. That is a result about mechanism, not a failure: it explains why
+stacking them yields no further accuracy, and it is what makes the attention
+section load-bearing rather than a second route to the same number.
+
+---
+
 ## 5. What to say, and what not to
 
 **Defensible:** proxy pretraining produces a lower-magnitude, sparser, but
@@ -202,7 +265,9 @@ higher-dimensional and more variable population code, at matched accuracy, in
 18/18 cells across two independent pairs. The magnitude half matches Reference 1;
 the variability half contradicts Reference 2, most likely because the
 manipulations differ. Attention additionally suppresses irrelevant identity to
-near chance - but only in the `location` task context.
+near chance - but only in the `location` task context. Attention **alone** also
+lowers magnitude and effective dimensionality (9/9 cells at a 0.88pp gap);
+attention **on top of proxy pretraining** does not (PR 4/9 at a 0.00pp gap).
 
 **Do not say:** that Level 3 shows 9/9 cells or a large gating effect (that was
 epoch pooling; pinned it is 6/9 and small); that attention-only "barely gates"
@@ -212,7 +277,12 @@ reference predicts sparsity; that attention suppresses identity in general
 (it does not do so under `task=category`); that any p-value is below 0.002
 (the bootstrap floor at `n_boot=1000`); that the pairs were matched at 10pp /
 0.08pp or on the analysed split — they were matched on novel-angle, and the
-analysed-split gaps are 8.9pp (baseline, irreducible) and 0.84pp (attention).
+analysed-split gaps are 8.9pp (baseline, irreducible) and 0.84pp (attention);
+that the attention arm **agrees** with Reference 2 on variability (the Fano drop
+in the scratch row is 7/9 but CV-squared is 5/9, so it is not established — see
+§4, second reading); that attention and proxy pretraining are complementary
+mechanisms (the 2x2 shows attention's geometric effect is absorbed when proxy
+pretraining is present).
 
 ---
 
