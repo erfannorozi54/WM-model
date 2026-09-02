@@ -44,12 +44,31 @@ from .procrustes import compute_procrustes_alignment
 class ComprehensiveAnalysis:
     """Master class for running all paper analyses."""
     
-    def __init__(self, hidden_root: Path, output_dir: Path):
+    def __init__(self, hidden_root: Path, output_dir: Path,
+                 epochs: Optional[List[int]] = None,
+                 split: Optional[str] = None):
+        """
+        Args:
+            epochs: Pin the analysis to these checkpoints. When None, the best
+                epoch is resolved per model from training_log.json. Pinning
+                matters for cross-model comparison: two models read at their own
+                best epochs are not accuracy-matched, so any difference between
+                them is confounded with "that model is simply better trained".
+            split: Restrict to one validation split ('val_novel_angle' or
+                'val_novel_identity'). When None every split on disk is pooled,
+                which mixes two different generalization regimes -- novel
+                identities are unseen in one and not the other, so identity
+                decodability is not the same quantity in each.
+        """
         self.hidden_root = Path(hidden_root)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.payloads = None
         self.available_tasks = []
+        self.epochs = list(epochs) if epochs else None
+        self.split = split
+        self.resolved_epochs: Optional[List[int]] = None
+        self.epoch_source: Optional[str] = None
 
     @staticmethod
     def _decoder_split(X, y, sample_ids):
@@ -110,10 +129,18 @@ class ComprehensiveAnalysis:
         return available if available else ["location", "identity", "category"]
         
     def load_data(self, epochs: Optional[List[int]] = None):
-        """Load hidden states and metadata."""
+        """Load hidden states and metadata (honouring the pinned split, if any)."""
         print(f"Loading data from {self.hidden_root}...")
-        self.payloads = load_payloads(self.hidden_root, epochs=epochs)
+        if self.split:
+            print(f"  Split filter: {self.split}")
+        self.payloads = load_payloads(self.hidden_root, epochs=epochs, split=self.split)
         print(f"  Loaded {len(self.payloads)} payloads")
+        if not self.payloads:
+            raise RuntimeError(
+                f"No payloads matched under {self.hidden_root} "
+                f"(epochs={epochs}, split={self.split}). Analyses would silently "
+                f"produce empty results, so this is raised rather than warned."
+            )
         
         # Detect available tasks
         self.available_tasks = self._detect_available_tasks()
@@ -173,6 +200,7 @@ class ComprehensiveAnalysis:
         print(f"  ✓ Final Val (Novel Identity) Accuracy: {results['final_val_novel_identity_acc']:.4f}")
         
         # Save results
+        results["provenance"] = self._provenance()
         with open(self.output_dir / "analysis1_performance.json", 'w') as f:
             json.dump(results, f, indent=2)
         
@@ -298,6 +326,7 @@ class ComprehensiveAnalysis:
         results['cross_task'] = cross_task
         
         # Save results
+        results["provenance"] = self._provenance()
         with open(self.output_dir / "analysis2_encoding.json", 'w') as f:
             json.dump(results, f, indent=2)
         
@@ -350,12 +379,34 @@ class ComprehensiveAnalysis:
                     train_acc = float(accuracy_score(y_train, clf.predict(X_train)))
                     test_acc = float(accuracy_score(y_test, clf.predict(X_test)))
 
+                    # Raw accuracy is NOT comparable across properties here.
+                    # location and category have 4 classes (chance 25%); identity
+                    # has ~70 (chance ~1.4%). Reading "category decodes at 88%,
+                    # identity at 15%" as "category is better encoded" compares a
+                    # number 63pp above chance with one 14pp above a chance floor
+                    # 18x lower. Normalise before any cross-property claim.
+                    chance_uniform = (1.0 / n_classes) if n_classes else None
+                    _, counts = np.unique(y_test, return_counts=True)
+                    chance_majority = float(counts.max() / counts.sum()) if len(counts) else None
+                    # Conservative floor: an imbalanced cell can be "beaten" by
+                    # always guessing the majority class, so take whichever
+                    # baseline is higher.
+                    _candidates = [c for c in (chance_uniform, chance_majority) if c is not None]
+                    chance = max(_candidates) if _candidates else None
+                    normalized = ((test_acc - chance) / (1.0 - chance)
+                                  if (chance is not None and chance < 1.0) else None)
+
                     results[task][prop] = {
                         "train_accuracy": train_acc,
                         "test_accuracy": test_acc,
                         "n_train": int(len(y_train)),
                         "n_test": int(len(y_test)),
                         "n_classes": int(n_classes),
+                        "chance_uniform": chance_uniform,
+                        "chance_majority": chance_majority,
+                        "chance_level": chance,
+                        "test_accuracy_above_chance": (test_acc - chance) if chance is not None else None,
+                        "normalized_accuracy": normalized,
                         "train_sample_hash": train_hash,
                         "test_sample_hash": test_hash,
                         "is_relevant": (prop == task)
@@ -364,16 +415,46 @@ class ComprehensiveAnalysis:
                 except Exception as e:
                     results[task][prop] = {"error": str(e)}
 
+        # Per-task verdict on the paper's claim, computed on the normalised scale.
+        # This is the number that answers "is the task-relevant feature
+        # preferentially encoded?" -- comparing raw accuracies cannot.
+        summary = {}
+        for task in tasks:
+            rel_cell = results.get(task, {}).get(task, {})
+            rel_norm = rel_cell.get("normalized_accuracy")
+            irrel = [
+                results[task][p].get("normalized_accuracy")
+                for p in properties
+                if p != task and p in results.get(task, {})
+                and results[task][p].get("normalized_accuracy") is not None
+            ]
+            best_irrel = max(irrel) if irrel else None
+            summary[task] = {
+                "relevant_property": task,
+                "relevant_normalized": rel_norm,
+                "best_irrelevant_normalized": best_irrel,
+                "mean_irrelevant_normalized": float(np.mean(irrel)) if irrel else None,
+                "relevance_margin": (rel_norm - best_irrel)
+                    if (rel_norm is not None and best_irrel is not None) else None,
+                "relevant_is_best_decoded": (rel_norm is not None and best_irrel is not None
+                                             and rel_norm > best_irrel),
+            }
+        results["_summary"] = summary
+
         # Print summary
-        print("  Results (80/20 train/test split):")
+        print("  Results (80/20 train/test split; normalised = (acc-chance)/(1-chance)):")
         min_samples_warning = False
         for task in tasks:
             for prop in properties:
                 if task in results and prop in results[task]:
                     r = results[task][prop]
                     if "error" not in r and r.get("train_accuracy") is not None:
-                        rel = "relevant" if r.get("is_relevant") else "irrelevant"
-                        print(f"    {task} → {prop} ({rel}): train={r['train_accuracy']:.3f} (n={r['n_train']})  test={r['test_accuracy']:.3f} (n={r['n_test']})")
+                        rel = "RELEVANT  " if r.get("is_relevant") else "irrelevant"
+                        norm = r.get("normalized_accuracy")
+                        norm_s = f"{norm:.3f}" if norm is not None else "  n/a"
+                        print(f"    {task:9s} → {prop:9s} ({rel}): "
+                              f"test={r['test_accuracy']:.3f}  chance={r['chance_level']:.3f}  "
+                              f"normalised={norm_s}  (n_test={r['n_test']}, {r['n_classes']} classes)")
                         n_test = r.get("n_test", 0) or 0
                         n_classes = r.get("n_classes", 1) or 1
                         if n_test < n_classes:
@@ -382,6 +463,14 @@ class ComprehensiveAnalysis:
                         elif n_test < n_classes * 2:
                             print(f"      ⚠ NOTE: n_test ({n_test}) < 2× n_classes ({n_classes}) — test accuracy may be noisy")
                             min_samples_warning = True
+        print("  Task-relevance verdict (on the normalised scale):")
+        for task, sv in summary.items():
+            margin = sv["relevance_margin"]
+            if margin is None:
+                print(f"    {task:9s}: insufficient data")
+            else:
+                verdict = "relevant IS best decoded" if sv["relevant_is_best_decoded"] else "OUT-DECODED by an irrelevant feature"
+                print(f"    {task:9s}: margin={margin:+.3f}  → {verdict}")
         if min_samples_warning:
             print("  ⚠ Consider increasing num_val in config or using larger validation set for reliable decoding")
 
@@ -392,7 +481,9 @@ class ComprehensiveAnalysis:
     
     def _plot_task_relevance(self, results: Dict):
         """Plot task-relevant vs task-irrelevant decoding (Figure 2b style)."""
-        tasks = self.available_tasks if self.available_tasks else list(results.keys())
+        tasks = self.available_tasks if self.available_tasks else [
+            k for k in results.keys() if not str(k).startswith("_")
+        ]
         properties = ["location", "identity", "category"]
         
         if not tasks:
@@ -510,6 +601,11 @@ class ComprehensiveAnalysis:
                             cell_key = f"{train_task}→{test_task}"
                             detail[cell_key] = {
                                 "n_test": n_test,
+                                # Same property across the whole matrix, so the
+                                # diagonal/off-diagonal contrast is already
+                                # comparable; this is recorded so cells are not
+                                # read ACROSS properties without it.
+                                "chance_uniform": (1.0 / n_classes) if n_classes else None,
                             }
                             if i == j:
                                 detail[cell_key]["train_accuracy"] = float(accuracy_score(y_train, clf.predict(X_train)))
@@ -581,12 +677,24 @@ class ComprehensiveAnalysis:
         """
         if self.payloads is not None:
             return
+
+        # An explicit --epochs pin wins. This used to be parsed and dropped on the
+        # floor: every analysis resolved its own best epoch regardless, so
+        # "pinned" output directories were byte-identical to unpinned ones.
+        if self.epochs:
+            print(f"  Loading payloads from PINNED epoch(s) {self.epochs}")
+            self.resolved_epochs, self.epoch_source = self.epochs, "pinned"
+            self.load_data(epochs=self.epochs)
+            return
+
         best_epoch = self._find_best_epoch(best_epoch_by)
         if best_epoch is not None:
             print(f"  Loading payloads from best epoch {best_epoch} (by {best_epoch_by})")
+            self.resolved_epochs, self.epoch_source = [best_epoch], f"best:{best_epoch_by}"
             self.load_data(epochs=[best_epoch])
         else:
             print("  No training log found, loading all epochs")
+            self.resolved_epochs, self.epoch_source = None, "all-epochs-pooled"
             self.load_data()
 
     def _find_best_epoch(self, metric: str = "val_novel_identity_acc") -> Optional[int]:
@@ -603,6 +711,46 @@ class ComprehensiveAnalysis:
             return int(best["epoch"])
         except (KeyError, IndexError, ValueError):
             return None
+
+    def _effective_epochs(self, best_epoch_by: str = "val_novel_identity_acc") -> Optional[List[int]]:
+        """The epochs any sub-analysis that re-reads from disk must use.
+
+        Two places (the H2 swap test and causal perturbation) load payloads
+        themselves rather than reusing self.payloads. Before this existed they
+        each called _find_best_epoch() directly, so an --epochs pin applied to
+        the rest of the run silently did not apply to them.
+        """
+        if self.epochs:
+            return list(self.epochs)
+        best = self._find_best_epoch(best_epoch_by)
+        return [best] if best is not None else None
+
+    def _provenance(self) -> Dict[str, Any]:
+        """What this result file may legitimately be compared against.
+
+        Two analysis outputs are comparable only if they were read at the same
+        kind of checkpoint, over the same split, with the same decoder split
+        rule. Recording it in the artifact means that can be checked after the
+        fact instead of reconstructed from directory names.
+        """
+        n_trials = None
+        if self.payloads:
+            try:
+                n_trials = int(sum(p["hidden"].shape[0] for p in self.payloads))
+            except Exception:
+                n_trials = None
+        return {
+            "hidden_root": str(self.hidden_root),
+            "epochs_requested": self.epochs,
+            "epochs_used": self.resolved_epochs,
+            "epoch_source": self.epoch_source,
+            "epochs_pooled": self.resolved_epochs is None and self.payloads is not None,
+            "split": self.split or "ALL_SPLITS_POOLED",
+            "n_payloads": len(self.payloads) if self.payloads else 0,
+            "n_trials": n_trials,
+            "available_tasks": list(self.available_tasks),
+            "decoder_split": "80/20, partitioned by stable trial id, random_state=42",
+        }
 
     def _task_name_to_index(self, name: Optional[str]) -> Optional[int]:
         """Convert task name to index."""
@@ -642,7 +790,8 @@ class ComprehensiveAnalysis:
     def analyze_orthogonalization(
         self,
         encoding_time: int = 0,
-        cnn_activations_path: Optional[Path] = None
+        cnn_activations_path: Optional[Path] = None,
+        best_epoch_by: str = "val_novel_identity_acc"
     ) -> Dict[str, Any]:
         """
         Analysis 3: Representational Orthogonalization (Section 4.2, Figure 3b)
@@ -664,7 +813,7 @@ class ComprehensiveAnalysis:
         print("ANALYSIS 3: REPRESENTATIONAL ORTHOGONALIZATION")
         print("="*70)
         
-        self._ensure_data_loaded()
+        self._ensure_data_loaded(best_epoch_by)
         
         properties = ["location", "identity", "category"]
         results = {"encoding": {}, "perceptual": {}}
@@ -695,6 +844,7 @@ class ComprehensiveAnalysis:
         self._plot_orthogonalization(results)
         
         # Save results
+        results["provenance"] = self._provenance()
         with open(self.output_dir / "analysis3_orthogonalization.json", 'w') as f:
             json.dump(results, f, indent=2)
         
@@ -800,7 +950,8 @@ class ComprehensiveAnalysis:
     def analyze_wm_dynamics(
         self,
         property_name: str = "identity",
-        max_time: int = 5
+        max_time: int = 5,
+        best_epoch_by: str = "val_novel_identity_acc"
     ) -> Dict[str, Any]:
         """
         Analysis 4: Mechanisms of WM Dynamics (Section 4.3)
@@ -820,7 +971,7 @@ class ComprehensiveAnalysis:
         print("ANALYSIS 4: MECHANISMS OF WM DYNAMICS")
         print("="*70)
         
-        self._ensure_data_loaded()
+        self._ensure_data_loaded(best_epoch_by)
         
         results = {}
         
@@ -840,6 +991,7 @@ class ComprehensiveAnalysis:
         results['h2_procrustes_swap'] = procrustes_swap
         
         # Save results
+        results["provenance"] = self._provenance()
         with open(self.output_dir / "analysis4_wm_dynamics.json", 'w') as f:
             json.dump(results, f, indent=2)
         
@@ -1146,7 +1298,8 @@ class ComprehensiveAnalysis:
                 property_name=property_name,
                 encoding_time=0,
                 k_offset=1,
-                epochs=[self._find_best_epoch()] if self._find_best_epoch() else None,
+                epochs=self._effective_epochs(),
+                split=self.split,
             )
             print(f"    Correct (same-age R):     acc={swap_result['correct_accuracy']:.4f}")
             print(f"    Swap 1 (wrong-time R):    acc={swap_result['swap1_accuracy']:.4f}")
@@ -1218,10 +1371,10 @@ class ComprehensiveAnalysis:
         print(f"  Running causal perturbation test on {property_name}...")
         print(f"  Model: {model_path}")
         
-        best_epoch = self._find_best_epoch()
-        epochs = [best_epoch] if best_epoch is not None else None
+        epochs = self._effective_epochs()
         if epochs:
-            print(f"  Using best epoch {best_epoch} (limits payload loading to 1/{len(epochs)} of total)")
+            src = "pinned" if self.epochs else "best"
+            print(f"  Using {src} epoch(s) {epochs}")
         else:
             print("  No training log found, loading ALL epochs (may be slow)")
         
@@ -1237,6 +1390,7 @@ class ComprehensiveAnalysis:
                 perturbation_range=perturbation_range,
                 num_distances=num_distances,
                 epochs=epochs,
+                split=self.split,
             )
             
             print(f"  ✓ Causal perturbation test complete!")
@@ -1259,7 +1413,16 @@ def main():
     parser.add_argument("--output_dir", type=str, default="analysis_results",
                        help="Output directory for results")
     parser.add_argument("--epochs", type=int, nargs="*",
-                       help="Specific epochs to analyze")
+                       help="Pin the analysis to these epochs (e.g. --epochs 17). "
+                            "Default: the best epoch per model, by --best_epoch_by. "
+                            "Pin when comparing models: two models read at their own "
+                            "best epochs are not accuracy-matched.")
+    parser.add_argument("--split", type=str, default=None,
+                       choices=["val_novel_angle", "val_novel_identity"],
+                       help="Restrict to one validation split. Default pools every "
+                            "split on disk, which mixes two generalization regimes.")
+    parser.add_argument("--best_epoch_by", type=str, default="val_novel_identity_acc",
+                       help="Metric used to pick the best epoch when --epochs is absent")
     parser.add_argument("--property", type=str, default="identity",
                        choices=["location", "identity", "category"],
                        help="Property to decode for Analysis 4")
@@ -1275,8 +1438,12 @@ def main():
     
     analyzer = ComprehensiveAnalysis(
         hidden_root=Path(args.hidden_root),
-        output_dir=Path(args.output_dir)
+        output_dir=Path(args.output_dir),
+        epochs=args.epochs,
+        split=args.split,
     )
+    print(f"  epochs: {args.epochs if args.epochs else '<best epoch, auto>'}")
+    print(f"  split:  {args.split if args.split else '<all splits pooled>'}")
     
     # Run requested analyses
     if args.analysis in ["all", "1"]:
@@ -1285,15 +1452,15 @@ def main():
     
     if args.analysis in ["all", "2"]:
         print("\n>>> Running Analysis 2: Encoding of Object Properties")
-        analyzer.analyze_encoding_properties(encoding_time=0)
+        analyzer.analyze_encoding_properties(encoding_time=0, best_epoch_by=args.best_epoch_by)
     
     if args.analysis in ["all", "3"]:
         print("\n>>> Running Analysis 3: Representational Orthogonalization")
-        analyzer.analyze_orthogonalization(encoding_time=0)
+        analyzer.analyze_orthogonalization(encoding_time=0, best_epoch_by=args.best_epoch_by)
     
     if args.analysis in ["all", "4"]:
         print("\n>>> Running Analysis 4: Mechanisms of WM Dynamics")
-        analyzer.analyze_wm_dynamics(property_name=args.property, max_time=5)
+        analyzer.analyze_wm_dynamics(property_name=args.property, max_time=5, best_epoch_by=args.best_epoch_by)
     
     if args.analysis in ["all", "5"]:
         print("\n>>> Running Analysis 5: Causal Perturbation Test")

@@ -55,7 +55,9 @@ python -m src.scripts.verify_analysis_setup
 python -m src.data.test_validation_splits
 ```
 
-Batch scripts (all source `run_common.sh`, which resolves the venv and writes a provenance log): `run_training.sh`, `run_proxy_pipeline.sh`, `run_analysis.sh`, `run_neural_efficiency.sh`. See the table in `AGENTS.md`.
+Batch scripts (all source `run_common.sh`, which resolves the venv and writes a provenance log): `run_training.sh`, `run_proxy_pipeline.sh`, `run_analysis.sh`, `run_mtmf_2x2.sh`, `run_neural_efficiency.sh`. See the table in `AGENTS.md`.
+
+**To compare models against each other, use `./run_mtmf_2x2.sh`, not `run_analysis.sh`.** It runs the five paper analyses over all four MTMF models (baseline / attention / +proxy / attention+proxy) holding epoch, split and property identical, and writes a comparability audit next to the results. `run_analysis.sh` analyses one experiment on its own terms and does not check that two outputs may legitimately be compared.
 
 ## Architecture
 
@@ -84,6 +86,7 @@ src/
 │   ├── causal_perturbation.py     # Analysis 5 — needs --model + best_epoch filtering
 │   ├── decoding.py / procrustes.py / orthogonalization.py
 │   ├── compare_models.py          # Baseline vs. attention: decoding/orthogonalization comparison
+│   ├── mtmf_2x2.py                # Runs the 5 analyses across the 4 MTMF models + comparability audit (config: configs/analysis/mtmf_2x2.yaml)
 │   ├── neural_efficiency.py       # Baseline vs. proxy-pretrained: hidden-state magnitude/participation-ratio/sparsity/Fano comparison (two-hidden_root CLI, not part of comprehensive_analysis.py)
 │   ├── gate_suppression.py        # Attention-gate suppression index (ranks relevance in CNN-activation space, not RNN space — see module docstring)
 │   └── activations.py             # load_payloads(), build_matrix()
@@ -112,6 +115,8 @@ Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_, dual_attention
 
 `save_hidden: true` **must** be set for the analysis pipeline to work.
 
+`configs/analysis/mtmf_2x2.yaml` is a different kind of config: it does not train anything, it pins the settings that must be identical across models for the five analyses to be comparable (split, property, epoch policy per cell).
+
 ## Outputs (gitignored — not in the repo, only on local/GPU machines)
 
 ```
@@ -139,4 +144,4 @@ Stimuli already exist at `data/stimuli/` (320 images: 4 categories × 5 identiti
 - Don't change path assumptions (`~/Projects/WM-model`, the `PYTHONPATH` pattern) unless explicitly asked.
 - For the full list of analysis-pipeline gotchas (causal perturbation epoch filtering, dual-attention model loading, Procrustes swap-test label alignment, decoding fallback behavior for small classes, BLAS thread contention, etc.), see the "Known gotchas" section of `AGENTS.md`.
 - **`docs/RESULTS.md` is the index of every claim this project makes** — what changed, what it produced, which artifact proves it, which slide states it. Check a number against it before quoting one, and add a row when a new result lands. Results deliberately do not live in the architecture docs; `docs/ATTENTION.md` reports none, by design.
-- The **neural-efficiency thesis chapter** (attention-gate suppression + proxy pretraining, distinct from the accuracy/performance result already in `slidev-presentation/`) has one authoritative document: **`docs/NEURAL_EFFICIENCY.md`** — claim, what each reference does and does not license, method, results with confidence levels, and reproduction steps. Read it before touching anything in this area; it supersedes the planning docs now in `docs/archive/`. Note the proxy-pretraining accuracy gain is *not* a capacity claim (never tested at higher N-back or more simultaneous items). The two human-neuroscience references (Poppenk, Moscovitch & McIntosh 2016; Constantinidis & Klingberg 2016) are summarized in full from the source PDFs in `docs/PAPER_EXPLAINED_POPPENK_2016.md` and `docs/PAPER_EXPLAINED_CONSTANTINIDIS_KLINGBERG_2016.md` — read those before re-deriving a summary. Run the analyses with `./run_neural_efficiency.sh`, never by hand-assembling the CLI flags: several results were confounded by omitted `--epoch_*`/`--split`/`--task` filters. `slidev-presentation/speaker_notes_neural_efficiency_onward.md` has the matching per-slide talking points.
+- The **neural-efficiency thesis chapter** (attention-gate suppression + proxy pretraining, distinct from the accuracy/performance result already in `slidev-presentation/`) has one authoritative document: **`docs/NEURAL_EFFICIENCY.md`** — claim, what each reference does and does not license, method, results with confidence levels, and reproduction steps. Read it before touching anything in this area; it supersedes the planning docs now in `docs/archive/`. Note the proxy-pretraining accuracy gain is *not* a capacity claim (never tested at higher N-back or more simultaneous items). The two human-neuroscience references (Poppenk, Moscovitch & McIntosh 2016; Constantinidis & Klingberg 2016) are summarized in full from the source PDFs in `docs/PAPER_EXPLAINED_POPPENK_2016.md` and `docs/PAPER_EXPLAINED_CONSTANTINIDIS_KLINGBERG_2016.md` — read those before re-deriving a summary. Run the analyses with `./run_neural_efficiency.sh`, never by hand-assembling the CLI flags: several results were confounded by omitted `--epoch_*`/`--split`/`--task` filters. The script has four stages: `level1 level2 level2x level3`. **`level2x` is the 2×2 comparison of the two modifications against each other** (the other stages measure each against its own control) — see `docs/NEURAL_EFFICIENCY.md` §4 "Level 2, second reading" and `docs/RESULTS.md` §4.5. Do not read a Fano/CV² direction out of the `level2x` artifacts; that contradiction belongs to proxy pretraining alone. `slidev-presentation/speaker_notes_neural_efficiency_onward.md` has the matching per-slide talking points.

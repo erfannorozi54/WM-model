@@ -14,8 +14,14 @@
 #   ./run_analysis.sh wm_mtmf_20260520_140601 [more...]   # named dirs
 #
 # Per-experiment epoch pinning (matched-accuracy comparisons, see
-# docs/RESULTS.md) is passed through with EPOCHS:
+# docs/RESULTS.md) is passed through with EPOCHS, and the validation split with
+# SPLIT:
 #   EPOCHS=1 OUT_SUFFIX=_ep1 ./run_analysis.sh finetune_proxy_wm_mtmf_20260705_164908
+#   SPLIT=val_novel_identity ./run_analysis.sh h256
+#
+# To compare several models against each other, prefer ./run_mtmf_2x2.sh: it
+# holds epoch, split and property identical across models and emits a
+# comparability audit. This script analyses each experiment on its own terms.
 #
 # Long runs: nohup ./run_analysis.sh > analysis.log 2>&1 & disown
 
@@ -24,6 +30,10 @@ source "$(dirname "$0")/run_common.sh"
 PROPERTY="${PROPERTY:-identity}"
 ANALYSIS="${ANALYSIS:-all}"
 EPOCHS="${EPOCHS:-}"
+# One validation split, or empty to pool both. Pooling mixes two generalization
+# regimes (novel identities are unseen in one, seen in the other), so any
+# cross-model comparison should set this.
+SPLIT="${SPLIT:-}"
 # Suffix the output directory so a pinned-epoch run does not overwrite the
 # best-epoch run of the same experiment.
 OUT_SUFFIX="${OUT_SUFFIX:-}"
@@ -51,6 +61,7 @@ start_provenance "analysis"
   echo "analysis:   $ANALYSIS"
   echo "property:   $PROPERTY"
   echo "epochs:     ${EPOCHS:-<best epoch, auto>}"
+  echo "split:      ${SPLIT:-<all splits pooled>}"
   echo "targets:    ${#TARGETS[@]}"
 } | tee -a "$PROV"
 
@@ -84,6 +95,7 @@ for exp in "${TARGETS[@]}"; do
        --property "$PROPERTY"
        --model "${exp_dir}/best_model.pt")
   [[ -n "$EPOCHS" ]] && cmd+=(--epochs $EPOCHS)
+  [[ -n "$SPLIT" ]] && cmd+=(--split "$SPLIT")
 
   run_step "${exp}${OUT_SUFFIX}" "${cmd[@]}"
 done

@@ -400,6 +400,7 @@ def analyze_causal_perturbation(
     task: Optional[str] = None,
     n_value: Optional[int] = None,
     epochs: Optional[List[int]] = None,
+    split: Optional[str] = None,
     device: Optional[torch.device] = None
 ) -> Dict[str, Any]:
     """
@@ -440,7 +441,7 @@ def analyze_causal_perturbation(
     
     # Step 2: Load hidden states and train decoder
     print("\n2. Training decoder on hidden states...")
-    payloads = load_payloads(Path(hidden_root), epochs=epochs)
+    payloads = load_payloads(Path(hidden_root), epochs=epochs, split=split)
     
     task_idx = None
     if task == "location":
@@ -584,6 +585,9 @@ def main():
                        help="Filter by n-back value")
     parser.add_argument("--epochs", type=int, nargs="*", default=None,
                        help="Specific epochs to analyze")
+    parser.add_argument("--split", type=str, default=None,
+                       choices=["val_novel_angle", "val_novel_identity"],
+                       help="Restrict to one validation split (default: pool all)")
     
     args = parser.parse_args()
     
@@ -597,7 +601,8 @@ def main():
         num_distances=args.num_distances,
         task=args.task,
         n_value=args.n,
-        epochs=args.epochs
+        epochs=args.epochs,
+        split=args.split,
     )
 
 

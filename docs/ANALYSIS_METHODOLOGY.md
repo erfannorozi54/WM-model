@@ -218,6 +218,58 @@ Identity Task:  >85%      >85%      >85%
 Category Task:  >85%      >85%      >85%
 ```
 
+#### Chance correction — required before any cross-property comparison
+
+**Raw decoding accuracy is not comparable across the three properties.** The
+class counts differ by more than an order of magnitude:
+
+| Property | Classes | Chance |
+|---|---:|---:|
+| location | 4 | 25% |
+| category | 4 | 25% |
+| identity | ~70 (h=256) / ~32 after filtering | ~1.4% / ~3.2% |
+
+So "category decodes at 88% and identity at 15%" compares a score 63pp above its
+chance floor with one 12pp above a floor eighteen times lower. Read naively, that
+comparison makes category look like the best-encoded feature in every task
+context — which is an artifact of counting classes, not a fact about the model.
+
+The fixed-85% expectation tables above inherit the same problem: identity cannot
+reach 85% in the h=256 sampling regime (`n_test ≈ 52` against ~70 classes) no
+matter how well it is encoded. **Treat those thresholds as applying to the
+4-class properties only.**
+
+Since 2026-09-02 `_analyze_task_relevance` therefore reports, per cell:
+
+- `n_classes`
+- `chance_uniform` = 1/`n_classes`
+- `chance_majority` = the largest class frequency in the test set
+- `chance_level` = max of the two — an imbalanced cell can be beaten by always
+  guessing the majority class, so the higher floor is the conservative one
+- `test_accuracy_above_chance` = `test_accuracy − chance_level`
+- `normalized_accuracy` = (`test_accuracy` − `chance_level`) / (1 − `chance_level`)
+
+`normalized_accuracy` is the scale on which properties may be compared: 0 means
+chance, 1 means perfect, and the value is invariant to how many classes the
+property happens to have.
+
+A `_summary` block then answers the paper's actual question per task context:
+
+```json
+"_summary": {
+  "location": {
+    "relevant_normalized":          0.71,
+    "best_irrelevant_normalized":   0.44,
+    "relevance_margin":             0.27,
+    "relevant_is_best_decoded":     true
+  }
+}
+```
+
+`relevance_margin > 0` means the task-relevant feature is the best-decoded one,
+which is the claim in Figure 2b. **Any verdict on that claim must be computed
+from `relevance_margin`, never from raw accuracies.**
+
 ### 3.3 Sub-Analysis B: Cross-Task Generalization (Figure 2a)
 
 #### Methodology
