@@ -9,10 +9,13 @@
 # hard to reproduce; the directory is now captured automatically.
 #
 # Usage (from the repo root):
-#   ./run_proxy_pipeline.sh                 # baseline variant
-#   ./run_proxy_pipeline.sh attention
-#   ./run_proxy_pipeline.sh dual_attention
-#   ./run_proxy_pipeline.sh baseline attention      # several, in order
+#   ./run_proxy_pipeline.sh                       # baseline_mtmf
+#   ./run_proxy_pipeline.sh all                   # all 6 (2 arms x 3 scenarios)
+#   ./run_proxy_pipeline.sh attention_stsf
+#   ./run_proxy_pipeline.sh baseline_mtmf attention_mtmf     # several, in order
+#
+# Arms are <variant>_<scenario>: variant is baseline|attention, scenario is
+# stsf|stmf|mtmf. Dual attention was dropped from the thesis on 2026-09-02.
 #
 # Skip stage 1 and fine-tune from an existing pre-trained directory:
 #   PROXY_EXP_DIR=experiments/proxy_mtmf_20260705_120000 ./run_proxy_pipeline.sh
@@ -21,25 +24,49 @@
 
 source "$(dirname "$0")/run_common.sh"
 
-VARIANTS=("${@:-baseline}")
+ALL_ARMS=(baseline_stsf baseline_stmf baseline_mtmf
+          attention_stsf attention_stmf attention_mtmf)
+
+if [[ "${1:-}" == "all" ]]; then
+  VARIANTS=("${ALL_ARMS[@]}")
+else
+  VARIANTS=("${@:-baseline_mtmf}")
+fi
 
 start_provenance "proxy_pipeline"
 echo "variants: ${VARIANTS[*]}" | tee -a "$PROV"
 
 for variant in "${VARIANTS[@]}"; do
+  # Accept the old bare-variant spellings as MTMF, which is what they meant.
   case "$variant" in
-    baseline)       proxy_cfg=configs/proxy/proxy_mtmf.yaml
-                    proxy_name=proxy_mtmf
-                    finetune_cfg=configs/mtmf.yaml ;;
-    attention)      proxy_cfg=configs/proxy/proxy_attention_mtmf.yaml
-                    proxy_name=proxy_attention_mtmf
-                    finetune_cfg=configs/attention_mtmf.yaml ;;
-    dual_attention) proxy_cfg=configs/proxy/proxy_dual_attention_mtmf.yaml
-                    proxy_name=proxy_dual_attention_mtmf
-                    finetune_cfg=configs/dual_attention_mtmf.yaml ;;
-    *) echo "Unknown variant '$variant' (baseline|attention|dual_attention)" >&2
+    baseline)  variant=baseline_mtmf ;;
+    attention) variant=attention_mtmf ;;
+  esac
+
+  arm="${variant%_*}"        # baseline | attention
+  scenario="${variant##*_}"  # stsf | stmf | mtmf
+
+  case "$scenario" in
+    stsf|stmf|mtmf) ;;
+    *) echo "Unknown scenario '$scenario' in '$variant' (stsf|stmf|mtmf)" >&2
        continue ;;
   esac
+
+  case "$arm" in
+    baseline)  proxy_cfg="configs/proxy/proxy_${scenario}.yaml"
+               proxy_name="proxy_${scenario}"
+               finetune_cfg="configs/${scenario}.yaml" ;;
+    attention) proxy_cfg="configs/proxy/proxy_attention_${scenario}.yaml"
+               proxy_name="proxy_attention_${scenario}"
+               finetune_cfg="configs/attention_${scenario}.yaml" ;;
+    *) echo "Unknown arm '$arm' in '$variant' (baseline|attention)" >&2
+       continue ;;
+  esac
+
+  if [[ ! -f "$proxy_cfg" || ! -f "$finetune_cfg" ]]; then
+    echo "SKIP ${variant}: missing config ($proxy_cfg or $finetune_cfg)" | tee -a "$PROV"
+    continue
+  fi
 
   # --- Stage 1: proxy pre-training ---------------------------------------------
   if [[ -n "${PROXY_EXP_DIR:-}" ]]; then
@@ -74,7 +101,7 @@ done
 finish_provenance
 cat <<'EOF'
 
-Next: run the paper analyses on what you just produced, then the efficiency levels.
-  ./run_analysis.sh proxy
-  ./run_neural_efficiency.sh
+Next: run the paper analyses on what you just produced.
+  ./run_2x2.sh ceiling            # the 4-model comparison, per scenario
+  ./run_analysis.sh proxy         # or one experiment at a time
 EOF

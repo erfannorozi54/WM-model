@@ -5,9 +5,9 @@
 # same script twice over with a different config directory and a different venv.
 #
 # Usage (from the repo root):
-#   ./run_training.sh                # both hidden sizes, 18 experiments
-#   ./run_training.sh h256           # configs/      -> wm_*        (9)
-#   ./run_training.sh h128           # configs_128/  -> wm_h128_*   (9)
+#   ./run_training.sh                # both hidden sizes, 12 experiments
+#   ./run_training.sh h256           # configs/      -> wm_*        (6)
+#   ./run_training.sh h128           # configs_128/  -> wm_h128_*   (6)
 #   ./run_training.sh h256 mtmf attention_mtmf     # named configs only
 #
 # Long runs: nohup ./run_training.sh h256 > train.log 2>&1 & disown
@@ -15,8 +15,12 @@
 
 source "$(dirname "$0")/run_common.sh"
 
-SCENARIOS=(stsf stmf mtmf attention_stsf attention_stmf attention_mtmf
-           dual_attention_stsf dual_attention_stmf dual_attention_mtmf)
+# The two from-scratch arms of the 2x2, across the three scenarios. The proxy
+# arms are trained by run_proxy_pipeline.sh, which needs two stages.
+# Dual attention was dropped from the thesis (2026-09-02): it won one of four
+# comparisons against task-only, and carrying a second attention variant through
+# every scenario and both proxy stages doubled the matrix for no result.
+SCENARIOS=(stsf stmf mtmf attention_stsf attention_stmf attention_mtmf)
 
 SIZES=()
 case "${1:-all}" in

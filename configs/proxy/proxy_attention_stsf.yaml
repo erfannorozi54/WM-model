@@ -1,11 +1,13 @@
-# Proxy Task Pre-training: Multi-Task Multi-Feature (Dual Attention Model)
-experiment_name: proxy_dual_attention_mtmf
-scenario: PROXY_DUAL_ATTENTION_MTMF
+# Proxy Task Pre-training: Single-Task Single-Feature (Attention Model)
+# Stage 1 of the proxy pipeline; fine-tuned by configs/attention_stsf.yaml.
+# Derived from proxy_attention_mtmf.yaml -- only n_values/task_features differ.
+experiment_name: proxy_attention_stsf
+scenario: PROXY_ATTENTION_STSF
 
 # Data
 use_real_stimuli: true
-n_values: [1, 2, 3]
-task_features: ["location", "identity", "category"]
+n_values: [2]
+task_features: ["location"]
 sequence_length: 6
 batch_size: 32
 num_train: 30000
@@ -24,7 +26,7 @@ pretrained_backbone: true
 freeze_backbone: true
 attention_hidden_dim: 256
 attention_dropout: 0.1
-attention_mode: "dual"
+attention_mode: "task_only"
 num_locations: 4
 num_categories: 4
 

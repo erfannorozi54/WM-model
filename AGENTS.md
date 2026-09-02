@@ -64,7 +64,7 @@ src/
 `model_type` in config controls architecture via `model_factory.py`:
 - `"gru"` / `"rnn"` / `"lstm"` → `WorkingMemoryModel` (baseline)
 - `"attention"` → `AttentionWorkingMemoryModel(attention_mode="task_only")`
-- For dual attention, set `model_type: "attention"` + `attention_mode: "dual"` (the string `"dual_attention"` only appears in the experiment name, never in `model_type`).
+- For dual attention — dropped from the thesis, but still supported by the model code — set `model_type: "attention"` + `attention_mode: "dual"` (the string `"dual_attention"` only appears in the experiment name, never in `model_type`).
 
 ## Training
 
@@ -87,7 +87,7 @@ Two parallel sets exist (differ in `hidden_size` — **and in `num_val`**):
 
 The `num_val` difference means the two sets are **not** a clean hidden-size comparison: every decoding analysis trains on the validation payloads, so the h128 runs get 5× the decoder samples. With 72 identity classes that is the difference between ~50 and ~270 test samples, and it moves identity decoding from ~0.40 to ~0.83. Match `num_val` before reporting any h256-vs-h128 table.
 
-Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_, dual_attention_}` = 9 configs each.
+Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_}` = 6 configs each. **Dual attention was dropped from the thesis on 2026-09-02** — it won one of four comparisons against task-only, and carrying it through every scenario and both proxy stages doubled the training matrix for no result. The `dual_attention_*.yaml` configs are gone; `attention_mode: "dual"` is still supported by the model code and can be re-enabled by adding a config that sets it.
 
 | Config | N-values | task_features | Notes |
 |--------|----------|---------------|-------|
@@ -95,7 +95,7 @@ Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_, dual_attention
 | `stmf.yaml` | [2] | all three | |
 | `mtmf.yaml` | [1,2,3] | all three | Full paper config |
 
-Dual attention: `model_type: "attention"` + `attention_mode: "dual"` (not `model_type: "dual_attention"`).
+Dual attention (no config ships one any more): `model_type: "attention"` + `attention_mode: "dual"` (not `model_type: "dual_attention"`).
 
 ### Key config values
 ```yaml
@@ -157,14 +157,40 @@ because omitted `--epoch_*`/`--split`/`--task` flags confounded the results.
 
 | Script | What it does |
 |---|---|
-| `run_training.sh [h256\|h128\|all] [scenario...]` | Trains the 9 configs per hidden size |
-| `run_proxy_pipeline.sh [baseline\|attention\|dual_attention]` | Both proxy stages; captures stage 1's timestamped dir for stage 2 |
+| `run_training.sh [h256\|h128\|all] [scenario...]` | Trains the 6 from-scratch configs per hidden size (baseline + attention × 3 scenarios) |
+| `run_proxy_pipeline.sh [all\|<arm>_<scenario>...]` | Both proxy stages; arms are `baseline\|attention` × `stsf\|stmf\|mtmf`; captures stage 1's timestamped dir for stage 2 |
 | `run_analysis.sh [all\|h256\|h128\|proxy\|<exp>...]` | The 5 paper analyses, one experiment at a time; `EPOCHS=`, `SPLIT=`, `PROPERTY=`, `ANALYSIS=` override |
-| `run_mtmf_2x2.sh [matched\|ceiling\|both]` | The 5 paper analyses run **identically across the four MTMF models**, plus a comparability audit; settings live in `configs/analysis/mtmf_2x2.yaml` |
+| `run_2x2.sh [ceiling\|matched\|both] [stsf stmf mtmf]` | The 5 paper analyses run **identically across the four models of the 2×2**, per scenario, plus a comparability audit; settings in `configs/analysis/2x2.yaml`, epochs resolved from each `training_log.json` |
 | `run_neural_efficiency.sh [level1 level2 level2x level3]` | The three efficiency levels (`level2x` = the 2×2 architecture contrasts), accuracy-matched epochs pinned in-script |
 
 A failed step is logged with its `rc` and does not abort the rest of the batch;
 `finish_provenance` warns at the end if any step exited non-zero.
+
+**Naming the `nohup` console log.** The stage directory is created by the script
+itself, so a `nohup ... > FILE` redirect has to name its own file. Use:
+
+```
+logs/nohup_<stage>_<scope>_<UTC timestamp>.log
+```
+
+`<stage>` is the same word the script passes to `start_provenance`
+(`training`, `proxy_pipeline`, `analysis`, `2x2`, `neural_efficiency`), and
+`<scope>` is the arguments that run was given. So:
+
+```bash
+TS=$(date -u +%Y%m%d_%H%M%S)
+nohup ./run_training.sh h256      > logs/nohup_training_h256_${TS}.log 2>&1 & disown
+nohup ./run_proxy_pipeline.sh all > logs/nohup_proxy_pipeline_all_${TS}.log 2>&1 & disown
+nohup ./run_2x2.sh both           > logs/nohup_2x2_both_${TS}.log 2>&1 & disown
+```
+
+Never `train.log`, `out.log` or `nohup.out`: the logs directory already holds
+runs from several months and a bare name cannot be attributed to a stage, a
+scope or a date afterwards. The console log's first lines print the
+`logs/<stage>_<UTC ts>/` directory that holds the provenance and per-step logs,
+which is how the two are tied together — they are written a second apart, so
+their timestamps are close but not identical, and the console log is the one
+that names the directory.
 
 ### Documentation map
 
@@ -240,9 +266,12 @@ python -m src.finetune_from_proxy \
 ### Proxy Configs (`configs/proxy/`)
 | Config | Architecture | Notes |
 |--------|-------------|-------|
-| `proxy_mtmf.yaml` | Base GRU | All 9 task vectors, balanced |
-| `proxy_attention_mtmf.yaml` | Attention GRU (task_only) | |
-| `proxy_dual_attention_mtmf.yaml` | Attention GRU (dual) | |
+| `proxy_{stsf,stmf,mtmf}.yaml` | Base GRU | Stage 1 for the `baseline_<sc>` arms |
+| `proxy_attention_{stsf,stmf,mtmf}.yaml` | Attention GRU (task_only) | Stage 1 for the `attention_<sc>` arms |
+
+Six configs, one per cell of the proxy row × scenario. The STSF/STMF pairs were
+derived from the MTMF pair on 2026-09-02 and differ only in `n_values` and
+`task_features`. `proxy_dual_attention_mtmf.yaml` was removed with dual attention.
 
 ### Outputs
 ```

@@ -276,13 +276,13 @@ documented rather than silent.
 Run — all four MTMF models, identical settings, with a comparability audit:
 
 ```bash
-./run_mtmf_2x2.sh matched      # accuracy-matched epoch pins
-./run_mtmf_2x2.sh ceiling      # each model at its own best epoch
-./run_mtmf_2x2.sh both
+./run_2x2.sh matched      # accuracy-matched epoch pins
+./run_2x2.sh ceiling      # each model at its own best epoch
+./run_2x2.sh both
 ```
 
-Settings live in `configs/analysis/mtmf_2x2.yaml`; results and the audit land in
-`analysis_results/mtmf_2x2/<design>/comparison.md`. Single experiments still go
+Settings live in `configs/analysis/2x2.yaml`; results and the audit land in
+`analysis_results/2x2/<design>/comparison.md`. Single experiments still go
 through `run_analysis.sh` (now with `SPLIT=`), but that script analyses each
 experiment on its own terms and does not check comparability.
 

@@ -19,7 +19,7 @@
 #   EPOCHS=1 OUT_SUFFIX=_ep1 ./run_analysis.sh finetune_proxy_wm_mtmf_20260705_164908
 #   SPLIT=val_novel_identity ./run_analysis.sh h256
 #
-# To compare several models against each other, prefer ./run_mtmf_2x2.sh: it
+# To compare several models against each other, prefer ./run_2x2.sh: it
 # holds epoch, split and property identical across models and emits a
 # comparability audit. This script analyses each experiment on its own terms.
 #

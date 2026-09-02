@@ -55,9 +55,9 @@ python -m src.scripts.verify_analysis_setup
 python -m src.data.test_validation_splits
 ```
 
-Batch scripts (all source `run_common.sh`, which resolves the venv and writes a provenance log): `run_training.sh`, `run_proxy_pipeline.sh`, `run_analysis.sh`, `run_mtmf_2x2.sh`, `run_neural_efficiency.sh`. See the table in `AGENTS.md`.
+Batch scripts (all source `run_common.sh`, which resolves the venv and writes a provenance log): `run_training.sh`, `run_proxy_pipeline.sh`, `run_analysis.sh`, `run_2x2.sh`, `run_neural_efficiency.sh`. See the table in `AGENTS.md`.
 
-**To compare models against each other, use `./run_mtmf_2x2.sh`, not `run_analysis.sh`.** It runs the five paper analyses over all four MTMF models (baseline / attention / +proxy / attention+proxy) holding epoch, split and property identical, and writes a comparability audit next to the results. `run_analysis.sh` analyses one experiment on its own terms and does not check that two outputs may legitimately be compared.
+**To compare models against each other, use `./run_2x2.sh`, not `run_analysis.sh`.** It runs the five paper analyses over all four models of the 2×2 (baseline / attention / +proxy / attention+proxy) in each scenario (STSF, STMF, MTMF), holding epoch, split and property identical, and writes a comparability audit next to the results. Epochs are resolved from each model's `training_log.json`, so it survives retraining. `run_analysis.sh` analyses one experiment on its own terms and does not check that two outputs may legitimately be compared.
 
 ## Architecture
 
@@ -86,7 +86,7 @@ src/
 │   ├── causal_perturbation.py     # Analysis 5 — needs --model + best_epoch filtering
 │   ├── decoding.py / procrustes.py / orthogonalization.py
 │   ├── compare_models.py          # Baseline vs. attention: decoding/orthogonalization comparison
-│   ├── mtmf_2x2.py                # Runs the 5 analyses across the 4 MTMF models + comparability audit (config: configs/analysis/mtmf_2x2.yaml)
+│   ├── run_2x2.py                 # Runs the 5 analyses across the 4 models of the 2×2, per scenario, + comparability audit (config: configs/analysis/2x2.yaml)
 │   ├── neural_efficiency.py       # Baseline vs. proxy-pretrained: hidden-state magnitude/participation-ratio/sparsity/Fano comparison (two-hidden_root CLI, not part of comprehensive_analysis.py)
 │   ├── gate_suppression.py        # Attention-gate suppression index (ranks relevance in CNN-activation space, not RNN space — see module docstring)
 │   └── activations.py             # load_payloads(), build_matrix()
@@ -97,7 +97,7 @@ src/
 **`model_type` in config controls architecture** (`model_factory.py`):
 - `"gru"` / `"rnn"` / `"lstm"` → baseline `WorkingMemoryModel`
 - `"attention"` → `AttentionWorkingMemoryModel(attention_mode="task_only")`
-- Dual attention = `model_type: "attention"` + `attention_mode: "dual"`. The string `"dual_attention"` only ever appears in experiment/config *names*, never as a `model_type` value. (`causal_perturbation.py` has a branch that looks like an exception; it is dead code — the mode is read from the checkpoint's saved config. See `AGENTS.md` gotcha 2.)
+- Dual attention (dropped from the thesis; no config ships one) = `model_type: "attention"` + `attention_mode: "dual"`. The string `"dual_attention"` only ever appears in experiment/config *names*, never as a `model_type` value. (`causal_perturbation.py` has a branch that looks like an exception; it is dead code — the mode is read from the checkpoint's saved config. See `AGENTS.md` gotcha 2.)
 
 ## Configs
 
@@ -105,7 +105,9 @@ Two parallel sets, differing only in `hidden_size`:
 - `configs/*.yaml` — `hidden_size: 256`, experiment names prefixed `wm_*`
 - `configs_128/*.yaml` — `hidden_size: 128`, experiment names prefixed `wm_h128_*`
 
-Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_, dual_attention_}` = 9 configs.
+Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_}` = 6 configs. **Dual attention was dropped from the thesis on 2026-09-02** and its configs removed; `attention_mode: "dual"` still works in the model code if a config sets it.
+
+`configs/proxy/` holds the six stage-1 proxy configs: `proxy_{stsf,stmf,mtmf}.yaml` and `proxy_attention_{stsf,stmf,mtmf}.yaml`.
 
 | Config | N-values | task_features |
 |--------|----------|---------------|
@@ -115,7 +117,7 @@ Naming pattern per set: `{stsf,stmf,mtmf}` × `{base, attention_, dual_attention
 
 `save_hidden: true` **must** be set for the analysis pipeline to work.
 
-`configs/analysis/mtmf_2x2.yaml` is a different kind of config: it does not train anything, it pins the settings that must be identical across models for the five analyses to be comparable (split, property, epoch policy per cell).
+`configs/analysis/2x2.yaml` is a different kind of config: it does not train anything, it pins the settings that must be identical across models for the five analyses to be comparable (split, property, epoch design). It deliberately hardcodes **no** epoch numbers — those are resolved per run from each model's `training_log.json`.
 
 ## Outputs (gitignored — not in the repo, only on local/GPU machines)
 

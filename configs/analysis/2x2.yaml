@@ -1,0 +1,78 @@
+# The 2x2: one comprehensive-analysis battery, run identically on four models,
+# in each of the three scenarios.
+#
+#                  from scratch        + proxy pretraining
+#   baseline       wm_<sc>             finetune_proxy_wm_<sc>
+#   + attention    wm_attention_<sc>   finetune_proxy_wm_attention_<sc>
+#
+# Why this file exists
+# --------------------
+# The five paper analyses were only ever run per-experiment, each model
+# resolving its own best epoch and pooling both validation splits. Two models
+# analysed that way are NOT comparable: different checkpoints, different
+# mixtures of two generalization regimes. This config pins every setting that
+# has to be identical across cells so outputs can be put side by side.
+#
+# Epochs are NOT hardcoded here. They are resolved at run time from each
+# model's own training_log.json, because pinning them to specific numbers ties
+# the file to one set of training runs -- which is exactly what broke when the
+# models were retrained.
+#
+# Run it with:
+#   ./run_2x2.sh                    # ceiling design, all scenarios
+#   ./run_2x2.sh matched            # 4-way accuracy-matched
+#   ./run_2x2.sh ceiling mtmf       # one scenario
+#
+# Designs
+#   ceiling: every model at its own best `best_epoch_by` checkpoint. Answers
+#     "what does each fully-trained model look like?". Accuracy differs between
+#     cells, so representational differences are confounded with accuracy.
+#   matched: every model at the checkpoint closest to the LOWEST ceiling among
+#     the four, so all four sit at comparable accuracy (Box 2 discipline from
+#     docs/NEURAL_EFFICIENCY.md). The achieved gaps are reported in the audit;
+#     when the lowest ceiling is below another model's epoch-1 accuracy the gap
+#     is irreducible and the audit says so.
+
+# --- Settings held identical across every cell ---------------------------------
+split: val_novel_identity     # never pool: novel identities are unseen in this
+                              # split and seen in val_novel_angle, so identity
+                              # decodability is not the same quantity in each.
+property: identity            # the property Analyses 4 and 5 decode
+analysis: all                 # all five paper analyses
+best_epoch_by: val_novel_identity_acc
+
+# --- The 2x2, per scenario -----------------------------------------------------
+# `experiment` is a prefix; the newest matching directory is resolved at run time.
+# `arm` is [row, column] and drives the audit's within-row / across-row reporting.
+scenarios:
+  stsf:
+    cells:
+      - {label: baseline,        arm: [scratch, baseline],  experiment: wm_stsf}
+      - {label: attention,       arm: [scratch, attention], experiment: wm_attention_stsf}
+      - {label: baseline_proxy,  arm: [proxy, baseline],    experiment: finetune_proxy_wm_stsf}
+      - {label: attention_proxy, arm: [proxy, attention],   experiment: finetune_proxy_wm_attention_stsf}
+  stmf:
+    cells:
+      - {label: baseline,        arm: [scratch, baseline],  experiment: wm_stmf}
+      - {label: attention,       arm: [scratch, attention], experiment: wm_attention_stmf}
+      - {label: baseline_proxy,  arm: [proxy, baseline],    experiment: finetune_proxy_wm_stmf}
+      - {label: attention_proxy, arm: [proxy, attention],   experiment: finetune_proxy_wm_attention_stmf}
+  mtmf:
+    cells:
+      - {label: baseline,        arm: [scratch, baseline],  experiment: wm_mtmf}
+      - {label: attention,       arm: [scratch, attention], experiment: wm_attention_mtmf}
+      - {label: baseline_proxy,  arm: [proxy, baseline],    experiment: finetune_proxy_wm_mtmf}
+      - {label: attention_proxy, arm: [proxy, attention],   experiment: finetune_proxy_wm_attention_mtmf}
+
+# --- Known limits of this design, carried with the results ---------------------
+caveats:
+  - "Proxy pretraining can exceed the from-scratch baseline's ceiling at epoch 1.
+     Where it does, no accuracy-matched pair exists and the `matched` design
+     reports an irreducible gap rather than pretending otherwise. Compare freely
+     within a row; across rows, read the reported gap first."
+  - "h=256 sampling: n_test is roughly 52 against ~70 identity classes. Identity
+     decoding is unreliable in absolute terms, so every cell reports its chance
+     level and a normalised score alongside the raw accuracy."
+  - "One seed per cell. Differences between cells are observed, not measured."
+  - "Dual attention was dropped from the thesis on 2026-09-02; `attention` here
+     always means attention_mode: task_only."

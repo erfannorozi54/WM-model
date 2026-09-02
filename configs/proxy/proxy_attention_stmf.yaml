@@ -1,6 +1,8 @@
-# Dual Attention Single-Task Multi-Feature
-experiment_name: wm_dual_attention_stmf
-scenario: STMF_DUAL_ATTENTION
+# Proxy Task Pre-training: Single-Task Multi-Feature (Attention Model)
+# Stage 1 of the proxy pipeline; fine-tuned by configs/attention_stmf.yaml.
+# Derived from proxy_attention_mtmf.yaml -- only n_values/task_features differ.
+experiment_name: proxy_attention_stmf
+scenario: PROXY_ATTENTION_STMF
 
 # Data
 use_real_stimuli: true
@@ -22,12 +24,11 @@ num_layers: 1
 dropout: 0.0
 pretrained_backbone: true
 freeze_backbone: true
-classifier_layers: []
-
-# Attention-specific parameters
 attention_hidden_dim: 256
 attention_dropout: 0.1
-attention_mode: "dual"  # Gates depend on both task AND features
+attention_mode: "task_only"
+num_locations: 4
+num_categories: 4
 
 # Optim
 epochs: 45
@@ -36,15 +37,12 @@ weight_decay: 0.0001
 milestones: [20, 25]
 gamma: 0.1
 grad_clip: 1.0
-label_smoothing: 0.0
-no_action_loss_weight: 0.1
 
 # Validation
 save_hidden: true
 save_visualizations: true
-mask_trivial_steps: true
 
 # Data caching
-cache_train_sequences: false  # false = fresh sequences each epoch (recommended)
-cache_val_sequences: true  # true = consistent evaluation (recommended)
-num_visualizations: 3  # number of visualization samples per split per epoch
+cache_train_sequences: false
+cache_val_sequences: true
+num_visualizations: 2
